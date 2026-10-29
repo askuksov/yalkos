@@ -7,10 +7,14 @@ Lightweight, self-hosted issue tracker with a Linear-compatible API.
 ## Run with Docker
 
 ```sh
-docker compose -f deploy/docker-compose.yml up -d
+cd deploy
+echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env   # once; keep this file private
+docker compose up -d
 ```
 
-Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containers start: `app` and `db` (PostgreSQL 16). Migrations run automatically on start.
+Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containers start: `app` and `db` (PostgreSQL 16). Migrations run automatically on start. Only the app port is published; the database is reachable from the `app` container only.
+
+PostgreSQL stores the password when its data volume is first created; changing `YALKOS_DB_PASSWORD` later requires changing it inside the database as well.
 
 ## Development
 

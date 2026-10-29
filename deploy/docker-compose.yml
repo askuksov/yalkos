@@ -1,5 +1,9 @@
 name: yalkos
 
+# Production-style setup: only the app port is published.
+# Requires YALKOS_DB_PASSWORD (e.g. in deploy/.env, see README).
+# Local development adds docker-compose.dev.yml (database port on 127.0.0.1).
+
 services:
   app:
     build:
@@ -9,7 +13,7 @@ services:
     ports:
       - "${YALKOS_PORT:-8080}:8080"
     environment:
-      DATABASE_URL: postgres://yalkos:yalkos@db:5432/yalkos?sslmode=disable
+      DATABASE_URL: postgres://yalkos:${YALKOS_DB_PASSWORD:?set YALKOS_DB_PASSWORD, see README}@db:5432/yalkos?sslmode=disable
       LOG_LEVEL: info
     depends_on:
       db:
@@ -20,11 +24,8 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: yalkos
-      POSTGRES_PASSWORD: yalkos
+      POSTGRES_PASSWORD: ${YALKOS_DB_PASSWORD:?set YALKOS_DB_PASSWORD, see README}
       POSTGRES_DB: yalkos
-    ports:
-      # Localhost only: the database must never be reachable from outside the host.
-      - "127.0.0.1:${YALKOS_DB_PORT:-54320}:5432"
     volumes:
       - yalkos-db:/var/lib/postgresql/data
     healthcheck:

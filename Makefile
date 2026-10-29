@@ -8,14 +8,17 @@ LDFLAGS := -s -w -X '$(MODULE)/internal/buildinfo.Version=$(VERSION)' \
 
 YALKOS_DB_PORT ?= 54320
 export YALKOS_DB_PORT
-TEST_DATABASE_URL ?= postgres://yalkos:yalkos@localhost:$(YALKOS_DB_PORT)/postgres?sslmode=disable
+# Local development password only; production sets its own (see README).
+YALKOS_DB_PASSWORD ?= yalkos
+export YALKOS_DB_PASSWORD
+TEST_DATABASE_URL ?= postgres://yalkos:$(YALKOS_DB_PASSWORD)@localhost:$(YALKOS_DB_PORT)/postgres?sslmode=disable
 export TEST_DATABASE_URL
 
 YALKOS_PORT ?= 8080
 export YALKOS_PORT
 YALKOS_WEB_PORT ?= 5173
 
-COMPOSE := docker compose -f deploy/docker-compose.yml
+COMPOSE := docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml
 
 # pnpm runs from web/ so corepack picks the version pinned in web/package.json.
 PNPM := cd web && pnpm
@@ -37,7 +40,7 @@ build-web: web-deps ## Build web/dist
 build-go: ## Build bin/yalkos (embeds whatever is in web/dist)
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/yalkos ./cmd/yalkos
 
-DEV_DATABASE_URL ?= postgres://yalkos:yalkos@localhost:$(YALKOS_DB_PORT)/yalkos?sslmode=disable
+DEV_DATABASE_URL ?= postgres://yalkos:$(YALKOS_DB_PASSWORD)@localhost:$(YALKOS_DB_PORT)/yalkos?sslmode=disable
 
 dev: web-deps db-up ## Run Go server (YALKOS_PORT, default 8080) and Vite (YALKOS_WEB_PORT, default 5173)
 	$(MAKE) -j2 dev-go dev-web

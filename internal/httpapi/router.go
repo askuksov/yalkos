@@ -29,7 +29,7 @@ func NewRouter(d Deps) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", healthz)
-	mux.Handle("GET /readyz", readyz(d.Ready))
+	mux.Handle("GET /readyz", readyz(d.Ready, d.Logger))
 
 	mux.Handle("/api/graphql", postOnly(d.NativeGraphQL))
 	mux.Handle("/graphql", postOnly(d.LinearGraphQL))

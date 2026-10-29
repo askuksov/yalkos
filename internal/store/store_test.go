@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -88,8 +89,8 @@ func TestReady(t *testing.T) {
 	_, pool := testdb.New(t)
 
 	err := store.Ready(ctx, pool, db.Migrations())
-	if err == nil || !strings.Contains(err.Error(), "migrations pending: current 0, latest 1") {
-		t.Fatalf("Ready before migrate = %v, want migrations pending", err)
+	if !errors.Is(err, store.ErrMigrationsPending) || !strings.Contains(err.Error(), "current 0, latest 1") {
+		t.Fatalf("Ready before migrate = %v, want ErrMigrationsPending (current 0, latest 1)", err)
 	}
 	if err := store.Migrate(ctx, pool, db.Migrations()); err != nil {
 		t.Fatal(err)

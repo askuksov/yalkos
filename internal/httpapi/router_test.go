@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/askuksov/yalkos/internal/store"
 )
 
 const indexHTML = "<html>app</html>"
@@ -81,16 +84,34 @@ func TestReadyzReady(t *testing.T) {
 }
 
 func TestReadyzNotReady(t *testing.T) {
-	h := newTestRouter(t, func(d *Deps) {
-		d.Ready = func(context.Context) error { return errors.New("migrations pending: current 0, latest 1") }
-	})
-	rec := do(h, "GET", "/readyz")
-	if rec.Code != 503 {
-		t.Fatalf("status = %d, want 503", rec.Code)
+	cases := []struct {
+		err    error
+		public string
+	}{
+		{fmt.Errorf("%w: failed to connect to `user=yalkos database=yalkos`: dial tcp 10.0.0.5:5432", store.ErrDatabaseUnavailable), "database unavailable"},
+		{fmt.Errorf("%w: current 0, latest 1", store.ErrMigrationsPending), "migrations pending"},
+		{errors.New("something else at 10.0.0.5"), "not ready"},
 	}
-	b := jsonBody(t, rec)
-	if b["status"] != "not ready" || b["error"] != "migrations pending: current 0, latest 1" {
-		t.Errorf("body = %v", b)
+	for _, c := range cases {
+		var logs bytes.Buffer
+		h := newTestRouter(t, func(d *Deps) {
+			d.Ready = func(context.Context) error { return c.err }
+			d.Logger = slog.New(slog.NewJSONHandler(&logs, nil))
+		})
+		rec := do(h, "GET", "/readyz")
+		if rec.Code != 503 {
+			t.Fatalf("status = %d, want 503", rec.Code)
+		}
+		b := jsonBody(t, rec)
+		if b["status"] != "not ready" || b["error"] != c.public {
+			t.Errorf("body = %v, want error %q", b, c.public)
+		}
+		if strings.Contains(rec.Body.String(), "10.0.0.5") || strings.Contains(rec.Body.String(), "user=") {
+			t.Errorf("response leaks details: %s", rec.Body.String())
+		}
+		if !strings.Contains(logs.String(), c.err.Error()) {
+			t.Errorf("full error not logged; logs: %s", logs.String())
+		}
 	}
 }
 

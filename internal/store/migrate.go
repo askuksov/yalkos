@@ -56,14 +56,14 @@ func MigrationStatus(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) 
 // Ready reports whether the database answers and all migrations are applied.
 func Ready(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
 	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("database unreachable: %w", err)
+		return fmt.Errorf("%w: %w", ErrDatabaseUnavailable, err)
 	}
 	current, latest, err := MigrationStatus(ctx, pool, migrations)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrDatabaseUnavailable, err)
 	}
 	if current != latest {
-		return fmt.Errorf("migrations pending: current %d, latest %d", current, latest)
+		return fmt.Errorf("%w: current %d, latest %d", ErrMigrationsPending, current, latest)
 	}
 	return nil
 }

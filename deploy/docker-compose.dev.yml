@@ -1,0 +1,5 @@
+# Development override: exposes PostgreSQL on localhost only, for `make db-up` / `make test`.
+services:
+  db:
+    ports:
+      - "127.0.0.1:${YALKOS_DB_PORT:-54320}:5432"
