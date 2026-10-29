@@ -1,0 +1,21 @@
+name: yalkos
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: yalkos
+      POSTGRES_PASSWORD: yalkos
+      POSTGRES_DB: yalkos
+    ports:
+      - "${YALKOS_DB_PORT:-54320}:5432"
+    volumes:
+      - yalkos-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yalkos"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  yalkos-db:
