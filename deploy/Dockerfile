@@ -30,5 +30,6 @@ RUN CGO_ENABLED=0 go build -trimpath \
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=go /out/yalkos /yalkos
 USER nonroot
+EXPOSE 8080
 ENTRYPOINT ["/yalkos"]
-CMD ["version"]
+CMD ["serve"]

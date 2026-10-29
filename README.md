@@ -2,7 +2,15 @@
 
 Lightweight, self-hosted issue tracker with a Linear-compatible API.
 
-> Status: early development. Nothing to run yet.
+> Status: early development. The server starts and serves an empty shell; there are no features yet.
+
+## Run with Docker
+
+```sh
+docker compose -f deploy/docker-compose.yml up -d
+```
+
+Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containers start: `app` and `db` (PostgreSQL 16). Migrations run automatically on start.
 
 ## Development
 
