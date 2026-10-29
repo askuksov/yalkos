@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Block commits during working hours: Mon–Fri 09:00–18:59 (local time).
+# Allowed: weekdays 19:00–08:59, weekends any time.
+# Override (vacation, sick leave, day-off): YALKOS_COMMIT_OVERRIDE=1 git commit ...
+
+if [ "${YALKOS_COMMIT_OVERRIDE:-}" = "1" ]; then
+  exit 0
+fi
+
+dow=$(date +%u)          # 1 = Mon ... 7 = Sun
+hour=$((10#$(date +%H))) # force base 10 ("08" is not octal)
+
+if [ "$dow" -le 5 ] && [ "$hour" -ge 9 ] && [ "$hour" -lt 19 ]; then
+  echo "pre-commit: commits blocked Mon–Fri 09:00–19:00 (now $(date '+%Y-%m-%d %H:%M %Z'))." >&2
+  echo "pre-commit: override with YALKOS_COMMIT_OVERRIDE=1 git commit ..." >&2
+  exit 1
+fi

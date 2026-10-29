@@ -1,0 +1,20 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Go
+/bin/
+*.test
+*.out
+coverage.*
+
+# Frontend
+node_modules/
+web/dist/*
+!web/dist/.gitkeep
