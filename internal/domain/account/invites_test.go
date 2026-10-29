@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/askuksov/yalkos/internal/auth"
 	"github.com/askuksov/yalkos/internal/domain/account"
 )
 
@@ -178,5 +179,45 @@ func TestRevokeInvite(t *testing.T) {
 	list, err := e.svc.ListInvites(ctx, owner)
 	if err != nil || len(list) != 0 {
 		t.Errorf("ListInvites = %v, %v; want empty", list, err)
+	}
+}
+
+func TestAcceptInviteBogusTokenNoHash(t *testing.T) {
+	e := newEnv(t)
+	e.setupOwner(t)
+	before := auth.Derivations()
+	if _, _, err := e.svc.AcceptInvite(context.Background(), "bogus-token", "N", "n@example.com", "some-password"); !errors.Is(err, account.ErrInviteInvalid) {
+		t.Fatalf("err = %v, want ErrInviteInvalid", err)
+	}
+	if after := auth.Derivations(); after != before {
+		t.Errorf("bogus token cost %d password hashes, want 0", after-before)
+	}
+}
+
+// Invites stop working when their creator may no longer issue them.
+func TestInviteOfDisabledOrDemotedCreator(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	owner, _ := e.setupOwner(t)
+
+	admin, _ := e.addMember(t, owner, account.RoleAdmin)
+	inv1, _ := e.svc.CreateInvite(ctx, admin, account.RoleMember, 30)
+	if err := e.svc.SetMemberDisabled(ctx, owner, admin.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.svc.AcceptInvite(ctx, tokenFromURL(t, inv1.URL), "X", "x@example.com", "x-password"); !errors.Is(err, account.ErrInviteInvalid) {
+		t.Errorf("invite of disabled admin: err = %v, want ErrInviteInvalid", err)
+	}
+
+	admin2, _ := e.addMember(t, owner, account.RoleAdmin)
+	inv2, _ := e.svc.CreateInvite(ctx, admin2, account.RoleMember, 30)
+	if err := e.svc.UpdateMemberRole(ctx, owner, admin2.ID, account.RoleMember); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.svc.AcceptInvite(ctx, tokenFromURL(t, inv2.URL), "Y", "y@example.com", "y-password"); !errors.Is(err, account.ErrInviteInvalid) {
+		t.Errorf("invite of demoted admin: err = %v, want ErrInviteInvalid", err)
+	}
+	if list, _ := e.svc.ListInvites(ctx, owner); len(list) != 0 {
+		t.Errorf("invites of disabled/demoted creators still listed: %d", len(list))
 	}
 }

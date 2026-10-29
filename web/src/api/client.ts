@@ -17,6 +17,8 @@ export class GraphQLRequestError extends Error {
 interface GraphQLResponse<T> {
   data?: T | null
   errors?: { message: string; extensions?: { code?: string; field?: string } }[]
+  /** Plain HTTP-level error from the server (e.g. origin check). */
+  error?: string
 }
 
 /** Sends a typed document to the native API with the session cookie. */
@@ -35,6 +37,9 @@ export async function request<TResult, TVars>(
     body = (await res.json()) as GraphQLResponse<TResult>
   } catch {
     throw new GraphQLRequestError('NETWORK_ERROR', `Request failed (${res.status})`)
+  }
+  if (body.error) {
+    throw new GraphQLRequestError(`HTTP_${res.status}`, body.error)
   }
   const err = body.errors?.[0]
   if (err) {

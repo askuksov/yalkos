@@ -27,6 +27,19 @@ func actor(ctx context.Context) (*authn.Actor, error) {
 	return a, nil
 }
 
+// sessionActor is actor() restricted to browser sessions: API keys cannot manage
+// credentials (keys, password, invites), so a leaked key cannot entrench itself.
+func sessionActor(ctx context.Context) (*authn.Actor, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if a.Via != "session" {
+		return nil, account.ErrSessionRequired
+	}
+	return a, nil
+}
+
 func parseID(field, id string) (uuid.UUID, error) {
 	u, err := uuid.Parse(id)
 	if err != nil {

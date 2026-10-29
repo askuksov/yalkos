@@ -16,3 +16,10 @@ ORDER BY created_at DESC;
 
 -- name: RevokeInvite :execrows
 UPDATE invites SET revoked_at = now() WHERE id = $1 AND used_at IS NULL AND revoked_at IS NULL;
+
+-- name: GetInvite :one
+SELECT * FROM invites WHERE token_hash = $1;
+
+-- name: RevokeInvitesByCreator :exec
+UPDATE invites SET revoked_at = now()
+WHERE created_by = $1 AND used_at IS NULL AND revoked_at IS NULL;

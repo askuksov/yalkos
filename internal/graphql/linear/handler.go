@@ -14,11 +14,15 @@ import (
 	"github.com/askuksov/yalkos/internal/graphql/gqlerr"
 )
 
+const maxComplexity = 200
+
 // NewHandler serves the linear GraphQL schema over POST only, with introspection enabled.
 func NewHandler(accounts *account.Service, logger *slog.Logger) http.Handler {
 	srv := handler.New(NewExecutableSchema(Config{Resolvers: &Resolver{Accounts: accounts, Logger: logger}}))
 	srv.AddTransport(transport.POST{})
 	srv.Use(extension.Introspection{})
+	// Caps aliases/fields per request (no batching thousands of logins in one body).
+	srv.Use(extension.FixedComplexityLimit(maxComplexity))
 	srv.SetErrorPresenter(gqlerr.Presenter(func(_ context.Context, err error) {
 		logger.Error("graphql internal error", slog.String("api", "linear"), slog.String("error", err.Error()))
 	}))

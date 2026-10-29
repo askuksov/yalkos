@@ -55,20 +55,29 @@ type Service struct {
 	mu        sync.Mutex
 	setupCode string
 
-	loginFails *failureLimiter
-	setupFails *failureLimiter
+	// Login: 10 failures per (email, client network) per 15 min, and 100 per email per hour.
+	loginPair  *attemptLimiter
+	loginEmail *attemptLimiter
+	// Setup code: 10 failures per client network per 15 min, 100 in total per hour.
+	setupFails  *attemptLimiter
+	setupGlobal *attemptLimiter
+	// Current-password check in ChangePassword: 10 failures per user per 15 min.
+	passwordFails *attemptLimiter
 }
 
 // New builds the service; now is the clock (time.Now in production),
 // baseURL is the public URL used in invite links.
 func New(pool *pgxpool.Pool, now func() time.Time, baseURL string) *Service {
 	return &Service{
-		pool:       pool,
-		q:          q.New(pool),
-		now:        now,
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		loginFails: newFailureLimiter(),
-		setupFails: newFailureLimiter(),
+		pool:          pool,
+		q:             q.New(pool),
+		now:           now,
+		baseURL:       strings.TrimRight(baseURL, "/"),
+		loginPair:     newAttemptLimiter(10, 15*time.Minute),
+		loginEmail:    newAttemptLimiter(100, time.Hour),
+		setupFails:    newAttemptLimiter(10, 15*time.Minute),
+		setupGlobal:   newAttemptLimiter(100, time.Hour),
+		passwordFails: newAttemptLimiter(10, 15*time.Minute),
 	}
 }
 
@@ -105,13 +114,29 @@ func validateText(field, v string) (string, error) {
 	return v, nil
 }
 
-func hashPassword(pw string) (string, error) {
-	h, err := auth.HashPassword(pw)
+func hashPassword(ctx context.Context, pw string) (string, error) {
+	h, err := auth.HashPassword(ctx, pw)
 	if errors.Is(err, auth.ErrPasswordLength) {
 		return "", inputErr("password", auth.ErrPasswordLength.Error())
 	}
 	if err != nil {
-		return "", fmt.Errorf("hash password: %w", err)
+		return "", hashErr(err)
 	}
 	return h, nil
+}
+
+// verifyPassword wraps auth.VerifyPassword, mapping overload to ErrBusy.
+func verifyPassword(ctx context.Context, pw, phc string) (bool, error) {
+	ok, err := auth.VerifyPassword(ctx, pw, phc)
+	if err != nil {
+		return false, hashErr(err)
+	}
+	return ok, nil
+}
+
+func hashErr(err error) error {
+	if errors.Is(err, auth.ErrBusy) {
+		return ErrBusy
+	}
+	return fmt.Errorf("password hashing: %w", err)
 }

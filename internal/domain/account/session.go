@@ -70,15 +70,23 @@ type SetupInput struct {
 
 // Setup creates the workspace and its Owner and signs the Owner in.
 func (s *Service) Setup(ctx context.Context, in SetupInput, ip string) (User, string, error) {
-	if s.setupFails.Blocked(ip) {
+	netKey := clientNet(ip)
+	if !s.setupFails.reserve(netKey) {
+		return User{}, "", ErrRateLimited
+	}
+	if !s.setupGlobal.reserve("setup") {
+		s.setupFails.finish(netKey, false)
 		return User{}, "", ErrRateLimited
 	}
 	code := s.SetupCode()
+	codeOK := code != "" && subtle.ConstantTimeCompare([]byte(strings.ToUpper(strings.TrimSpace(in.Code))), []byte(code)) == 1
+	wrong := code != "" && !codeOK
+	s.setupFails.finish(netKey, wrong)
+	s.setupGlobal.finish("setup", wrong)
 	if code == "" {
 		return User{}, "", ErrAlreadySetUp
 	}
-	if subtle.ConstantTimeCompare([]byte(strings.ToUpper(strings.TrimSpace(in.Code))), []byte(code)) != 1 {
-		s.setupFails.Fail(ip)
+	if !codeOK {
 		return User{}, "", ErrInvalidSetupCode
 	}
 	wsName, err := validateText("workspaceName", in.WorkspaceName)
@@ -93,7 +101,7 @@ func (s *Service) Setup(ctx context.Context, in SetupInput, ip string) (User, st
 	if err != nil {
 		return User{}, "", err
 	}
-	hash, err := hashPassword(in.Password)
+	hash, err := hashPassword(ctx, in.Password)
 	if err != nil {
 		return User{}, "", err
 	}
@@ -139,24 +147,40 @@ func (s *Service) newSession(ctx context.Context, tx *q.Queries, userID uuid.UUI
 
 // Login checks email + password and opens a new session.
 func (s *Service) Login(ctx context.Context, email, password, ip string) (User, string, error) {
-	key := strings.ToLower(strings.TrimSpace(email)) + "|" + ip
-	if s.loginFails.Blocked(key) {
-		return User{}, "", ErrRateLimited
-	}
-	if strings.TrimSpace(email) == "" {
+	email = strings.TrimSpace(email)
+	if email == "" || len(email) > 254 {
 		return User{}, "", inputErr("email", "enter your email")
 	}
-	u, err := s.q.GetUserByEmail(ctx, strings.TrimSpace(email))
+	emailKey := strings.ToLower(email)
+	pairKey := emailKey + "|" + clientNet(ip)
+	if !s.loginPair.reserve(pairKey) {
+		return User{}, "", ErrRateLimited
+	}
+	if !s.loginEmail.reserve(emailKey) {
+		s.loginPair.finish(pairKey, false)
+		return User{}, "", ErrRateLimited
+	}
+	failed := false
+	defer func() {
+		s.loginPair.finish(pairKey, failed)
+		s.loginEmail.finish(emailKey, failed)
+	}()
+
+	u, err := s.q.GetUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
-		auth.DummyVerify()
-		s.loginFails.Fail(key)
+		auth.DummyVerify(ctx)
+		failed = true
 		return User{}, "", ErrInvalidCredentials
 	}
 	if err != nil {
 		return User{}, "", fmt.Errorf("find user: %w", err)
 	}
-	if !auth.VerifyPassword(password, u.PasswordHash) || u.Disabled {
-		s.loginFails.Fail(key)
+	ok, err := verifyPassword(ctx, password, u.PasswordHash)
+	if err != nil {
+		return User{}, "", err
+	}
+	if !ok || u.Disabled {
+		failed = true
 		return User{}, "", ErrInvalidCredentials
 	}
 	token, err := s.newSession(ctx, s.q, u.ID)
@@ -192,14 +216,26 @@ func (s *Service) UserBySession(ctx context.Context, sessionToken string) (User,
 // ChangePassword verifies the current password, stores the new one and ends
 // every other session of the user.
 func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, current, next, keepSessionToken string) error {
+	key := userID.String()
+	if !s.passwordFails.reserve(key) {
+		return ErrRateLimited
+	}
+	failed := false
+	defer func() { s.passwordFails.finish(key, failed) }()
+
 	u, err := s.q.GetUserByID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("find user: %w", err)
 	}
-	if !auth.VerifyPassword(current, u.PasswordHash) {
+	ok, err := verifyPassword(ctx, current, u.PasswordHash)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		failed = true
 		return ErrInvalidCredentials
 	}
-	hash, err := hashPassword(next)
+	hash, err := hashPassword(ctx, next)
 	if err != nil {
 		return err
 	}
@@ -221,7 +257,7 @@ func (s *Service) ResetPassword(ctx context.Context, email, password string) err
 	if err != nil {
 		return fmt.Errorf("find user: %w", err)
 	}
-	hash, err := hashPassword(password)
+	hash, err := hashPassword(ctx, password)
 	if err != nil {
 		return err
 	}

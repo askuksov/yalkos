@@ -15,7 +15,9 @@ export function LoginPage() {
   const login = useMutation({
     mutationFn: () => request(LoginMutation, { email, password }),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['viewer'] })
+      // Reset (not just invalidate): RequireAuth is unmounted here, so stale
+      // setupStatus/viewer entries would redirect back on the first render.
+      await qc.resetQueries()
       const from = (location.state as { from?: string } | null)?.from
       navigate(from ?? '/', { replace: true })
     },

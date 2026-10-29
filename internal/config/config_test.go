@@ -73,3 +73,20 @@ func TestBaseURLDefaultAndValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestBaseURLNormalized(t *testing.T) {
+	cases := map[string]string{
+		"HTTP://LOCALHOST:8080":       "http://localhost:8080",
+		"https://App.Yalkos.com:443/": "https://app.yalkos.com",
+		"http://localhost:80":         "http://localhost",
+	}
+	for in, want := range cases {
+		cfg, err := Load(env(map[string]string{"DATABASE_URL": "postgres://x", "BASE_URL": in}))
+		if err != nil || cfg.BaseURL.String() != want {
+			t.Errorf("%q → %v (err %v), want %q", in, cfg.BaseURL, err, want)
+		}
+	}
+	if _, err := Load(env(map[string]string{"DATABASE_URL": "postgres://x", "BASE_URL": "https://u:p@x.io"})); err == nil {
+		t.Error("userinfo in BASE_URL accepted")
+	}
+}

@@ -26,20 +26,28 @@ func toInvite(i q.Invite) Invite {
 	return Invite{ID: i.ID, Role: Role(i.Role), CreatedAt: i.CreatedAt, ExpiresAt: i.ExpiresAt}
 }
 
-// CreateInvite makes a single-use invite link valid for days (1–30).
-// Owner and Admin may invite members; only the Owner may invite admins.
-func (s *Service) CreateInvite(ctx context.Context, actor User, role Role, days int) (Invite, error) {
+// canInvite: Owner and Admin may invite members; only the Owner may invite admins.
+func canInvite(u User, role Role) bool {
+	if u.Disabled {
+		return false
+	}
 	switch role {
 	case RoleMember:
-		if !actor.IsAdmin() {
-			return Invite{}, ErrForbidden
-		}
+		return u.IsAdmin()
 	case RoleAdmin:
-		if actor.Role != RoleOwner {
-			return Invite{}, ErrForbidden
-		}
+		return u.Role == RoleOwner
 	default:
+		return false
+	}
+}
+
+// CreateInvite makes a single-use invite link valid for days (1–30).
+func (s *Service) CreateInvite(ctx context.Context, actor User, role Role, days int) (Invite, error) {
+	if role != RoleMember && role != RoleAdmin {
 		return Invite{}, inputErr("role", "must be admin or member")
+	}
+	if !canInvite(actor, role) {
+		return Invite{}, ErrForbidden
 	}
 	if days < 1 || days > 30 {
 		return Invite{}, inputErr("expiresInDays", "must be 1–30")
@@ -95,7 +103,15 @@ func (s *Service) AcceptInvite(ctx context.Context, token, name, email, password
 	if err != nil {
 		return User{}, "", err
 	}
-	hash, err := hashPassword(password)
+	// Cheap check first, so a random token costs no password hash.
+	pre, err := s.q.GetInvite(ctx, auth.HashSecret(token))
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !s.inviteUsable(pre)) {
+		return User{}, "", ErrInviteInvalid
+	}
+	if err != nil {
+		return User{}, "", fmt.Errorf("find invite: %w", err)
+	}
+	hash, err := hashPassword(ctx, password)
 	if err != nil {
 		return User{}, "", err
 	}
@@ -110,7 +126,15 @@ func (s *Service) AcceptInvite(ctx context.Context, token, name, email, password
 		if err != nil {
 			return err
 		}
-		if inv.UsedAt != nil || inv.RevokedAt != nil || !inv.ExpiresAt.After(s.now()) {
+		if !s.inviteUsable(inv) {
+			return ErrInviteInvalid
+		}
+		// The creator must still be allowed to issue this invite.
+		creator, err := tx.GetUserByID(ctx, inv.CreatedBy)
+		if err != nil {
+			return err
+		}
+		if !canInvite(toUser(creator), Role(inv.Role)) {
 			return ErrInviteInvalid
 		}
 		ws, err := tx.GetWorkspace(ctx)
@@ -134,11 +158,15 @@ func (s *Service) AcceptInvite(ctx context.Context, token, name, email, password
 		return err
 	})
 	var ie *InputError
-	if errors.Is(err, ErrInviteInvalid) || errors.As(err, &ie) {
+	if errors.Is(err, ErrInviteInvalid) || errors.Is(err, ErrBusy) || errors.As(err, &ie) {
 		return User{}, "", err
 	}
 	if err != nil {
 		return User{}, "", fmt.Errorf("accept invite: %w", err)
 	}
 	return user, session, nil
+}
+
+func (s *Service) inviteUsable(inv q.Invite) bool {
+	return inv.UsedAt == nil && inv.RevokedAt == nil && inv.ExpiresAt.After(s.now())
 }

@@ -251,3 +251,24 @@ func TestAuthMiddlewareOnlyOnGraphQL(t *testing.T) {
 		}
 	}
 }
+
+func TestInviteTokenNotLogged(t *testing.T) {
+	var buf bytes.Buffer
+	h := newTestRouter(t, func(d *Deps) { d.Logger = slog.New(slog.NewJSONHandler(&buf, nil)) })
+	do(h, "GET", "/invite/SECRETtoken123")
+	if strings.Contains(buf.String(), "SECRETtoken123") {
+		t.Errorf("invite token in logs: %s", buf.String())
+	}
+	if !strings.Contains(buf.String(), `"path":"/invite/[redacted]"`) {
+		t.Errorf("redacted path not logged: %s", buf.String())
+	}
+}
+
+func TestReferrerPolicy(t *testing.T) {
+	h := newTestRouter(t, nil)
+	for _, p := range []string{"/", "/invite/abc", "/healthz"} {
+		if got := do(h, "GET", p).Header().Get("Referrer-Policy"); got != "no-referrer" {
+			t.Errorf("GET %s Referrer-Policy = %q, want no-referrer", p, got)
+		}
+	}
+}

@@ -50,15 +50,21 @@ func (s *Service) UpdateMemberRole(ctx context.Context, actor User, userID uuid.
 	if Role(t.Role) == RoleOwner {
 		return ErrForbidden
 	}
-	if _, err := s.q.UpdateUserRole(ctx, q.UpdateUserRoleParams{ID: userID, Role: string(role)}); err != nil {
-		return fmt.Errorf("update role: %w", err)
-	}
-	return nil
+	return s.inTx(ctx, func(tx *q.Queries) error {
+		if _, err := tx.UpdateUserRole(ctx, q.UpdateUserRoleParams{ID: userID, Role: string(role)}); err != nil {
+			return err
+		}
+		if role == RoleMember {
+			// A member cannot invite: their pending invites go away.
+			return tx.RevokeInvitesByCreator(ctx, userID)
+		}
+		return nil
+	})
 }
 
 // SetMemberDisabled disables or re-enables a user (Owner and Admin; never the
-// Owner, never oneself). Disabling ends the user's sessions; their API keys stop
-// working because key lookup skips disabled users.
+// Owner, never oneself). Disabling ends the user's sessions and revokes their
+// pending invites; their API keys stop working because key lookup skips disabled users.
 func (s *Service) SetMemberDisabled(ctx context.Context, actor User, userID uuid.UUID, disabled bool) error {
 	if !actor.IsAdmin() || userID == actor.ID {
 		return ErrForbidden
@@ -75,6 +81,9 @@ func (s *Service) SetMemberDisabled(ctx context.Context, actor User, userID uuid
 			return err
 		}
 		if disabled {
+			if err := tx.RevokeInvitesByCreator(ctx, userID); err != nil {
+				return err
+			}
 			return tx.DeleteUserSessions(ctx, userID)
 		}
 		return nil

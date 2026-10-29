@@ -49,10 +49,14 @@ func From(ctx context.Context, err error) *gqlerror.Error {
 		e := newErr(ctx, "Invalid setup code", "INVALID_INPUT", "invalid input", true)
 		e.Extensions["field"] = "code"
 		return e
+	case errors.Is(err, account.ErrSessionRequired):
+		return newErr(ctx, "This action needs a signed-in session; API keys cannot manage keys, passwords or invites", "FORBIDDEN", "forbidden", true)
 	case errors.Is(err, account.ErrForbidden):
 		return newErr(ctx, "You do not have permission to do this", "FORBIDDEN", "forbidden", true)
 	case errors.Is(err, account.ErrRateLimited):
 		return newErr(ctx, "Too many attempts. Try again in a few minutes.", "RATE_LIMITED", "ratelimited", true)
+	case errors.Is(err, account.ErrBusy):
+		return newErr(ctx, "Server is busy. Try again in a moment.", "RATE_LIMITED", "ratelimited", true)
 	case errors.Is(err, account.ErrSetupRequired):
 		return newErr(ctx, "Setup required", "SETUP_REQUIRED", "setup required", true)
 	case errors.Is(err, account.ErrAlreadySetUp):

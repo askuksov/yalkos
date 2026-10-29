@@ -47,6 +47,27 @@ func (q *Queries) CreateInvite(ctx context.Context, arg CreateInviteParams) (Inv
 	return i, err
 }
 
+const getInvite = `-- name: GetInvite :one
+SELECT id, token_hash, role, created_by, created_at, expires_at, used_at, used_by, revoked_at FROM invites WHERE token_hash = $1
+`
+
+func (q *Queries) GetInvite(ctx context.Context, tokenHash []byte) (Invite, error) {
+	row := q.db.QueryRow(ctx, getInvite, tokenHash)
+	var i Invite
+	err := row.Scan(
+		&i.ID,
+		&i.TokenHash,
+		&i.Role,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.UsedBy,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
 const getInviteForUpdate = `-- name: GetInviteForUpdate :one
 SELECT id, token_hash, role, created_by, created_at, expires_at, used_at, used_by, revoked_at FROM invites WHERE token_hash = $1 FOR UPDATE
 `
@@ -129,4 +150,14 @@ func (q *Queries) RevokeInvite(ctx context.Context, id uuid.UUID) (int64, error)
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const revokeInvitesByCreator = `-- name: RevokeInvitesByCreator :exec
+UPDATE invites SET revoked_at = now()
+WHERE created_by = $1 AND used_at IS NULL AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeInvitesByCreator(ctx context.Context, createdBy uuid.UUID) error {
+	_, err := q.db.Exec(ctx, revokeInvitesByCreator, createdBy)
+	return err
 }

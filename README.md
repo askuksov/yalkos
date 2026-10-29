@@ -16,7 +16,7 @@ Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containe
 
 PostgreSQL stores the password when its data volume is first created; changing `YALKOS_DB_PASSWORD` later requires changing it inside the database as well.
 
-Behind a domain, set the public URL in `deploy/.env` (invite links and secure cookies depend on it):
+Behind a domain, set the public URL in `deploy/.env` (invite links and secure cookies depend on it). Open the app at exactly this address — requests from another address (for example the server IP) are rejected with “request origin does not match BASE_URL”:
 
 ```sh
 YALKOS_BASE_URL=https://app.example.com
@@ -55,7 +55,7 @@ const linear = new LinearClient({ apiKey: process.env.YALKOS_API_KEY, apiUrl: 'h
 const me = await linear.viewer
 ```
 
-Send the key as `Authorization: <key>` or `Authorization: Bearer <key>`.
+Send the key as `Authorization: <key>` or `Authorization: Bearer <key>`. Keys act as their user but cannot manage credentials: creating or revoking keys, changing the password and inviting people need a signed-in browser session.
 
 ## Development
 

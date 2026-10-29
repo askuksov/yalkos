@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/askuksov/yalkos/internal/auth"
@@ -82,7 +83,7 @@ func ClearSessionCookie(ctx context.Context) {
 // Middleware puts the caller (if any) into the request context.
 // An Authorization header always wins: an invalid key means "anonymous", the cookie
 // is not consulted. Cookie-authenticated unsafe requests from a foreign Origin
-// are treated as anonymous (CSRF defence on top of SameSite=Lax).
+// get 403 (CSRF defence on top of SameSite=Lax; also surfaces a wrong BASE_URL).
 func Middleware(a Authenticator, baseURL *url.URL, logger *slog.Logger) func(http.Handler) http.Handler {
 	origin := baseURL.Scheme + "://" + baseURL.Host
 	secure := baseURL.Scheme == "https"
@@ -109,16 +110,19 @@ func Middleware(a Authenticator, baseURL *url.URL, logger *slog.Logger) func(htt
 				}
 			} else if c, err := r.Cookie(CookieName); err == nil && c.Value != "" {
 				unsafe := r.Method != http.MethodGet && r.Method != http.MethodHead
-				if o := r.Header.Get("Origin"); unsafe && o != "" && o != origin {
-					logger.Warn("cross-origin request with session cookie ignored", slog.String("origin", o))
-				} else {
-					u, err := a.UserBySession(ctx, c.Value)
-					switch {
-					case err == nil:
-						actor = &Actor{User: u, Via: "session", SessionToken: c.Value}
-					case !errors.Is(err, account.ErrUnauthenticated):
-						logger.Error("session lookup failed", slog.String("error", err.Error()))
-					}
+				if o := r.Header.Get("Origin"); unsafe && o != "" && !strings.EqualFold(o, origin) {
+					logger.Warn("cross-origin request with session cookie rejected", slog.String("origin", o))
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden)
+					_, _ = w.Write([]byte(`{"error":"request origin does not match BASE_URL"}`))
+					return
+				}
+				u, err := a.UserBySession(ctx, c.Value)
+				switch {
+				case err == nil:
+					actor = &Actor{User: u, Via: "session", SessionToken: c.Value}
+				case !errors.Is(err, account.ErrUnauthenticated):
+					logger.Error("session lookup failed", slog.String("error", err.Error()))
 				}
 			}
 			if actor != nil {

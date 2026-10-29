@@ -13,6 +13,9 @@ var (
 	ErrInviteInvalid      = errors.New("invite is invalid or expired")
 	ErrUnauthenticated    = errors.New("authentication required")
 	ErrNoSuchUser         = errors.New("no such user")
+	ErrBusy               = errors.New("server is busy")
+	// ErrSessionRequired: credential management needs a signed-in browser session, not an API key.
+	ErrSessionRequired = errors.New("signed-in session required")
 )
 
 // InputError reports an invalid input field.

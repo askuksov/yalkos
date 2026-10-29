@@ -47,7 +47,7 @@ func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
 
 // ChangePassword is the resolver for the changePassword field.
 func (r *mutationResolver) ChangePassword(ctx context.Context, current string, next string) (bool, error) {
-	a, err := actor(ctx)
+	a, err := sessionActor(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -69,7 +69,7 @@ func (r *mutationResolver) AcceptInvite(ctx context.Context, input AcceptInviteI
 
 // CreateInvite is the resolver for the createInvite field.
 func (r *mutationResolver) CreateInvite(ctx context.Context, role Role, expiresInDays *int) (*CreatedInvite, error) {
-	a, err := actor(ctx)
+	a, err := sessionActor(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (r *mutationResolver) CreateInvite(ctx context.Context, role Role, expiresI
 
 // RevokeInvite is the resolver for the revokeInvite field.
 func (r *mutationResolver) RevokeInvite(ctx context.Context, id string) (bool, error) {
-	a, err := actor(ctx)
+	a, err := sessionActor(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -142,7 +142,7 @@ func (r *mutationResolver) SetMemberDisabled(ctx context.Context, userID string,
 
 // CreateAPIKey is the resolver for the createApiKey field.
 func (r *mutationResolver) CreateAPIKey(ctx context.Context, name string) (*CreatedAPIKey, error) {
-	a, err := actor(ctx)
+	a, err := sessionActor(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (r *mutationResolver) CreateAPIKey(ctx context.Context, name string) (*Crea
 
 // RevokeAPIKey is the resolver for the revokeApiKey field.
 func (r *mutationResolver) RevokeAPIKey(ctx context.Context, id string) (bool, error) {
-	a, err := actor(ctx)
+	a, err := sessionActor(ctx)
 	if err != nil {
 		return false, err
 	}

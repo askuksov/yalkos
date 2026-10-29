@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
+	"strings"
 )
 
 // Config is the process configuration.
@@ -52,10 +54,20 @@ func parseBaseURL(raw string) (*url.URL, error) {
 		raw = "http://localhost:8080"
 	}
 	u, err := url.Parse(raw)
-	bad := err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+	bad := err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil ||
 		(u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != ""
 	if bad {
 		return nil, fmt.Errorf("BASE_URL: %q must be an absolute http(s) URL without a path", raw)
+	}
+	// Normalize so it compares equal to the browser's Origin header.
+	u.Scheme = strings.ToLower(u.Scheme)
+	host, port := strings.ToLower(u.Hostname()), u.Port()
+	if (u.Scheme == "http" && port == "80") || (u.Scheme == "https" && port == "443") {
+		port = ""
+	}
+	u.Host = host
+	if port != "" {
+		u.Host = net.JoinHostPort(host, port)
 	}
 	u.Path = ""
 	return u, nil

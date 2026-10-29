@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,7 +87,7 @@ func TestInvalidKeyIgnoresCookie(t *testing.T) {
 }
 
 func TestCookieAuthRejectsForeignOrigin(t *testing.T) {
-	cases := map[string]bool{"https://evil.example": false, "http://localhost:8080": true, "": true}
+	cases := map[string]bool{"http://localhost:8080": true, "": true}
 	for origin, want := range cases {
 		req := httptest.NewRequest("POST", "/api/graphql", nil)
 		req.AddCookie(&http.Cookie{Name: CookieName, Value: "sess-good"})
@@ -97,6 +98,24 @@ func TestCookieAuthRejectsForeignOrigin(t *testing.T) {
 		if (a != nil) != want {
 			t.Errorf("Origin %q: actor = %+v, want present=%v", origin, a, want)
 		}
+	}
+}
+
+// A cookie request from another origin gets an explicit 403 instead of silently
+// becoming anonymous (which looked like a login loop when BASE_URL was wrong).
+func TestCookieForeignOriginIs403(t *testing.T) {
+	req := httptest.NewRequest("POST", "/api/graphql", nil)
+	req.AddCookie(&http.Cookie{Name: CookieName, Value: "sess-good"})
+	req.Header.Set("Origin", "http://192.168.1.10:8080")
+	u, _ := url.Parse("http://localhost:8080")
+	called := false
+	rec := httptest.NewRecorder()
+	Middleware(fakeAuth{}, u, quiet)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })).ServeHTTP(rec, req)
+	if called || rec.Code != http.StatusForbidden {
+		t.Fatalf("handler called=%v, status=%d; want not called, 403", called, rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "does not match BASE_URL") {
+		t.Errorf("body = %s", rec.Body.String())
 	}
 }
 

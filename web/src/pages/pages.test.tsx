@@ -149,3 +149,40 @@ describe('InvitePage', () => {
     expect(await screen.findByText('This invite link is invalid or has expired.')).toBeInTheDocument()
   })
 })
+
+describe('setup flow', () => {
+  it('lands on home after setup instead of bouncing back to /setup', async () => {
+    let done = false
+    serve({
+      SetupStatus: () => ({ setupStatus: { needed: !done } }),
+      Viewer: () => {
+        if (!done) throw new GraphQLRequestError('AUTHENTICATION_ERROR', 'Authentication required')
+        return { viewer: owner }
+      },
+      Setup: () => {
+        done = true
+        return { setup: { id: 'u1' } }
+      },
+    })
+    renderAt('/')
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/setup'))
+    await userEvent.type(screen.getByLabelText('Setup code'), 'ABCD2345')
+    await userEvent.type(screen.getByLabelText('Workspace name'), 'Acme')
+    await userEvent.type(screen.getByLabelText('Your name'), 'Olga')
+    await userEvent.type(screen.getByLabelText('Email'), 'o@example.com')
+    await userEvent.type(screen.getByLabelText('Password'), 'owner-password')
+    await userEvent.click(screen.getByRole('button', { name: 'Create workspace' }))
+    expect(await screen.findByText('Signed in as Olga (owner)')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/$/)
+  })
+})
+
+describe('client', () => {
+  it('turns a non-GraphQL error body into a readable error', async () => {
+    const { request: realRequest } = await vi.importActual<typeof import('../api/client')>('../api/client')
+    const { ViewerQuery } = await import('../api/operations')
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":"request origin does not match BASE_URL"}', { status: 403 })))
+    await expect(realRequest(ViewerQuery)).rejects.toMatchObject({ message: 'request origin does not match BASE_URL' })
+    vi.unstubAllGlobals()
+  })
+})

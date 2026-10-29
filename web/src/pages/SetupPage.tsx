@@ -17,7 +17,9 @@ export function SetupPage() {
   const setup = useMutation({
     mutationFn: () => request(SetupMutation, { input: form }),
     onSuccess: async () => {
-      await qc.invalidateQueries()
+      // Reset (not just invalidate): RequireAuth is unmounted here, so stale
+      // setupStatus/viewer entries would redirect back on the first render.
+      await qc.resetQueries()
       navigate('/', { replace: true })
     },
   })

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -255,5 +256,50 @@ func TestInternalErrorHidden(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(r.raw), "pool") || strings.Contains(strings.ToLower(r.raw), "sql") {
 		t.Errorf("internal details leaked: %s", r.raw)
+	}
+}
+
+func TestComplexityLimit(t *testing.T) {
+	s := newServer(t)
+	var sb strings.Builder
+	sb.WriteString("{")
+	for i := range 250 {
+		fmt.Fprintf(&sb, " a%d: setupStatus { needed }", i)
+	}
+	sb.WriteString(" }")
+	r := s.browser(t).do(sb.String(), nil)
+	if r.code() != "COMPLEXITY_LIMIT_EXCEEDED" {
+		t.Fatalf("got %s", r.raw[:min(len(r.raw), 300)])
+	}
+}
+
+// API keys cannot manage credentials: a leaked key must not mint new keys,
+// change the password or invite people (owner decision 2026-10-30).
+func TestCredentialManagementNeedsSession(t *testing.T) {
+	s := newServer(t)
+	owner := ownerBrowser(t, s)
+	r := owner.do(`mutation { createApiKey(name: "bot") { key apiKey { id } } }`, nil)
+	api := s.apiClient(t, r.str(t, "createApiKey", "key"))
+	keyID := r.str(t, "createApiKey", "apiKey.id")
+	inviteID := owner.do(`mutation { createInvite(role: MEMBER) { invite { id } } }`, nil).str(t, "createInvite", "invite.id")
+
+	cases := map[string]struct {
+		q    string
+		vars map[string]any
+	}{
+		"createApiKey":   {`mutation { createApiKey(name: "more") { key } }`, nil},
+		"revokeApiKey":   {`mutation($id: ID!) { revokeApiKey(id: $id) }`, map[string]any{"id": keyID}},
+		"changePassword": {`mutation { changePassword(current: "owner-password", next: "other-password") }`, nil},
+		"createInvite":   {`mutation { createInvite(role: MEMBER) { url } }`, nil},
+		"revokeInvite":   {`mutation($id: ID!) { revokeInvite(id: $id) }`, map[string]any{"id": inviteID}},
+	}
+	for name, c := range cases {
+		res := api.do(c.q, c.vars)
+		if res.code() != "FORBIDDEN" || !strings.Contains(res.Errors[0].Message, "signed-in session") {
+			t.Errorf("%s with API key: %s", name, res.raw)
+		}
+	}
+	if res := api.do(`{ viewer { role } }`, nil); res.str(t, "viewer", "role") != "OWNER" {
+		t.Errorf("viewer with API key: %s", res.raw)
 	}
 }
