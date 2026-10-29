@@ -12,6 +12,7 @@ var (
 	ErrForbidden          = errors.New("forbidden")
 	ErrInviteInvalid      = errors.New("invite is invalid or expired")
 	ErrUnauthenticated    = errors.New("authentication required")
+	ErrNoSuchUser         = errors.New("no such user")
 )
 
 // InputError reports an invalid input field.

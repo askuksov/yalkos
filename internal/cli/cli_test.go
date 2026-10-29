@@ -8,8 +8,11 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/askuksov/yalkos/db"
+	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/store"
 	"github.com/askuksov/yalkos/internal/testdb"
 )
 
@@ -133,5 +136,45 @@ func TestRunMigrateUnknown(t *testing.T) {
 		if code != 2 || !strings.Contains(errOut, "Usage: yalkos <command>") {
 			t.Errorf("%v → %d %q, want 2 + usage", args, code, errOut)
 		}
+	}
+}
+
+func TestCLISetPassword(t *testing.T) {
+	url, pool := testdb.New(t)
+	ctx := context.Background()
+	if err := store.Migrate(ctx, pool, db.Migrations()); err != nil {
+		t.Fatal(err)
+	}
+	svc := account.New(pool, time.Now, "http://localhost:8080")
+	_ = svc.RefreshSetupCode(ctx)
+	if _, _, err := svc.Setup(ctx, account.SetupInput{Code: svc.SetupCode(), WorkspaceName: "W", Name: "O",
+		Email: "owner@example.com", Password: "owner-password"}, "127.0.0.1"); err != nil {
+		t.Fatal(err)
+	}
+	getenv := func(k string) string {
+		if k == "DATABASE_URL" {
+			return url
+		}
+		return ""
+	}
+
+	code, out, errOut := run([]string{"user", "set-password", "--email", "owner@example.com"},
+		Env{Ctx: ctx, Getenv: getenv, Stdin: strings.NewReader("newpassword1\n")})
+	if code != 0 || out != "password updated for owner@example.com\n" {
+		t.Fatalf("exit %d, stdout %q, stderr %q", code, out, errOut)
+	}
+	if _, _, err := svc.Login(ctx, "owner@example.com", "newpassword1", "127.0.0.1"); err != nil {
+		t.Errorf("login with new password: %v", err)
+	}
+
+	code, _, errOut = run([]string{"user", "set-password", "--email", "nobody@example.com"},
+		Env{Ctx: ctx, Getenv: getenv, Stdin: strings.NewReader("newpassword1\n")})
+	if code != 1 || !strings.Contains(errOut, "no user with email nobody@example.com") {
+		t.Errorf("unknown email: exit %d, stderr %q", code, errOut)
+	}
+
+	code, _, errOut = run([]string{"user", "set-password"}, Env{Ctx: ctx, Getenv: getenv, Stdin: strings.NewReader("x\n")})
+	if code != 2 || !strings.Contains(errOut, "--email") {
+		t.Errorf("missing --email: exit %d, stderr %q", code, errOut)
 	}
 }

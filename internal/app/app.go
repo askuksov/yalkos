@@ -51,6 +51,10 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	if err := accounts.RefreshSetupCode(ctx); err != nil {
 		return err
 	}
+	if code := accounts.SetupCode(); code != "" {
+		// One-time code: whoever opens this URL first claims the instance.
+		logger.Warn("setup required", slog.String("url", baseURL.String()+"/setup?code="+code))
+	}
 
 	router := httpapi.NewRouter(httpapi.Deps{
 		Ready:         func(c context.Context) error { return store.Ready(c, pool, migrations) },

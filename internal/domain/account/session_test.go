@@ -236,3 +236,35 @@ func TestSetupValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestSetupCodeRateLimited(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	for range 10 {
+		_, _, _ = e.svc.Setup(ctx, setupInput("WRONGCOD"), ip)
+	}
+	if _, _, err := e.svc.Setup(ctx, setupInput(e.svc.SetupCode()), ip); !errors.Is(err, account.ErrRateLimited) {
+		t.Errorf("11th attempt: err = %v, want ErrRateLimited", err)
+	}
+	if _, _, err := e.svc.Setup(ctx, setupInput(e.svc.SetupCode()), "198.51.100.1"); err != nil {
+		t.Errorf("other IP: err = %v", err)
+	}
+}
+
+func TestResetPassword(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	_, session := e.setupOwner(t)
+	if err := e.svc.ResetPassword(ctx, "OWNER@example.com", "reset-password-1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.svc.Login(ctx, ownerEmail, "reset-password-1", ip); err != nil {
+		t.Errorf("login with reset password: %v", err)
+	}
+	if _, err := e.svc.UserBySession(ctx, session); !errors.Is(err, account.ErrUnauthenticated) {
+		t.Error("old session survived reset")
+	}
+	if err := e.svc.ResetPassword(ctx, "nobody@example.com", "reset-password-1"); !errors.Is(err, account.ErrNoSuchUser) {
+		t.Errorf("unknown email: err = %v, want ErrNoSuchUser", err)
+	}
+}

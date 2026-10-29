@@ -1,17 +1,24 @@
 package app_test
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
 
+	"github.com/askuksov/yalkos/db"
 	"github.com/askuksov/yalkos/internal/app"
 	"github.com/askuksov/yalkos/internal/config"
+	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/store"
 	"github.com/askuksov/yalkos/internal/testdb"
 )
 
@@ -97,5 +104,66 @@ func TestRunFailsOnBadDatabase(t *testing.T) {
 		}
 	case <-time.After(6 * time.Second):
 		t.Fatal("Run did not fail within 6s")
+	}
+}
+
+// syncBuffer is a goroutine-safe log sink.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+func (b *syncBuffer) String() string { b.mu.Lock(); defer b.mu.Unlock(); return b.buf.String() }
+
+func runAndCaptureLogs(t *testing.T, cfg config.Config) string {
+	t.Helper()
+	var logs syncBuffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	ctx, cancel := context.WithCancel(context.Background())
+	addrCh := make(chan string, 1)
+	errCh := make(chan error, 1)
+	go func() { errCh <- app.Run(ctx, cfg, fstest.MapFS{}, logger, func(a string) { addrCh <- a }) }()
+	select {
+	case <-addrCh:
+	case err := <-errCh:
+		t.Fatalf("Run: %v", err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("not listening within 5s")
+	}
+	cancel()
+	<-errCh
+	return logs.String()
+}
+
+func TestRunLogsSetupCode(t *testing.T) {
+	url, _ := testdb.New(t)
+	logs := runAndCaptureLogs(t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0"})
+	if !strings.Contains(logs, `"msg":"setup required"`) {
+		t.Fatalf("no setup log: %s", logs)
+	}
+	if !regexp.MustCompile(`/setup\?code=[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{8}"`).MatchString(logs) {
+		t.Errorf("setup URL with 8-char code not logged: %s", logs)
+	}
+}
+
+func TestRunNoSetupLogAfterSetup(t *testing.T) {
+	url, pool := testdb.New(t)
+	ctx := context.Background()
+	if err := store.Migrate(ctx, pool, db.Migrations()); err != nil {
+		t.Fatal(err)
+	}
+	svc := account.New(pool, time.Now, "http://localhost:8080")
+	_ = svc.RefreshSetupCode(ctx)
+	if _, _, err := svc.Setup(ctx, account.SetupInput{Code: svc.SetupCode(), WorkspaceName: "W", Name: "O",
+		Email: "o@example.com", Password: "owner-password"}, "127.0.0.1"); err != nil {
+		t.Fatal(err)
+	}
+	if logs := runAndCaptureLogs(t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0"}); strings.Contains(logs, "setup required") {
+		t.Errorf("setup log after setup: %s", logs)
 	}
 }

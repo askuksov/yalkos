@@ -210,3 +210,25 @@ func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, current,
 		return tx.DeleteUserSessionsExcept(ctx, q.DeleteUserSessionsExceptParams{UserID: userID, Keep: auth.HashSecret(keepSessionToken)})
 	})
 }
+
+// ResetPassword sets a new password without the current one (CLI recovery,
+// no email in MVP) and ends all of the user's sessions.
+func (s *Service) ResetPassword(ctx context.Context, email, password string) error {
+	u, err := s.q.GetUserByEmail(ctx, strings.TrimSpace(email))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNoSuchUser
+	}
+	if err != nil {
+		return fmt.Errorf("find user: %w", err)
+	}
+	hash, err := hashPassword(password)
+	if err != nil {
+		return err
+	}
+	return s.inTx(ctx, func(tx *q.Queries) error {
+		if err := tx.UpdateUserPassword(ctx, q.UpdateUserPasswordParams{ID: u.ID, PasswordHash: hash}); err != nil {
+			return err
+		}
+		return tx.DeleteUserSessions(ctx, u.ID)
+	})
+}

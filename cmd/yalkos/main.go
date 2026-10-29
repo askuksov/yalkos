@@ -19,6 +19,7 @@ func main() {
 		UI:     web.Dist(),
 		Ctx:    ctx,
 		Getenv: os.Getenv,
+		Stdin:  os.Stdin,
 	})
 	stop()
 	os.Exit(code)

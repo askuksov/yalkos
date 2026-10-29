@@ -2,16 +2,22 @@
 package cli
 
 import (
+	"bufio"
 	"context"
+	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
+	"strings"
+	"time"
 
 	"github.com/askuksov/yalkos/db"
 	"github.com/askuksov/yalkos/internal/app"
 	"github.com/askuksov/yalkos/internal/buildinfo"
 	"github.com/askuksov/yalkos/internal/config"
+	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/store"
 )
 
@@ -25,6 +31,8 @@ type Env struct {
 	Ctx context.Context
 	// Getenv reads environment variables (os.Getenv in production).
 	Getenv func(string) string
+	// Stdin is read by commands that take secrets (user set-password).
+	Stdin io.Reader
 }
 
 const usage = `Usage: yalkos <command>
@@ -33,6 +41,8 @@ Commands:
   serve           Run the server (applies migrations first)
   migrate up      Apply pending database migrations
   migrate status  Show applied and latest migration versions
+  user set-password --email <email>
+                  Set a user's password (read from stdin) and end their sessions
   version         Print version information
   help            Show this help
 `
@@ -54,6 +64,12 @@ func Run(args []string, env Env) int {
 		return 0
 	case "serve":
 		return serve(env)
+	case "user":
+		if len(args) < 2 || args[1] != "set-password" {
+			_, _ = fmt.Fprintf(env.Stderr, "user: expected \"set-password\"\n\n%s", usage)
+			return 2
+		}
+		return setPassword(args[2:], env)
 	case "migrate":
 		if len(args) < 2 || (args[1] != "up" && args[1] != "status") {
 			_, _ = fmt.Fprintf(env.Stderr, "migrate: expected \"up\" or \"status\"\n\n%s", usage)
@@ -124,4 +140,56 @@ func uiStatus(ui fs.FS) string {
 		return "missing"
 	}
 	return "embedded"
+}
+
+func setPassword(args []string, env Env) int {
+	fs := flag.NewFlagSet("user set-password", flag.ContinueOnError)
+	fs.SetOutput(env.Stderr)
+	email := fs.String("email", "", "email of the user")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *email == "" {
+		_, _ = fmt.Fprintln(env.Stderr, "user set-password: --email is required")
+		return 2
+	}
+	cfg, err := config.Load(env.Getenv)
+	if err != nil {
+		_, _ = fmt.Fprintln(env.Stderr, err)
+		return 1
+	}
+	if env.Stdin == nil {
+		_, _ = fmt.Fprintln(env.Stderr, "user set-password: no stdin")
+		return 1
+	}
+	line, err := bufio.NewReader(env.Stdin).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		_, _ = fmt.Fprintln(env.Stderr, "read password:", err)
+		return 1
+	}
+	password := strings.TrimRight(line, "\r\n")
+
+	ctx := ctxOf(env)
+	pool, err := store.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		_, _ = fmt.Fprintln(env.Stderr, err)
+		return 1
+	}
+	defer pool.Close()
+
+	svc := account.New(pool, time.Now, cfg.BaseURL.String())
+	var ie *account.InputError
+	switch err := svc.ResetPassword(ctx, *email, password); {
+	case errors.Is(err, account.ErrNoSuchUser):
+		_, _ = fmt.Fprintf(env.Stderr, "no user with email %s\n", *email)
+		return 1
+	case errors.As(err, &ie):
+		_, _ = fmt.Fprintln(env.Stderr, ie.Msg)
+		return 1
+	case err != nil:
+		_, _ = fmt.Fprintln(env.Stderr, err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(env.Stdout, "password updated for %s\n", *email)
+	return 0
 }
