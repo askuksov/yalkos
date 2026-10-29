@@ -11,13 +11,17 @@ export YALKOS_DB_PORT
 TEST_DATABASE_URL ?= postgres://yalkos:yalkos@localhost:$(YALKOS_DB_PORT)/postgres?sslmode=disable
 export TEST_DATABASE_URL
 
+YALKOS_PORT ?= 8080
+export YALKOS_PORT
+YALKOS_WEB_PORT ?= 5173
+
 COMPOSE := docker compose -f deploy/docker-compose.yml
 
 # pnpm runs from web/ so corepack picks the version pinned in web/package.json.
 PNPM := cd web && pnpm
 
 .DEFAULT_GOAL := help
-.PHONY: help db-up db-down generate check-generated build web-deps build-web build-go dev test lint fmt docker clean
+.PHONY: help db-up db-down generate check-generated build web-deps build-web build-go dev dev-go dev-web test lint fmt docker clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -33,8 +37,16 @@ build-web: web-deps ## Build web/dist
 build-go: ## Build bin/yalkos (embeds whatever is in web/dist)
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/yalkos ./cmd/yalkos
 
-dev: web-deps ## Run the Vite dev server (Go server joins in M1)
-	$(PNPM) dev
+DEV_DATABASE_URL ?= postgres://yalkos:yalkos@localhost:$(YALKOS_DB_PORT)/yalkos?sslmode=disable
+
+dev: web-deps db-up ## Run Go server (YALKOS_PORT, default 8080) and Vite (YALKOS_WEB_PORT, default 5173)
+	$(MAKE) -j2 dev-go dev-web
+
+dev-go:
+	DATABASE_URL="$(DEV_DATABASE_URL)" LISTEN_ADDR=:$(YALKOS_PORT) go run ./cmd/yalkos serve
+
+dev-web:
+	$(PNPM) dev --port $(YALKOS_WEB_PORT) --strictPort
 
 test: web-deps db-up ## Run Go and frontend tests
 	go test -race ./...
