@@ -1,0 +1,16 @@
+# Linear-compatible API: a hand-written subset of Linear's schema (ADR-003, ADR-006).
+# Names must match Linear exactly.
+
+type Query {
+  "The currently authenticated user."
+  viewer: User!
+}
+
+type User {
+  id: ID!
+  name: String!
+  displayName: String!
+  email: String!
+  active: Boolean!
+  admin: Boolean!
+}

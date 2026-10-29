@@ -17,7 +17,7 @@ COMPOSE := docker compose -f deploy/docker-compose.yml
 PNPM := cd web && pnpm
 
 .DEFAULT_GOAL := help
-.PHONY: help db-up db-down build web-deps build-web build-go dev test lint fmt docker clean
+.PHONY: help db-up db-down generate check-generated build web-deps build-web build-go dev test lint fmt docker clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -49,6 +49,14 @@ db-up: ## Start local PostgreSQL (Docker Compose)
 
 db-down: ## Stop local Docker Compose services
 	$(COMPOSE) down
+
+generate: ## Regenerate GraphQL code (gqlgen)
+	go tool gqlgen generate --config gqlgen.native.yml
+	go tool gqlgen generate --config gqlgen.linear.yml
+
+check-generated: generate ## Fail if generated code is out of date
+	git diff --exit-code -- internal/graphql
+	@test -z "$$(git status --porcelain -- internal/graphql)" || (git status --porcelain -- internal/graphql; exit 1)
 
 fmt: ## Format Go code
 	golangci-lint fmt

@@ -1,0 +1,18 @@
+schema:
+  - api/graphql/native/*.graphqls
+
+exec:
+  filename: internal/graphql/native/generated.go
+  package: native
+
+model:
+  filename: internal/graphql/native/models_gen.go
+  package: native
+
+resolver:
+  layout: follow-schema
+  dir: internal/graphql/native
+  package: native
+  filename_template: "{name}.resolvers.go"
+
+omit_slice_element_pointers: true

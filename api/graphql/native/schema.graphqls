@@ -1,0 +1,12 @@
+# Yalkos native API (used by the web UI). Yalkos entity names only — see ADR-006.
+
+type Query {
+  "The authenticated user."
+  viewer: User!
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+}

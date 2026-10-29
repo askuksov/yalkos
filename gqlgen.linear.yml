@@ -1,0 +1,18 @@
+schema:
+  - api/graphql/linear/*.graphqls
+
+exec:
+  filename: internal/graphql/linear/generated.go
+  package: linear
+
+model:
+  filename: internal/graphql/linear/models_gen.go
+  package: linear
+
+resolver:
+  layout: follow-schema
+  dir: internal/graphql/linear
+  package: linear
+  filename_template: "{name}.resolvers.go"
+
+omit_slice_element_pointers: true
