@@ -1,0 +1,117 @@
+// Package account implements workspace setup, users, sessions, invites and API keys.
+package account
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/mail"
+	"strings"
+	"sync"
+	"time"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/askuksov/yalkos/internal/auth"
+	"github.com/askuksov/yalkos/internal/store/q"
+)
+
+// Role is a workspace role.
+type Role string
+
+// Roles (spec §2.1).
+const (
+	RoleOwner  Role = "owner"
+	RoleAdmin  Role = "admin"
+	RoleMember Role = "member"
+)
+
+// User is a workspace member as seen by the rest of the app (no password hash).
+type User struct {
+	ID        uuid.UUID
+	Email     string
+	Name      string
+	Role      Role
+	Disabled  bool
+	CreatedAt time.Time
+}
+
+// IsAdmin reports Owner or Admin.
+func (u User) IsAdmin() bool { return u.Role == RoleOwner || u.Role == RoleAdmin }
+
+const sessionTTL = 30 * 24 * time.Hour
+
+// Service holds account business rules.
+type Service struct {
+	pool    *pgxpool.Pool
+	q       *q.Queries
+	now     func() time.Time
+	baseURL string
+
+	mu        sync.Mutex
+	setupCode string
+
+	loginFails *failureLimiter
+	setupFails *failureLimiter
+}
+
+// New builds the service; now is the clock (time.Now in production),
+// baseURL is the public URL used in invite links.
+func New(pool *pgxpool.Pool, now func() time.Time, baseURL string) *Service {
+	return &Service{
+		pool:       pool,
+		q:          q.New(pool),
+		now:        now,
+		baseURL:    strings.TrimRight(baseURL, "/"),
+		loginFails: newFailureLimiter(),
+		setupFails: newFailureLimiter(),
+	}
+}
+
+func toUser(u q.User) User {
+	return User{ID: u.ID, Email: u.Email, Name: u.Name, Role: Role(u.Role), Disabled: u.Disabled, CreatedAt: u.CreatedAt}
+}
+
+// inTx runs fn in a transaction.
+func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+}
+
+func isUniqueViolation(err error, constraint string) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505" && (constraint == "" || pgErr.ConstraintName == constraint)
+}
+
+func validateEmail(email string) (string, error) {
+	email = strings.TrimSpace(email)
+	if email == "" || len(email) > 254 || !strings.Contains(email, "@") {
+		return "", inputErr("email", "enter a valid email address")
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return "", inputErr("email", "enter a valid email address")
+	}
+	return email, nil
+}
+
+func validateText(field, v string) (string, error) {
+	v = strings.TrimSpace(v)
+	if n := utf8.RuneCountInString(v); n < 1 || n > 100 {
+		return "", inputErr(field, "must be 1–100 characters")
+	}
+	return v, nil
+}
+
+func hashPassword(pw string) (string, error) {
+	h, err := auth.HashPassword(pw)
+	if errors.Is(err, auth.ErrPasswordLength) {
+		return "", inputErr("password", auth.ErrPasswordLength.Error())
+	}
+	if err != nil {
+		return "", fmt.Errorf("hash password: %w", err)
+	}
+	return h, nil
+}
