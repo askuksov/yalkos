@@ -9,6 +9,9 @@ import (
 	"net/http"
 )
 
+// maxGraphQLBody caps GraphQL request bodies (1 MiB) so one request cannot exhaust memory.
+const maxGraphQLBody = 1 << 20
+
 // Deps are the handlers and services the router needs.
 type Deps struct {
 	// Ready reports whether the app can serve traffic (DB reachable, migrations applied).
@@ -40,7 +43,8 @@ func NewRouter(d Deps) http.Handler {
 	return logRequests(d.Logger, mux)
 }
 
-// postOnly rejects every method except POST with 405, so GET never falls through to the SPA.
+// postOnly rejects every method except POST with 405, so GET never falls through to the SPA,
+// and caps the body at maxGraphQLBody (413 when the declared length is larger).
 func postOnly(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -48,6 +52,11 @@ func postOnly(h http.Handler) http.Handler {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 			return
 		}
+		if r.ContentLength > maxGraphQLBody {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "request body too large"})
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxGraphQLBody)
 		h.ServeHTTP(w, r)
 	})
 }

@@ -181,3 +181,31 @@ func TestRequestLogged(t *testing.T) {
 		t.Errorf("log entry has no duration_ms: %v", entry)
 	}
 }
+
+func TestGraphQLBodyLimit(t *testing.T) {
+	h := newTestRouter(t, nil)
+	for _, p := range []string{"/graphql", "/api/graphql"} {
+		big := strings.NewReader(strings.Repeat("x", maxGraphQLBody+1))
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("POST", p, big))
+		if rec.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("POST %s with %d bytes → %d, want 413", p, maxGraphQLBody+1, rec.Code)
+		}
+	}
+}
+
+func TestGraphQLBodyLimitUnknownLength(t *testing.T) {
+	// Chunked body (no Content-Length): the handler must not be able to read past the limit.
+	var read int64
+	h := newTestRouter(t, func(d *Deps) {
+		d.LinearGraphQL = http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			read, _ = io.Copy(io.Discard, r.Body)
+		})
+	})
+	req := httptest.NewRequest("POST", "/graphql", io.MultiReader(strings.NewReader(strings.Repeat("x", maxGraphQLBody+10))))
+	req.ContentLength = -1
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	if read > maxGraphQLBody {
+		t.Errorf("handler read %d bytes, limit is %d", read, maxGraphQLBody)
+	}
+}

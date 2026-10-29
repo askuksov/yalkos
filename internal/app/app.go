@@ -52,7 +52,7 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", cfg.ListenAddr, err)
 	}
-	srv := &http.Server{Handler: router, ReadHeaderTimeout: 10 * time.Second}
+	srv := newServer(router)
 	addr := ln.Addr().String()
 	logger.Info("listening", slog.String("addr", addr))
 	if onListen != nil {
@@ -76,5 +76,16 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 			return fmt.Errorf("graceful shutdown: %w", err)
 		}
 		return nil
+	}
+}
+
+// newServer builds the HTTP server with connection timeouts, so slow or idle
+// clients cannot pile up connections.
+func newServer(h http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           h,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 }
