@@ -65,13 +65,14 @@ db-up: ## Start local PostgreSQL (Docker Compose)
 db-down: ## Stop local Docker Compose services
 	$(COMPOSE) down
 
-generate: ## Regenerate GraphQL code (gqlgen)
+generate: ## Regenerate code (sqlc, gqlgen)
+	go tool sqlc generate
 	go tool gqlgen generate --config gqlgen.native.yml
 	go tool gqlgen generate --config gqlgen.linear.yml
 
 check-generated: generate ## Fail if generated code is out of date
-	git diff --exit-code -- internal/graphql
-	@test -z "$$(git status --porcelain -- internal/graphql)" || (git status --porcelain -- internal/graphql; exit 1)
+	git diff --exit-code -- internal/graphql internal/store/q
+	@test -z "$$(git status --porcelain -- internal/graphql internal/store/q)" || (git status --porcelain -- internal/graphql internal/store/q; exit 1)
 
 fmt: ## Format Go code
 	golangci-lint fmt

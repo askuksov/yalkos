@@ -3,10 +3,13 @@ package cli
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
 
+	"github.com/askuksov/yalkos/db"
 	"github.com/askuksov/yalkos/internal/testdb"
 )
 
@@ -115,9 +118,11 @@ func TestRunMigrateStatus(t *testing.T) {
 	if code, _, errOut := run([]string{"migrate", "up"}, env); code != 0 {
 		t.Fatalf("migrate up exit = %d, stderr %q", code, errOut)
 	}
+	files, _ := fs.Glob(db.Migrations(), "*.sql")
+	want := fmt.Sprintf("current %d, latest %d\n", len(files), len(files))
 	code, out, _ := run([]string{"migrate", "status"}, env)
-	if code != 0 || out != "current 1, latest 1\n" {
-		t.Errorf("migrate status → %d %q, want 0 \"current 1, latest 1\\n\"", code, out)
+	if code != 0 || out != want {
+		t.Errorf("migrate status → %d %q, want 0 %q", code, out, want)
 	}
 }
 
