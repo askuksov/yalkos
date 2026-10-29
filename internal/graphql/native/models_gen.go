@@ -2,11 +2,128 @@
 
 package native
 
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+	"time"
+)
+
+type AcceptInviteInput struct {
+	Token    string `json:"token"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type APIKey struct {
+	ID            string     `json:"id"`
+	Name          string     `json:"name"`
+	DisplayPrefix string     `json:"displayPrefix"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	LastUsedAt    *time.Time `json:"lastUsedAt,omitempty"`
+}
+
+// Returned once, right after creation: key is never shown again.
+type CreatedAPIKey struct {
+	APIKey *APIKey `json:"apiKey"`
+	Key    string  `json:"key"`
+}
+
+// Returned once, right after creation: the URL contains the secret token.
+type CreatedInvite struct {
+	Invite *Invite `json:"invite"`
+	URL    string  `json:"url"`
+}
+
+type Invite struct {
+	ID        string    `json:"id"`
+	Role      Role      `json:"role"`
+	CreatedAt time.Time `json:"createdAt"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+type Mutation struct {
+}
+
 type Query struct {
 }
 
+type SetupInput struct {
+	Code          string `json:"code"`
+	WorkspaceName string `json:"workspaceName"`
+	Name          string `json:"name"`
+	Email         string `json:"email"`
+	Password      string `json:"password"`
+}
+
+type SetupStatus struct {
+	Needed bool `json:"needed"`
+}
+
 type User struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Role      Role      `json:"role"`
+	Disabled  bool      `json:"disabled"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type Role string
+
+const (
+	RoleOwner  Role = "OWNER"
+	RoleAdmin  Role = "ADMIN"
+	RoleMember Role = "MEMBER"
+)
+
+var AllRole = []Role{
+	RoleOwner,
+	RoleAdmin,
+	RoleMember,
+}
+
+func (e Role) IsValid() bool {
+	switch e {
+	case RoleOwner, RoleAdmin, RoleMember:
+		return true
+	}
+	return false
+}
+
+func (e Role) String() string {
+	return string(e)
+}
+
+func (e *Role) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = Role(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid Role", str)
+	}
+	return nil
+}
+
+func (e Role) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *Role) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e Role) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }

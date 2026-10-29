@@ -8,16 +8,243 @@ package native
 import (
 	"context"
 
-	"github.com/askuksov/yalkos/internal/graphql/gqlerr"
+	"github.com/askuksov/yalkos/internal/authn"
+	"github.com/askuksov/yalkos/internal/domain/account"
 )
+
+// Setup is the resolver for the setup field.
+func (r *mutationResolver) Setup(ctx context.Context, input SetupInput) (*User, error) {
+	u, token, err := r.Accounts.Setup(ctx, account.SetupInput{
+		Code: input.Code, WorkspaceName: input.WorkspaceName, Name: input.Name, Email: input.Email, Password: input.Password,
+	}, authn.ClientIP(ctx))
+	if err != nil {
+		return nil, err
+	}
+	authn.SetSessionCookie(ctx, token)
+	return userOut(u), nil
+}
+
+// Login is the resolver for the login field.
+func (r *mutationResolver) Login(ctx context.Context, email string, password string) (*User, error) {
+	u, token, err := r.Accounts.Login(ctx, email, password, authn.ClientIP(ctx))
+	if err != nil {
+		return nil, err
+	}
+	authn.SetSessionCookie(ctx, token)
+	return userOut(u), nil
+}
+
+// Logout is the resolver for the logout field.
+func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
+	if a, ok := authn.ActorFrom(ctx); ok && a.Via == "session" {
+		if err := r.Accounts.Logout(ctx, a.SessionToken); err != nil {
+			return false, err
+		}
+	}
+	authn.ClearSessionCookie(ctx)
+	return true, nil
+}
+
+// ChangePassword is the resolver for the changePassword field.
+func (r *mutationResolver) ChangePassword(ctx context.Context, current string, next string) (bool, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return false, err
+	}
+	if err := r.Accounts.ChangePassword(ctx, a.User.ID, current, next, a.SessionToken); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// AcceptInvite is the resolver for the acceptInvite field.
+func (r *mutationResolver) AcceptInvite(ctx context.Context, input AcceptInviteInput) (*User, error) {
+	u, token, err := r.Accounts.AcceptInvite(ctx, input.Token, input.Name, input.Email, input.Password)
+	if err != nil {
+		return nil, err
+	}
+	authn.SetSessionCookie(ctx, token)
+	return userOut(u), nil
+}
+
+// CreateInvite is the resolver for the createInvite field.
+func (r *mutationResolver) CreateInvite(ctx context.Context, role Role, expiresInDays *int) (*CreatedInvite, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	days := 7
+	if expiresInDays != nil {
+		days = *expiresInDays
+	}
+	inv, err := r.Accounts.CreateInvite(ctx, a.User, roleIn(role), days)
+	if err != nil {
+		return nil, err
+	}
+	return &CreatedInvite{Invite: inviteOut(inv), URL: inv.URL}, nil
+}
+
+// RevokeInvite is the resolver for the revokeInvite field.
+func (r *mutationResolver) RevokeInvite(ctx context.Context, id string) (bool, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return false, err
+	}
+	uid, err := parseID("id", id)
+	if err != nil {
+		return false, err
+	}
+	if err := r.Accounts.RevokeInvite(ctx, a.User, uid); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// UpdateMemberRole is the resolver for the updateMemberRole field.
+func (r *mutationResolver) UpdateMemberRole(ctx context.Context, userID string, role Role) (*User, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uid, err := parseID("userId", userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.Accounts.UpdateMemberRole(ctx, a.User, uid, roleIn(role)); err != nil {
+		return nil, err
+	}
+	u, err := r.Accounts.Member(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	return userOut(u), nil
+}
+
+// SetMemberDisabled is the resolver for the setMemberDisabled field.
+func (r *mutationResolver) SetMemberDisabled(ctx context.Context, userID string, disabled bool) (*User, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uid, err := parseID("userId", userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.Accounts.SetMemberDisabled(ctx, a.User, uid, disabled); err != nil {
+		return nil, err
+	}
+	u, err := r.Accounts.Member(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	return userOut(u), nil
+}
+
+// CreateAPIKey is the resolver for the createApiKey field.
+func (r *mutationResolver) CreateAPIKey(ctx context.Context, name string) (*CreatedAPIKey, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	k, plain, err := r.Accounts.CreateAPIKey(ctx, a.User, name)
+	if err != nil {
+		return nil, err
+	}
+	return &CreatedAPIKey{APIKey: apiKeyOut(k), Key: plain}, nil
+}
+
+// RevokeAPIKey is the resolver for the revokeApiKey field.
+func (r *mutationResolver) RevokeAPIKey(ctx context.Context, id string) (bool, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return false, err
+	}
+	kid, err := parseID("id", id)
+	if err != nil {
+		return false, err
+	}
+	if err := r.Accounts.RevokeAPIKey(ctx, a.User, kid); err != nil {
+		return false, err
+	}
+	return true, nil
+}
 
 // Viewer is the resolver for the viewer field.
 func (r *queryResolver) Viewer(ctx context.Context) (*User, error) {
-	// Stub until accounts and API keys land (M2).
-	return nil, gqlerr.Unauthenticated(ctx)
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return userOut(a.User), nil
 }
+
+// SetupStatus is the resolver for the setupStatus field.
+func (r *queryResolver) SetupStatus(ctx context.Context) (*SetupStatus, error) {
+	needed, err := r.Accounts.SetupNeeded(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &SetupStatus{Needed: needed}, nil
+}
+
+// Members is the resolver for the members field.
+func (r *queryResolver) Members(ctx context.Context) ([]User, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	users, err := r.Accounts.ListMembers(ctx, a.User)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]User, 0, len(users))
+	for _, u := range users {
+		out = append(out, *userOut(u))
+	}
+	return out, nil
+}
+
+// Invites is the resolver for the invites field.
+func (r *queryResolver) Invites(ctx context.Context) ([]Invite, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	invites, err := r.Accounts.ListInvites(ctx, a.User)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Invite, 0, len(invites))
+	for _, i := range invites {
+		out = append(out, *inviteOut(i))
+	}
+	return out, nil
+}
+
+// APIKeys is the resolver for the apiKeys field.
+func (r *queryResolver) APIKeys(ctx context.Context) ([]APIKey, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	keys, err := r.Accounts.ListAPIKeys(ctx, a.User)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]APIKey, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, *apiKeyOut(k))
+	}
+	return out, nil
+}
+
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
-type queryResolver struct{ *Resolver }
+type (
+	mutationResolver struct{ *Resolver }
+	queryResolver    struct{ *Resolver }
+)

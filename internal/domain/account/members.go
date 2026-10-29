@@ -80,3 +80,12 @@ func (s *Service) SetMemberDisabled(ctx context.Context, actor User, userID uuid
 		return nil
 	})
 }
+
+// Member returns one user by ID.
+func (s *Service) Member(ctx context.Context, id uuid.UUID) (User, error) {
+	u, err := s.target(ctx, id)
+	if err != nil {
+		return User{}, err
+	}
+	return toUser(u), nil
+}

@@ -1,12 +1,87 @@
 # Yalkos native API (used by the web UI). Yalkos entity names only — see ADR-006.
 
-type Query {
-  "The authenticated user."
-  viewer: User!
+scalar Time
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
 }
 
 type User {
   id: ID!
   name: String!
   email: String!
+  role: Role!
+  disabled: Boolean!
+  createdAt: Time!
+}
+
+type Invite {
+  id: ID!
+  role: Role!
+  createdAt: Time!
+  expiresAt: Time!
+}
+
+"Returned once, right after creation: the URL contains the secret token."
+type CreatedInvite {
+  invite: Invite!
+  url: String!
+}
+
+type ApiKey {
+  id: ID!
+  name: String!
+  displayPrefix: String!
+  createdAt: Time!
+  lastUsedAt: Time
+}
+
+"Returned once, right after creation: key is never shown again."
+type CreatedApiKey {
+  apiKey: ApiKey!
+  key: String!
+}
+
+type SetupStatus {
+  needed: Boolean!
+}
+
+type Query {
+  "The authenticated user."
+  viewer: User!
+  setupStatus: SetupStatus!
+  members: [User!]!
+  invites: [Invite!]!
+  apiKeys: [ApiKey!]!
+}
+
+input SetupInput {
+  code: String!
+  workspaceName: String!
+  name: String!
+  email: String!
+  password: String!
+}
+
+input AcceptInviteInput {
+  token: String!
+  name: String!
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  setup(input: SetupInput!): User!
+  login(email: String!, password: String!): User!
+  logout: Boolean!
+  changePassword(current: String!, next: String!): Boolean!
+  acceptInvite(input: AcceptInviteInput!): User!
+  createInvite(role: Role!, expiresInDays: Int = 7): CreatedInvite!
+  revokeInvite(id: ID!): Boolean!
+  updateMemberRole(userId: ID!, role: Role!): User!
+  setMemberDisabled(userId: ID!, disabled: Boolean!): User!
+  createApiKey(name: String!): CreatedApiKey!
+  revokeApiKey(id: ID!): Boolean!
 }

@@ -9,10 +9,13 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/askuksov/yalkos/db"
+	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/config"
+	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/graphql/linear"
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/httpapi"
@@ -40,12 +43,22 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	}
 	logger.Info("migrations applied", slog.Int64("version", current))
 
+	baseURL := cfg.BaseURL
+	if baseURL == nil {
+		baseURL = &url.URL{Scheme: "http", Host: "localhost:8080"}
+	}
+	accounts := account.New(pool, time.Now, baseURL.String())
+	if err := accounts.RefreshSetupCode(ctx); err != nil {
+		return err
+	}
+
 	router := httpapi.NewRouter(httpapi.Deps{
 		Ready:         func(c context.Context) error { return store.Ready(c, pool, migrations) },
 		UI:            ui,
-		NativeGraphQL: native.NewHandler(),
+		NativeGraphQL: native.NewHandler(accounts, logger),
 		LinearGraphQL: linear.NewHandler(),
 		Logger:        logger,
+		Auth:          authn.Middleware(accounts, baseURL, logger),
 	})
 
 	ln, err := net.Listen("tcp", cfg.ListenAddr)
