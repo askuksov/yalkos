@@ -2,9 +2,12 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/askuksov/yalkos/internal/testdb"
 )
 
 func run(args []string, env Env) (code int, stdout, stderr string) {
@@ -87,6 +90,43 @@ func TestRunUnknownCommand(t *testing.T) {
 	for _, s := range []string{`unknown command "frobnicate"`, "Usage: yalkos <command>"} {
 		if !strings.Contains(errOut, s) {
 			t.Errorf("stderr %q does not contain %q", errOut, s)
+		}
+	}
+}
+
+func TestRunServeMissingDatabaseURL(t *testing.T) {
+	code, _, errOut := run([]string{"serve"}, Env{Ctx: context.Background(), Getenv: func(string) string { return "" }})
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	if !strings.Contains(errOut, "DATABASE_URL is required") {
+		t.Errorf("stderr = %q", errOut)
+	}
+}
+
+func TestRunMigrateStatus(t *testing.T) {
+	url, _ := testdb.New(t)
+	env := Env{Ctx: context.Background(), Getenv: func(k string) string {
+		if k == "DATABASE_URL" {
+			return url
+		}
+		return ""
+	}}
+	if code, _, errOut := run([]string{"migrate", "up"}, env); code != 0 {
+		t.Fatalf("migrate up exit = %d, stderr %q", code, errOut)
+	}
+	code, out, _ := run([]string{"migrate", "status"}, env)
+	if code != 0 || out != "current 1, latest 1\n" {
+		t.Errorf("migrate status → %d %q, want 0 \"current 1, latest 1\\n\"", code, out)
+	}
+}
+
+func TestRunMigrateUnknown(t *testing.T) {
+	env := Env{Ctx: context.Background(), Getenv: func(string) string { return "postgres://x" }}
+	for _, args := range [][]string{{"migrate"}, {"migrate", "sideways"}} {
+		code, _, errOut := run(args, env)
+		if code != 2 || !strings.Contains(errOut, "Usage: yalkos <command>") {
+			t.Errorf("%v → %d %q, want 2 + usage", args, code, errOut)
 		}
 	}
 }
