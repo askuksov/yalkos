@@ -2,7 +2,7 @@
 
 Lightweight, self-hosted issue tracker with a Linear-compatible API.
 
-> Status: early development. The server starts and serves an empty shell; there are no features yet.
+> Status: early development. Accounts, invites and API keys work; issues come next.
 
 ## Run with Docker
 
@@ -15,6 +15,47 @@ docker compose up -d
 Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containers start: `app` and `db` (PostgreSQL 18). Migrations run automatically on start. Only the app port is published; the database is reachable from the `app` container only.
 
 PostgreSQL stores the password when its data volume is first created; changing `YALKOS_DB_PASSWORD` later requires changing it inside the database as well.
+
+Behind a domain, set the public URL in `deploy/.env` (invite links and secure cookies depend on it):
+
+```sh
+YALKOS_BASE_URL=https://app.example.com
+```
+
+### First run
+
+A fresh instance prints a one-time setup link in its log. Whoever opens it first becomes the Owner:
+
+```sh
+docker compose logs app | grep "setup required"
+# {"level":"WARN","msg":"setup required","url":"http://localhost:8080/setup?code=7EV2RUJH"}
+```
+
+The code changes on every restart until setup is done. After that, invite people from **Members** (links are single-use and expire after 7 days).
+
+Forgot the password? There is no email in this version; reset it from the server:
+
+```sh
+docker compose exec -T app /yalkos user set-password --email you@example.com <<< 'new-password'
+```
+
+### API keys
+
+Create a key under **API keys** (it is shown once). Keys look like `yal_api_…` and work with both endpoints:
+
+| Endpoint | For |
+| :--- | :--- |
+| `POST /graphql` | Linear-compatible API (`@linear/sdk`, Linear tools) |
+| `POST /api/graphql` | Yalkos API |
+
+```ts
+import { LinearClient } from '@linear/sdk'
+
+const linear = new LinearClient({ apiKey: process.env.YALKOS_API_KEY, apiUrl: 'https://app.example.com/graphql' })
+const me = await linear.viewer
+```
+
+Send the key as `Authorization: <key>` or `Authorization: Bearer <key>`.
 
 ## Development
 
@@ -41,6 +82,7 @@ Server configuration (environment variables):
 | `DATABASE_URL` | — (required) | PostgreSQL connection string |
 | `LISTEN_ADDR` | `:8080` | HTTP listen address |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
+| `BASE_URL` | `http://localhost:8080` | Public URL (invite links, `Secure` cookies for https) |
 
 Local ports used by `make dev` / `make test`, override if they are taken:
 

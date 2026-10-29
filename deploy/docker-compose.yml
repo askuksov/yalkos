@@ -15,6 +15,8 @@ services:
     environment:
       DATABASE_URL: postgres://yalkos:${YALKOS_DB_PASSWORD:?set YALKOS_DB_PASSWORD, see README}@db:5432/yalkos?sslmode=disable
       LOG_LEVEL: info
+      # Public URL: invite links and Secure cookies (https) depend on it.
+      BASE_URL: ${YALKOS_BASE_URL:-http://localhost:${YALKOS_PORT:-8080}}
     depends_on:
       db:
         condition: service_healthy
