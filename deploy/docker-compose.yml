@@ -21,13 +21,14 @@ services:
     restart: unless-stopped
 
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: yalkos
       POSTGRES_PASSWORD: ${YALKOS_DB_PASSWORD:?set YALKOS_DB_PASSWORD, see README}
       POSTGRES_DB: yalkos
     volumes:
-      - yalkos-db:/var/lib/postgresql/data
+      # PostgreSQL 18+ images keep data under /var/lib/postgresql/<major>/docker.
+      - yalkos-pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U yalkos"]
       interval: 2s
@@ -35,4 +36,4 @@ services:
       retries: 30
 
 volumes:
-  yalkos-db:
+  yalkos-pgdata:

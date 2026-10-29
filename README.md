@@ -12,7 +12,7 @@ echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env   # once; keep this fil
 docker compose up -d
 ```
 
-Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containers start: `app` and `db` (PostgreSQL 16). Migrations run automatically on start. Only the app port is published; the database is reachable from the `app` container only.
+Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containers start: `app` and `db` (PostgreSQL 18). Migrations run automatically on start. Only the app port is published; the database is reachable from the `app` container only.
 
 PostgreSQL stores the password when its data volume is first created; changing `YALKOS_DB_PASSWORD` later requires changing it inside the database as well.
 
