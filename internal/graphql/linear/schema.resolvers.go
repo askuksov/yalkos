@@ -8,13 +8,17 @@ package linear
 import (
 	"context"
 
-	"github.com/askuksov/yalkos/internal/graphql/gqlerr"
+	"github.com/askuksov/yalkos/internal/authn"
+	"github.com/askuksov/yalkos/internal/domain/account"
 )
 
 // Viewer is the resolver for the viewer field.
 func (r *queryResolver) Viewer(ctx context.Context) (*User, error) {
-	// Stub until accounts and API keys land (M2).
-	return nil, gqlerr.Unauthenticated(ctx)
+	a, ok := authn.ActorFrom(ctx)
+	if !ok {
+		return nil, account.ErrUnauthenticated
+	}
+	return userOut(a.User), nil
 }
 
 // Query returns QueryResolver implementation.

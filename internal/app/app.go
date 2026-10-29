@@ -56,7 +56,7 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 		Ready:         func(c context.Context) error { return store.Ready(c, pool, migrations) },
 		UI:            ui,
 		NativeGraphQL: native.NewHandler(accounts, logger),
-		LinearGraphQL: linear.NewHandler(),
+		LinearGraphQL: linear.NewHandler(accounts, logger),
 		Logger:        logger,
 		Auth:          authn.Middleware(accounts, baseURL, logger),
 	})
