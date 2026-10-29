@@ -230,3 +230,24 @@ func TestGraphQLBodyLimitUnknownLength(t *testing.T) {
 		t.Errorf("handler read %d bytes, limit is %d", read, maxGraphQLBody)
 	}
 }
+
+func TestAuthMiddlewareOnlyOnGraphQL(t *testing.T) {
+	h := newTestRouter(t, func(d *Deps) {
+		d.Auth = func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("X-Auth-Seen", "1")
+				next.ServeHTTP(w, r)
+			})
+		}
+	})
+	for _, p := range []string{"/graphql", "/api/graphql"} {
+		if rec := do(h, "POST", p); rec.Header().Get("X-Auth-Seen") != "1" {
+			t.Errorf("POST %s not wrapped by auth middleware", p)
+		}
+	}
+	for _, p := range []string{"/healthz", "/", "/assets/app.js"} {
+		if rec := do(h, "GET", p); rec.Header().Get("X-Auth-Seen") != "" {
+			t.Errorf("GET %s wrapped by auth middleware", p)
+		}
+	}
+}

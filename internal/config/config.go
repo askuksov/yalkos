@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 )
 
 // Config is the process configuration.
@@ -15,6 +16,9 @@ type Config struct {
 	ListenAddr string
 	// LogLevel is the minimum log level (LOG_LEVEL: debug|info|warn|error, default info).
 	LogLevel slog.Level
+	// BaseURL is the public URL of the app (BASE_URL, default http://localhost:8080),
+	// used for links and to decide whether cookies are Secure.
+	BaseURL *url.URL
 }
 
 // Load reads the configuration through getenv (os.Getenv in production).
@@ -35,5 +39,24 @@ func Load(getenv func(string) string) (Config, error) {
 			return Config{}, fmt.Errorf("LOG_LEVEL: unknown level %q", lvl)
 		}
 	}
+	base, err := parseBaseURL(getenv("BASE_URL"))
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.BaseURL = base
 	return cfg, nil
+}
+
+func parseBaseURL(raw string) (*url.URL, error) {
+	if raw == "" {
+		raw = "http://localhost:8080"
+	}
+	u, err := url.Parse(raw)
+	bad := err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+		(u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != ""
+	if bad {
+		return nil, fmt.Errorf("BASE_URL: %q must be an absolute http(s) URL without a path", raw)
+	}
+	u.Path = ""
+	return u, nil
 }

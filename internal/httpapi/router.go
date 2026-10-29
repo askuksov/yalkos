@@ -22,6 +22,8 @@ type Deps struct {
 	NativeGraphQL http.Handler
 	LinearGraphQL http.Handler
 	Logger        *slog.Logger
+	// Auth wraps the GraphQL endpoints with request authentication (nil = none).
+	Auth func(http.Handler) http.Handler
 }
 
 // NewRouter returns the root HTTP handler.
@@ -31,8 +33,12 @@ func NewRouter(d Deps) http.Handler {
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.Handle("GET /readyz", readyz(d.Ready, d.Logger))
 
-	mux.Handle("/api/graphql", postOnly(d.NativeGraphQL))
-	mux.Handle("/graphql", postOnly(d.LinearGraphQL))
+	authWrap := d.Auth
+	if authWrap == nil {
+		authWrap = func(h http.Handler) http.Handler { return h }
+	}
+	mux.Handle("/api/graphql", postOnly(authWrap(d.NativeGraphQL)))
+	mux.Handle("/graphql", postOnly(authWrap(d.LinearGraphQL)))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})

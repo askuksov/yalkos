@@ -56,3 +56,20 @@ func TestLoadInvalidLogLevel(t *testing.T) {
 		t.Fatalf("err = %v, want LOG_LEVEL unknown level", err)
 	}
 }
+
+func TestBaseURLDefaultAndValidation(t *testing.T) {
+	cfg, err := Load(env(map[string]string{"DATABASE_URL": "postgres://x"}))
+	if err != nil || cfg.BaseURL.String() != "http://localhost:8080" {
+		t.Fatalf("default BaseURL = %v, err %v", cfg.BaseURL, err)
+	}
+	cfg, err = Load(env(map[string]string{"DATABASE_URL": "postgres://x", "BASE_URL": "https://app.yalkos.com/"}))
+	if err != nil || cfg.BaseURL.String() != "https://app.yalkos.com" {
+		t.Errorf("https BaseURL = %v, err %v", cfg.BaseURL, err)
+	}
+	for _, bad := range []string{"ftp://x", "localhost", "https://x/path", "http://"} {
+		_, err := Load(env(map[string]string{"DATABASE_URL": "postgres://x", "BASE_URL": bad}))
+		if err == nil || !strings.Contains(err.Error(), "BASE_URL") {
+			t.Errorf("%q: err = %v, want BASE_URL error", bad, err)
+		}
+	}
+}
