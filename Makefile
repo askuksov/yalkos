@@ -46,7 +46,8 @@ dev: web-deps db-up ## Run Go server (YALKOS_PORT, default 8080) and Vite (YALKO
 	$(MAKE) -j2 dev-go dev-web
 
 dev-go:
-	DATABASE_URL="$(DEV_DATABASE_URL)" LISTEN_ADDR=:$(YALKOS_PORT) go run ./cmd/yalkos serve
+	# BASE_URL is the Vite origin: the browser talks to Vite, which proxies to Go.
+	DATABASE_URL="$(DEV_DATABASE_URL)" LISTEN_ADDR=:$(YALKOS_PORT) BASE_URL=http://localhost:$(YALKOS_WEB_PORT) go run ./cmd/yalkos serve
 
 dev-web:
 	$(PNPM) dev --port $(YALKOS_WEB_PORT) --strictPort
@@ -65,14 +66,15 @@ db-up: ## Start local PostgreSQL (Docker Compose)
 db-down: ## Stop local Docker Compose services
 	$(COMPOSE) down
 
-generate: ## Regenerate code (sqlc, gqlgen)
+generate: web-deps ## Regenerate code (sqlc, gqlgen, web GraphQL types)
 	go tool sqlc generate
 	go tool gqlgen generate --config gqlgen.native.yml
 	go tool gqlgen generate --config gqlgen.linear.yml
+	$(PNPM) codegen
 
 check-generated: generate ## Fail if generated code is out of date
-	git diff --exit-code -- internal/graphql internal/store/q
-	@test -z "$$(git status --porcelain -- internal/graphql internal/store/q)" || (git status --porcelain -- internal/graphql internal/store/q; exit 1)
+	git diff --exit-code -- internal/graphql internal/store/q web/src/gql
+	@test -z "$$(git status --porcelain -- internal/graphql internal/store/q web/src/gql)" || (git status --porcelain -- internal/graphql internal/store/q web/src/gql; exit 1)
 
 fmt: ## Format Go code
 	golangci-lint fmt
