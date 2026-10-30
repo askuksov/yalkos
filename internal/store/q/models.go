@@ -21,6 +21,17 @@ type ApiKey struct {
 	RevokedAt     *time.Time
 }
 
+type AuditEvent struct {
+	ID         uuid.UUID
+	EntityType string
+	EntityID   uuid.UUID
+	ProjectID  *uuid.UUID
+	ActorID    *uuid.UUID
+	Action     string
+	Changes    []byte
+	CreatedAt  time.Time
+}
+
 type Invite struct {
 	ID        uuid.UUID
 	TokenHash []byte
@@ -33,11 +44,75 @@ type Invite struct {
 	RevokedAt *time.Time
 }
 
+type Issue struct {
+	ID          uuid.UUID
+	ProjectID   uuid.UUID
+	Number      int32
+	Title       string
+	Description string
+	StateID     uuid.UUID
+	Priority    int16
+	AssigneeID  *uuid.UUID
+	CreatorID   uuid.UUID
+	ParentID    *uuid.UUID
+	DueDate     *time.Time
+	SortOrder   float64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	CompletedAt *time.Time
+	CanceledAt  *time.Time
+	DeletedAt   *time.Time
+}
+
+type IssueNumber struct {
+	ProjectID uuid.UUID
+	Number    int32
+	IssueID   uuid.UUID
+}
+
+type Project struct {
+	ID              uuid.UUID
+	WorkspaceID     uuid.UUID
+	Key             string
+	Name            string
+	Description     string
+	Icon            *string
+	Color           *string
+	SequenceCounter int32
+	CreatedBy       *uuid.UUID
+	ArchivedAt      *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type ProjectKey struct {
+	Key       string
+	ProjectID uuid.UUID
+}
+
+type ProjectMember struct {
+	ProjectID uuid.UUID
+	UserID    uuid.UUID
+	CreatedAt time.Time
+}
+
 type Session struct {
 	TokenHash []byte
 	UserID    uuid.UUID
 	CreatedAt time.Time
 	ExpiresAt time.Time
+}
+
+type State struct {
+	ID        uuid.UUID
+	ProjectID uuid.UUID
+	Name      string
+	Type      string
+	Color     string
+	Position  int32
+	IsDefault bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type User struct {
