@@ -1,0 +1,95 @@
+# Projects (issue containers), their workflow states and members.
+
+enum StateType {
+  BACKLOG
+  UNSTARTED
+  STARTED
+  COMPLETED
+  CANCELED
+}
+
+type Project {
+  id: ID!
+  key: String!
+  name: String!
+  description: String!
+  icon: String
+  color: String
+  archivedAt: Time
+  createdAt: Time!
+  updatedAt: Time!
+  "Ordered by position."
+  states: [State!]!
+  "In the order they joined."
+  members: [User!]!
+}
+
+type ProjectEdge {
+  node: Project!
+  cursor: String!
+}
+
+type ProjectConnection {
+  nodes: [Project!]!
+  edges: [ProjectEdge!]!
+  pageInfo: PageInfo!
+}
+
+type State {
+  id: ID!
+  name: String!
+  type: StateType!
+  color: String!
+  position: Int!
+  isDefault: Boolean!
+  project: Project!
+}
+
+input CreateProjectInput {
+  key: String!
+  name: String!
+  description: String
+  icon: String
+  color: String
+}
+
+"Omitted fields stay; explicit null clears icon and color."
+input UpdateProjectInput {
+  key: String
+  name: String
+  description: String
+  icon: String
+  color: String
+}
+
+input CreateStateInput {
+  name: String!
+  type: StateType!
+  color: String!
+}
+
+input UpdateStateInput {
+  name: String
+  color: String
+  isDefault: Boolean
+}
+
+extend type Query {
+  projects(includeArchived: Boolean = false, first: Int, after: String, last: Int, before: String): ProjectConnection!
+  "UUID, current key or former key."
+  project(id: String!): Project!
+}
+
+extend type Mutation {
+  createProject(input: CreateProjectInput!): Project!
+  updateProject(id: ID!, input: UpdateProjectInput!): Project!
+  archiveProject(id: ID!): Project!
+  unarchiveProject(id: ID!): Project!
+  deleteProject(id: ID!, confirmKey: String!): Boolean!
+  addProjectMember(projectId: ID!, userId: ID!): Project!
+  removeProjectMember(projectId: ID!, userId: ID!): Project!
+  createState(projectId: ID!, input: CreateStateInput!): State!
+  updateState(id: ID!, input: UpdateStateInput!): State!
+  reorderStates(projectId: ID!, stateIds: [ID!]!): [State!]!
+  deleteState(id: ID!, moveIssuesTo: ID): Boolean!
+}

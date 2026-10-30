@@ -12,7 +12,7 @@ const config: CodegenConfig = {
       config: {
         useTypeImports: true,
         enumsAsTypes: true,
-        scalars: { Time: 'string' },
+        scalars: { Time: 'string', Date: 'string' },
       },
     },
   },

@@ -6,6 +6,12 @@ linters:
     - misspell
     - revive
     - gocritic
+  exclusions:
+    rules:
+      # gqlgen names resolver parameters after schema arguments (stateIds).
+      - path: \.resolvers\.go$
+        linters: [revive]
+        text: "var-naming: method parameter"
 
 formatters:
   enable:

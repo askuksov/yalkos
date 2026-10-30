@@ -8,6 +8,8 @@ import (
 	"io"
 	"strconv"
 	"time"
+
+	"github.com/99designs/gqlgen/graphql"
 )
 
 type AcceptInviteInput struct {
@@ -23,6 +25,20 @@ type APIKey struct {
 	DisplayPrefix string     `json:"displayPrefix"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	LastUsedAt    *time.Time `json:"lastUsedAt,omitempty"`
+}
+
+type CreateProjectInput struct {
+	Key         string                     `json:"key"`
+	Name        string                     `json:"name"`
+	Description graphql.Omittable[*string] `json:"description,omitempty"`
+	Icon        graphql.Omittable[*string] `json:"icon,omitempty"`
+	Color       graphql.Omittable[*string] `json:"color,omitempty"`
+}
+
+type CreateStateInput struct {
+	Name  string    `json:"name"`
+	Type  StateType `json:"type"`
+	Color string    `json:"color"`
 }
 
 // Returned once, right after creation: key is never shown again.
@@ -47,6 +63,24 @@ type Invite struct {
 type Mutation struct {
 }
 
+type PageInfo struct {
+	HasNextPage     bool    `json:"hasNextPage"`
+	HasPreviousPage bool    `json:"hasPreviousPage"`
+	StartCursor     *string `json:"startCursor,omitempty"`
+	EndCursor       *string `json:"endCursor,omitempty"`
+}
+
+type ProjectConnection struct {
+	Nodes    []Project     `json:"nodes"`
+	Edges    []ProjectEdge `json:"edges"`
+	PageInfo *PageInfo     `json:"pageInfo"`
+}
+
+type ProjectEdge struct {
+	Node   *Project `json:"node"`
+	Cursor string   `json:"cursor"`
+}
+
 type Query struct {
 }
 
@@ -62,6 +96,21 @@ type SetupStatus struct {
 	Needed bool `json:"needed"`
 }
 
+// Omitted fields stay; explicit null clears icon and color.
+type UpdateProjectInput struct {
+	Key         graphql.Omittable[*string] `json:"key,omitempty"`
+	Name        graphql.Omittable[*string] `json:"name,omitempty"`
+	Description graphql.Omittable[*string] `json:"description,omitempty"`
+	Icon        graphql.Omittable[*string] `json:"icon,omitempty"`
+	Color       graphql.Omittable[*string] `json:"color,omitempty"`
+}
+
+type UpdateStateInput struct {
+	Name      graphql.Omittable[*string] `json:"name,omitempty"`
+	Color     graphql.Omittable[*string] `json:"color,omitempty"`
+	IsDefault graphql.Omittable[*bool]   `json:"isDefault,omitempty"`
+}
+
 type User struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
@@ -69,6 +118,61 @@ type User struct {
 	Role      Role      `json:"role"`
 	Disabled  bool      `json:"disabled"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+type OrderDirection string
+
+const (
+	OrderDirectionAsc  OrderDirection = "ASC"
+	OrderDirectionDesc OrderDirection = "DESC"
+)
+
+var AllOrderDirection = []OrderDirection{
+	OrderDirectionAsc,
+	OrderDirectionDesc,
+}
+
+func (e OrderDirection) IsValid() bool {
+	switch e {
+	case OrderDirectionAsc, OrderDirectionDesc:
+		return true
+	}
+	return false
+}
+
+func (e OrderDirection) String() string {
+	return string(e)
+}
+
+func (e *OrderDirection) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = OrderDirection(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid OrderDirection", str)
+	}
+	return nil
+}
+
+func (e OrderDirection) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *OrderDirection) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e OrderDirection) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 type Role string
@@ -123,6 +227,67 @@ func (e *Role) UnmarshalJSON(b []byte) error {
 }
 
 func (e Role) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type StateType string
+
+const (
+	StateTypeBacklog   StateType = "BACKLOG"
+	StateTypeUnstarted StateType = "UNSTARTED"
+	StateTypeStarted   StateType = "STARTED"
+	StateTypeCompleted StateType = "COMPLETED"
+	StateTypeCanceled  StateType = "CANCELED"
+)
+
+var AllStateType = []StateType{
+	StateTypeBacklog,
+	StateTypeUnstarted,
+	StateTypeStarted,
+	StateTypeCompleted,
+	StateTypeCanceled,
+}
+
+func (e StateType) IsValid() bool {
+	switch e {
+	case StateTypeBacklog, StateTypeUnstarted, StateTypeStarted, StateTypeCompleted, StateTypeCanceled:
+		return true
+	}
+	return false
+}
+
+func (e StateType) String() string {
+	return string(e)
+}
+
+func (e *StateType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = StateType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid StateType", str)
+	}
+	return nil
+}
+
+func (e StateType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *StateType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e StateType) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

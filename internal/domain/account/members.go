@@ -99,3 +99,22 @@ func (s *Service) Member(ctx context.Context, id uuid.UUID) (User, error) {
 	}
 	return toUser(u), nil
 }
+
+// UsersByIDs loads users (disabled included) in the order of ids; missing ones are omitted.
+func (s *Service) UsersByIDs(ctx context.Context, ids []uuid.UUID) ([]User, error) {
+	rows, err := s.q.ListUsersByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("users by ids: %w", err)
+	}
+	byID := make(map[uuid.UUID]q.User, len(rows))
+	for _, r := range rows {
+		byID[r.ID] = r
+	}
+	out := make([]User, 0, len(ids))
+	for _, id := range ids {
+		if u, ok := byID[id]; ok {
+			out = append(out, toUser(u))
+		}
+	}
+	return out, nil
+}

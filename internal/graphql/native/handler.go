@@ -11,14 +11,30 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/graphql/gqlerr"
 )
 
 const maxComplexity = 200
 
+// Deps are the services behind the native API.
+type Deps struct {
+	Accounts *account.Service
+	Projects *project.Service
+	Issues   *issue.Service
+	Audit    *audit.Service
+	Logger   *slog.Logger
+}
+
 // NewHandler serves the native schema over POST only, with introspection enabled.
-func NewHandler(accounts *account.Service, logger *slog.Logger) http.Handler {
-	srv := handler.New(NewExecutableSchema(Config{Resolvers: &Resolver{Accounts: accounts, Logger: logger}}))
+// Each request gets its own loaders (batched lookups by id).
+func NewHandler(d Deps) http.Handler {
+	logger := d.Logger
+	srv := handler.New(NewExecutableSchema(Config{Resolvers: &Resolver{
+		Accounts: d.Accounts, Projects: d.Projects, Issues: d.Issues, Audit: d.Audit, Logger: logger,
+	}}))
 	srv.AddTransport(transport.POST{})
 	srv.Use(extension.Introspection{})
 	// Caps aliases/fields per request (no batching thousands of logins in one body).
@@ -26,5 +42,5 @@ func NewHandler(accounts *account.Service, logger *slog.Logger) http.Handler {
 	srv.SetErrorPresenter(gqlerr.Presenter(func(_ context.Context, err error) {
 		logger.Error("graphql internal error", slog.String("api", "native"), slog.String("error", err.Error()))
 	}))
-	return srv
+	return withLoaders(d, srv)
 }
