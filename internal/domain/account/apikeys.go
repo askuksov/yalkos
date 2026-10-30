@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/askuksov/yalkos/internal/auth"
+	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/store/q"
 )
 
@@ -57,7 +58,7 @@ func (s *Service) ListAPIKeys(ctx context.Context, actor User) ([]APIKey, error)
 func (s *Service) RevokeAPIKey(ctx context.Context, actor User, id uuid.UUID) error {
 	k, err := s.q.GetAPIKey(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return inputErr("id", "no such API key")
+		return kit.Input("id", kit.ReasonNotFound, "no such API key")
 	}
 	if err != nil {
 		return fmt.Errorf("find api key: %w", err)

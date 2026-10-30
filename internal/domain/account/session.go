@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/askuksov/yalkos/internal/auth"
+	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/store/q"
 )
 
@@ -148,8 +149,11 @@ func (s *Service) newSession(ctx context.Context, tx *q.Queries, userID uuid.UUI
 // Login checks email + password and opens a new session.
 func (s *Service) Login(ctx context.Context, email, password, ip string) (User, string, error) {
 	email = strings.TrimSpace(email)
-	if email == "" || len(email) > 254 {
-		return User{}, "", inputErr("email", "enter your email")
+	if email == "" {
+		return User{}, "", kit.Input("email", kit.ReasonRequired, "enter your email")
+	}
+	if len(email) > 254 {
+		return User{}, "", kit.Input("email", kit.ReasonInvalidFormat, "enter your email")
 	}
 	emailKey := strings.ToLower(email)
 	pairKey := emailKey + "|" + clientNet(ip)

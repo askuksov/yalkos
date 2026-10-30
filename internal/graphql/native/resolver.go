@@ -11,6 +11,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/kit"
 )
 
 // Resolver is the root resolver.
@@ -43,7 +44,7 @@ func sessionActor(ctx context.Context) (*authn.Actor, error) {
 func parseID(field, id string) (uuid.UUID, error) {
 	u, err := uuid.Parse(id)
 	if err != nil {
-		return uuid.Nil, &account.InputError{Field: field, Msg: "invalid ID"}
+		return uuid.Nil, kit.Input(field, kit.ReasonInvalidFormat, "invalid ID")
 	}
 	return u, nil
 }

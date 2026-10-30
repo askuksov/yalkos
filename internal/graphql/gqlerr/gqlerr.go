@@ -10,6 +10,7 @@ import (
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/kit"
 )
 
 // CodeInternal marks errors whose details must stay in server logs.
@@ -35,12 +36,19 @@ func Unauthenticated(ctx context.Context) *gqlerror.Error {
 // From maps a domain error to a GraphQL error. Unknown errors become
 // INTERNAL_ERROR with a generic message.
 func From(ctx context.Context, err error) *gqlerror.Error {
-	var ie *account.InputError
+	var ie *kit.InputError
+	var nf kit.NotFoundError
 	switch {
 	case errors.As(err, &ie):
 		e := newErr(ctx, ie.Msg, "INVALID_INPUT", "invalid input", true)
 		e.Extensions["field"] = ie.Field
+		e.Extensions["reason"] = string(ie.Reason)
+		if len(ie.Params) > 0 {
+			e.Extensions["params"] = ie.Params
+		}
 		return e
+	case errors.As(err, &nf):
+		return newErr(ctx, nf.Error(), "NOT_FOUND", "not found", true)
 	case errors.Is(err, account.ErrUnauthenticated):
 		return Unauthenticated(ctx)
 	case errors.Is(err, account.ErrInvalidCredentials):
@@ -48,10 +56,11 @@ func From(ctx context.Context, err error) *gqlerror.Error {
 	case errors.Is(err, account.ErrInvalidSetupCode):
 		e := newErr(ctx, "Invalid setup code", "INVALID_INPUT", "invalid input", true)
 		e.Extensions["field"] = "code"
+		e.Extensions["reason"] = string(kit.ReasonMismatch)
 		return e
 	case errors.Is(err, account.ErrSessionRequired):
 		return newErr(ctx, "This action needs a signed-in session; API keys cannot manage keys, passwords or invites", "FORBIDDEN", "forbidden", true)
-	case errors.Is(err, account.ErrForbidden):
+	case errors.Is(err, kit.ErrForbidden):
 		return newErr(ctx, "You do not have permission to do this", "FORBIDDEN", "forbidden", true)
 	case errors.Is(err, account.ErrRateLimited):
 		return newErr(ctx, "Too many attempts. Try again in a few minutes.", "RATE_LIMITED", "ratelimited", true)

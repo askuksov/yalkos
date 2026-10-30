@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/askuksov/yalkos/internal/auth"
+	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/store/q"
 )
 
@@ -44,13 +45,13 @@ func canInvite(u User, role Role) bool {
 // CreateInvite makes a single-use invite link valid for days (1–30).
 func (s *Service) CreateInvite(ctx context.Context, actor User, role Role, days int) (Invite, error) {
 	if role != RoleMember && role != RoleAdmin {
-		return Invite{}, inputErr("role", "must be admin or member")
+		return Invite{}, kit.Input("role", kit.ReasonInvalidFormat, "must be admin or member")
 	}
 	if !canInvite(actor, role) {
 		return Invite{}, ErrForbidden
 	}
 	if days < 1 || days > 30 {
-		return Invite{}, inputErr("expiresInDays", "must be 1–30")
+		return Invite{}, kit.Input("expiresInDays", kit.ReasonOutOfRange, "must be 1–30").With("min", 1).With("max", 30)
 	}
 	token, hash := auth.NewToken()
 	row, err := s.q.CreateInvite(ctx, q.CreateInviteParams{
@@ -145,7 +146,7 @@ func (s *Service) AcceptInvite(ctx context.Context, token, name, email, password
 			WorkspaceID: ws.ID, Email: email, Name: name, PasswordHash: hash, Role: inv.Role,
 		})
 		if isUniqueViolation(err, "users_email_lower") {
-			return inputErr("email", "this email is already used")
+			return kit.Input("email", kit.ReasonTaken, "this email is already used")
 		}
 		if err != nil {
 			return err

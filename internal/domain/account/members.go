@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/store/q"
 )
 
@@ -27,7 +28,7 @@ func (s *Service) ListMembers(ctx context.Context, _ User) ([]User, error) {
 func (s *Service) target(ctx context.Context, id uuid.UUID) (q.User, error) {
 	u, err := s.q.GetUserByID(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return q.User{}, inputErr("userId", "no such user")
+		return q.User{}, kit.Input("userId", kit.ReasonNotFound, "no such user")
 	}
 	if err != nil {
 		return q.User{}, fmt.Errorf("find user: %w", err)
@@ -41,7 +42,7 @@ func (s *Service) UpdateMemberRole(ctx context.Context, actor User, userID uuid.
 		return ErrForbidden
 	}
 	if role != RoleAdmin && role != RoleMember {
-		return inputErr("role", "must be admin or member")
+		return kit.Input("role", kit.ReasonInvalidFormat, "must be admin or member")
 	}
 	t, err := s.target(ctx, userID)
 	if err != nil {

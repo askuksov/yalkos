@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/internal/auth"
+	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/store/q"
 )
 
@@ -98,18 +99,21 @@ func isUniqueViolation(err error, constraint string) bool {
 func validateEmail(email string) (string, error) {
 	email = strings.TrimSpace(email)
 	if email == "" || len(email) > 254 || !strings.Contains(email, "@") {
-		return "", inputErr("email", "enter a valid email address")
+		return "", kit.Input("email", kit.ReasonInvalidFormat, "enter a valid email address")
 	}
 	if _, err := mail.ParseAddress(email); err != nil {
-		return "", inputErr("email", "enter a valid email address")
+		return "", kit.Input("email", kit.ReasonInvalidFormat, "enter a valid email address")
 	}
 	return email, nil
 }
 
 func validateText(field, v string) (string, error) {
 	v = strings.TrimSpace(v)
-	if n := utf8.RuneCountInString(v); n < 1 || n > 100 {
-		return "", inputErr(field, "must be 1–100 characters")
+	switch n := utf8.RuneCountInString(v); {
+	case n < 1:
+		return "", kit.Input(field, kit.ReasonRequired, "must be 1–100 characters")
+	case n > 100:
+		return "", kit.Input(field, kit.ReasonTooLong, "must be 1–100 characters").With("max", 100)
 	}
 	return v, nil
 }
@@ -117,7 +121,10 @@ func validateText(field, v string) (string, error) {
 func hashPassword(ctx context.Context, pw string) (string, error) {
 	h, err := auth.HashPassword(ctx, pw)
 	if errors.Is(err, auth.ErrPasswordLength) {
-		return "", inputErr("password", auth.ErrPasswordLength.Error())
+		if utf8.RuneCountInString(pw) < auth.MinPasswordLen {
+			return "", kit.Input("password", kit.ReasonTooShort, auth.ErrPasswordLength.Error()).With("min", auth.MinPasswordLen)
+		}
+		return "", kit.Input("password", kit.ReasonTooLong, auth.ErrPasswordLength.Error()).With("max", auth.MaxPasswordLen)
 	}
 	if err != nil {
 		return "", hashErr(err)

@@ -25,8 +25,8 @@ const (
 	argonSaltLen = 16
 	argonKeyLen  = 32
 
-	minPasswordLen = 8
-	maxPasswordLen = 256
+	MinPasswordLen = 8
+	MaxPasswordLen = 256
 )
 
 // Errors from hashing.
@@ -79,7 +79,7 @@ func derive(ctx context.Context, pw string, salt []byte, memory, iterations uint
 // HashPassword returns an argon2id PHC string:
 // $argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash> (base64 raw std).
 func HashPassword(ctx context.Context, pw string) (string, error) {
-	if n := utf8.RuneCountInString(pw); n < minPasswordLen || n > maxPasswordLen {
+	if n := utf8.RuneCountInString(pw); n < MinPasswordLen || n > MaxPasswordLen {
 		return "", ErrPasswordLength
 	}
 	salt := make([]byte, argonSaltLen)
