@@ -57,14 +57,41 @@ var orders = map[OrderField]orderSpec{
 	Priority: {
 		key:  same("(CASE i.priority WHEN 0 THEN 5 ELSE i.priority END)"),
 		out:  same("(CASE i.priority WHEN 0 THEN 5 ELSE i.priority END)::int"),
-		cast: "int", decode: decodeAs[int],
+		cast: "int", decode: decodePriorityKey,
 	},
 	// Issues without a due date come last in both directions.
 	DueDate: {
 		key:  dueKey,
 		out:  func(desc bool) string { return dueKey(desc) + "::text" },
-		cast: "date", decode: decodeAs[string],
+		cast: "date", decode: decodeDueKey,
 	},
+}
+
+// decodePriorityKey accepts only sort keys the priority order produces (1–5).
+func decodePriorityKey(raw json.RawMessage) (any, error) {
+	var v int
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil, err
+	}
+	if v < 1 || v > 5 {
+		return nil, fmt.Errorf("priority key %d out of range", v)
+	}
+	return v, nil
+}
+
+// decodeDueKey accepts a YYYY-MM-DD date or ±infinity, the values dueKey produces.
+func decodeDueKey(raw json.RawMessage) (any, error) {
+	var v string
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil, err
+	}
+	if v == "infinity" || v == "-infinity" {
+		return v, nil
+	}
+	if _, err := time.Parse(time.DateOnly, v); err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 func dueKey(desc bool) string {

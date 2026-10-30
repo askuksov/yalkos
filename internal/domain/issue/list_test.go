@@ -326,3 +326,40 @@ func TestCursorOfOtherOrderRejected(t *testing.T) {
 	_, err = f.issues.List(context.Background(), issue.Filter{}, issue.Order{}, page.Args{First: ptr(251)})
 	wantInput(t, err, "first", kit.ReasonOutOfRange)
 }
+
+// Values outside the column type must not reach PostgreSQL as encode errors
+// (review of M3 tasks 1–8).
+func TestFilterPriorityOutOfRange(t *testing.T) {
+	f := newListFixture(t)
+	f.check(t, "priority eq 40000", issue.Filter{Priority: &issue.IntCond{Eq: ptr(40000)}},
+		func(issue.Issue) bool { return false })
+	f.check(t, "priority lt 1<<40", issue.Filter{Priority: &issue.IntCond{Lt: ptr(1 << 40)}},
+		func(issue.Issue) bool { return true })
+}
+
+func TestCursorGarbageValues(t *testing.T) {
+	f := newListFixture(t)
+	cases := []struct {
+		order issue.Order
+		field string
+		v     string
+	}{
+		{issue.Order{Field: issue.DueDate}, "dueDate", `"garbage"`},
+		{issue.Order{Field: issue.DueDate}, "dueDate", `"2026-13-01"`},
+		{issue.Order{Field: issue.Priority}, "priority", `1000000000000`},
+		{issue.Order{Field: issue.Priority}, "priority", `0`},
+		{issue.Order{Field: issue.SortOrder}, "sortOrder", `"x"`},
+	}
+	for _, c := range cases {
+		cur := page.Encode(page.Cursor{F: c.field, D: "asc", V: []byte(c.v), ID: uuid.New()})
+		_, err := f.issues.List(context.Background(), issue.Filter{}, c.order, page.Args{First: ptr(2), After: &cur})
+		wantInput(t, err, "after", kit.ReasonInvalidFormat)
+	}
+	// Valid edge values still work.
+	for _, v := range []string{`"infinity"`, `"2026-01-15"`} {
+		cur := page.Encode(page.Cursor{F: "dueDate", D: "asc", V: []byte(v), ID: uuid.New()})
+		if _, err := f.issues.List(context.Background(), issue.Filter{}, issue.Order{Field: issue.DueDate}, page.Args{First: ptr(2), After: &cur}); err != nil {
+			t.Fatalf("dueDate cursor %s: %v", v, err)
+		}
+	}
+}
