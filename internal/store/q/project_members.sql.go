@@ -52,6 +52,35 @@ func (q *Queries) ListProjectMemberIDs(ctx context.Context, projectID uuid.UUID)
 	return items, nil
 }
 
+const listProjectMembersByProjectIDs = `-- name: ListProjectMembersByProjectIDs :many
+SELECT project_id, user_id FROM project_members WHERE project_id = ANY($1::uuid[]) ORDER BY project_id, created_at, user_id
+`
+
+type ListProjectMembersByProjectIDsRow struct {
+	ProjectID uuid.UUID
+	UserID    uuid.UUID
+}
+
+func (q *Queries) ListProjectMembersByProjectIDs(ctx context.Context, projectIds []uuid.UUID) ([]ListProjectMembersByProjectIDsRow, error) {
+	rows, err := q.db.Query(ctx, listProjectMembersByProjectIDs, projectIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProjectMembersByProjectIDsRow
+	for rows.Next() {
+		var i ListProjectMembersByProjectIDsRow
+		if err := rows.Scan(&i.ProjectID, &i.UserID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeProjectMember = `-- name: RemoveProjectMember :exec
 DELETE FROM project_members WHERE project_id = $1 AND user_id = $2
 `

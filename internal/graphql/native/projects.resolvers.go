@@ -182,7 +182,7 @@ func (r *mutationResolver) DeleteState(ctx context.Context, id string, moveIssue
 
 // States is the resolver for the states field.
 func (r *projectResolver) States(ctx context.Context, obj *Project) ([]State, error) {
-	states, err := r.Projects.States(ctx, obj.uid)
+	states, err := loadersFrom(ctx).projectStates.Load(ctx, obj.uid)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func (r *projectResolver) States(ctx context.Context, obj *Project) ([]State, er
 
 // Members is the resolver for the members field.
 func (r *projectResolver) Members(ctx context.Context, obj *Project) ([]User, error) {
-	ids, err := r.Projects.MemberIDs(ctx, obj.uid)
+	ids, err := loadersFrom(ctx).projectMembers.Load(ctx, obj.uid)
 	if err != nil {
 		return nil, err
 	}

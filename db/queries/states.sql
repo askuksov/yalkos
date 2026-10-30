@@ -52,3 +52,6 @@ FROM old
 WHERE issues.id = old.id
 RETURNING issues.id, issues.project_id, old.completed_at AS old_completed_at, old.canceled_at AS old_canceled_at,
     issues.completed_at, issues.canceled_at, issues.deleted_at;
+
+-- name: ListStatesByProjectIDs :many
+SELECT * FROM states WHERE project_id = ANY(@project_ids::uuid[]) ORDER BY project_id, position, id;

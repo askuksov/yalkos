@@ -206,6 +206,40 @@ func (q *Queries) ListStatesByIDs(ctx context.Context, ids []uuid.UUID) ([]State
 	return items, nil
 }
 
+const listStatesByProjectIDs = `-- name: ListStatesByProjectIDs :many
+SELECT id, project_id, name, type, color, position, is_default, created_at, updated_at FROM states WHERE project_id = ANY($1::uuid[]) ORDER BY project_id, position, id
+`
+
+func (q *Queries) ListStatesByProjectIDs(ctx context.Context, projectIds []uuid.UUID) ([]State, error) {
+	rows, err := q.db.Query(ctx, listStatesByProjectIDs, projectIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []State
+	for rows.Next() {
+		var i State
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Type,
+			&i.Color,
+			&i.Position,
+			&i.IsDefault,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const moveIssuesToState = `-- name: MoveIssuesToState :many
 WITH old AS (
     SELECT i.id, i.completed_at, i.canceled_at FROM issues i WHERE i.state_id = $6::uuid FOR UPDATE
