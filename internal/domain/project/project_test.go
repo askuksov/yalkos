@@ -354,3 +354,39 @@ func TestUpdateProjectClearsOptional(t *testing.T) {
 	_, err = e.svc.Update(ctx, e.users.Admin, uuid.New(), project.UpdateInput{Name: ptr("x")})
 	wantNotFound(t, err)
 }
+
+// A key change and a project create racing for the same key must end in one
+// success and one "key taken", never a deadlock (review of M3 tasks 1–8).
+func TestKeyChangeRacesCreate(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	for round := range 40 {
+		a := e.create(t, fmt.Sprintf("A%d", round))
+		key := fmt.Sprintf("K%d", round)
+		errs := make(chan error, 2)
+		start := make(chan struct{})
+		go func() {
+			<-start
+			_, err := e.svc.Update(ctx, e.users.Admin, a.ID, project.UpdateInput{Key: &key})
+			errs <- err
+		}()
+		go func() {
+			<-start
+			_, err := e.svc.Create(ctx, e.users.Admin, project.CreateInput{Key: key, Name: "Racer"})
+			errs <- err
+		}()
+		close(start)
+		ok := 0
+		for range 2 {
+			err := <-errs
+			if err == nil {
+				ok++
+				continue
+			}
+			wantInput(t, err, "key", kit.ReasonTaken)
+		}
+		if ok != 1 {
+			t.Fatalf("round %d: %d successes, want 1", round, ok)
+		}
+	}
+}

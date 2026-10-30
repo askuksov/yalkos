@@ -250,19 +250,21 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 			out = p
 			return nil
 		}
-		if next.Key != p.Key {
-			if err := claimKey(ctx, tx, next.Key, p.ID); err != nil {
-				return err
-			}
-		}
 		now := s.now()
 		next.Now = now
+		// projects.key first, then project_keys: the same lock order as Create,
+		// so a key change racing a create of that key cannot deadlock.
 		out, err = tx.UpdateProject(ctx, next)
 		if isUniqueViolation(err) {
 			return keyTakenErr()
 		}
 		if err != nil {
 			return fmt.Errorf("update project: %w", err)
+		}
+		if next.Key != p.Key {
+			if err := claimKey(ctx, tx, next.Key, p.ID); err != nil {
+				return err
+			}
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			EntityType: "project", Action: "update", EntityID: p.ID, ProjectID: &p.ID, ActorID: &actor.ID,
