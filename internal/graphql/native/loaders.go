@@ -21,6 +21,10 @@ type loaders struct {
 	projects *dataloadgen.Loader[uuid.UUID, project.Project]
 	states   *dataloadgen.Loader[uuid.UUID, project.State]
 	issues   *dataloadgen.Loader[uuid.UUID, issue.Issue]
+
+	// By project id: a project's states and member ids.
+	projectStates  *dataloadgen.Loader[uuid.UUID, []project.State]
+	projectMembers *dataloadgen.Loader[uuid.UUID, []uuid.UUID]
 }
 
 type loadersKey struct{}
@@ -42,6 +46,26 @@ func newLoaders(d Deps) *loaders {
 		issues: dataloadgen.NewLoader(byID("Issue", func(ctx context.Context, ids []uuid.UUID) ([]issue.Issue, error) {
 			return d.Issues.ByIDs(ctx, ids)
 		}, func(i issue.Issue) uuid.UUID { return i.ID }), opt),
+		projectStates:  dataloadgen.NewLoader(grouped(d.Projects.StatesByProjects), opt),
+		projectMembers: dataloadgen.NewLoader(grouped(d.Projects.MemberIDsByProjects), opt),
+	}
+}
+
+// grouped adapts a fetch returning lists per key; a key without rows gets an
+// empty list.
+func grouped[T any](fetch func(context.Context, []uuid.UUID) (map[uuid.UUID][]T, error)) func(context.Context, []uuid.UUID) ([][]T, []error) {
+	return func(ctx context.Context, keys []uuid.UUID) ([][]T, []error) {
+		values := make([][]T, len(keys))
+		errs := make([]error, len(keys))
+		byKey, err := fetch(ctx, keys)
+		for i, k := range keys {
+			if err != nil {
+				errs[i] = err
+				continue
+			}
+			values[i] = byKey[k]
+		}
+		return values, errs
 	}
 }
 

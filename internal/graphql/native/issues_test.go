@@ -2,6 +2,7 @@ package native_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -343,7 +344,9 @@ func (c *counter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQ
 
 func (c *counter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
 
-func TestIssueListQueryCount(t *testing.T) {
+// tracedServer is newServer on a pool that counts SQL statements.
+func tracedServer(t *testing.T) (server, *counter) {
+	t.Helper()
 	ctx := context.Background()
 	dbURL, setupPool := testdb.New(t)
 	if err := store.Migrate(ctx, setupPool, db.Migrations()); err != nil {
@@ -353,8 +356,8 @@ func TestIssueListQueryCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var queries counter
-	cfg.ConnConfig.Tracer = &queries
+	queries := &counter{}
+	cfg.ConnConfig.Tracer = queries
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -369,11 +372,13 @@ func TestIssueListQueryCount(t *testing.T) {
 	projects := project.New(pool, time.Now)
 	issues := issue.New(pool, projects, time.Now)
 	h := native.NewHandler(native.Deps{Accounts: svc, Projects: projects, Issues: issues, Audit: audit.New(pool), Logger: quiet})
-	srv := newHTTPServer(t, authn.Middleware(svc, base, quiet)(h))
-	s := server{url: srv, svc: svc, pool: pool}
-	owner := ownerBrowser(t, s)
-	me := viewerID(t, owner)
+	return server{url: newHTTPServer(t, authn.Middleware(svc, base, quiet)(h)), svc: svc, pool: pool}, queries
+}
 
+// seedIssues creates 50 issues in two projects: two parents and 48 sub-issues.
+func seedIssues(t *testing.T, owner *client) {
+	t.Helper()
+	me := viewerID(t, owner)
 	ylk := createProject(t, owner, "YLK", "Yalkos")
 	web := createProject(t, owner, "WEB", "Web")
 	parents := map[string]string{
@@ -387,18 +392,32 @@ func TestIssueListQueryCount(t *testing.T) {
 		}
 		createIssue(t, owner, map[string]any{"parentId": parents[pid], "title": fmt.Sprintf("Issue %d", n), "assigneeId": me})
 	}
+}
 
+func countList(t *testing.T, owner *client, queries *counter, selection string) int64 {
+	t.Helper()
 	queries.n.Store(0)
 	var conn struct {
-		Nodes []gqlIssue `json:"nodes"`
+		Nodes []json.RawMessage `json:"nodes"`
 	}
-	owner.do(`{ issues(first: 50) { nodes { id project { key } state { name } assignee { id } creator { id } parent { id } } } }`, nil).decode(t, "issues", &conn)
+	owner.do(`{ issues(first: 50) { nodes { `+selection+` } } }`, nil).decode(t, "issues", &conn)
 	if len(conn.Nodes) != 50 {
 		t.Fatalf("nodes = %d", len(conn.Nodes))
 	}
 	n := queries.n.Load()
-	t.Logf("issue list: %d SQL statements", n)
-	if n > 8 {
+	t.Logf("%s: %d SQL statements", selection, n)
+	return n
+}
+
+func TestIssueListQueryCount(t *testing.T) {
+	s, queries := tracedServer(t)
+	owner := ownerBrowser(t, s)
+	seedIssues(t, owner)
+	if n := countList(t, owner, queries, `id project { key } state { name } assignee { id } creator { id } parent { id }`); n > 8 {
 		t.Fatalf("issue list ran %d SQL statements, want ≤ 8", n)
+	}
+	// Project states and members batch by project too (final review of tasks 9–11).
+	if n := countList(t, owner, queries, `id project { key states { id } members { id } }`); n > 8 {
+		t.Fatalf("issue list with project states/members ran %d SQL statements, want ≤ 8", n)
 	}
 }

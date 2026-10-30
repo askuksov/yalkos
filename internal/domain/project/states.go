@@ -434,3 +434,17 @@ func CompletionTimes(prevType, newType StateType, prevCompleted, prevCanceled *t
 		return nil, nil
 	}
 }
+
+// StatesByProjects returns each project's states by position; projects
+// without states (or unknown) are absent from the map.
+func (s *Service) StatesByProjects(ctx context.Context, projectIDs []uuid.UUID) (map[uuid.UUID][]State, error) {
+	rows, err := s.q.ListStatesByProjectIDs(ctx, projectIDs)
+	if err != nil {
+		return nil, fmt.Errorf("states by projects: %w", err)
+	}
+	out := make(map[uuid.UUID][]State, len(projectIDs))
+	for _, r := range rows {
+		out[r.ProjectID] = append(out[r.ProjectID], toState(r))
+	}
+	return out, nil
+}

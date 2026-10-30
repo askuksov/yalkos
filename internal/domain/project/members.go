@@ -84,3 +84,16 @@ func nonNil(ids []uuid.UUID) []uuid.UUID {
 	}
 	return ids
 }
+
+// MemberIDsByProjects returns each project's member ids in join order.
+func (s *Service) MemberIDsByProjects(ctx context.Context, projectIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
+	rows, err := s.q.ListProjectMembersByProjectIDs(ctx, projectIDs)
+	if err != nil {
+		return nil, fmt.Errorf("project members: %w", err)
+	}
+	out := make(map[uuid.UUID][]uuid.UUID, len(projectIDs))
+	for _, r := range rows {
+		out[r.ProjectID] = append(out[r.ProjectID], r.UserID)
+	}
+	return out, nil
+}

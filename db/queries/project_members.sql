@@ -7,3 +7,6 @@ DELETE FROM project_members WHERE project_id = @project_id AND user_id = @user_i
 
 -- name: ListProjectMemberIDs :many
 SELECT user_id FROM project_members WHERE project_id = $1 ORDER BY created_at, user_id;
+
+-- name: ListProjectMembersByProjectIDs :many
+SELECT project_id, user_id FROM project_members WHERE project_id = ANY(@project_ids::uuid[]) ORDER BY project_id, created_at, user_id;
