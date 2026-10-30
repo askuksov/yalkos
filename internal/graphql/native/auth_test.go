@@ -20,6 +20,9 @@ import (
 	"github.com/askuksov/yalkos/db"
 	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/store"
 	"github.com/askuksov/yalkos/internal/testdb"
@@ -45,7 +48,11 @@ func newServer(t *testing.T) server {
 	if err := svc.RefreshSetupCode(ctx); err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(authn.Middleware(svc, base, quiet)(native.NewHandler(svc, quiet)))
+	projects := project.New(pool, time.Now)
+	h := native.NewHandler(native.Deps{
+		Accounts: svc, Projects: projects, Issues: issue.New(pool, projects, time.Now), Audit: audit.New(pool), Logger: quiet,
+	})
+	srv := httptest.NewServer(authn.Middleware(svc, base, quiet)(h))
 	t.Cleanup(srv.Close)
 	return server{url: srv.URL, svc: svc, pool: pool}
 }

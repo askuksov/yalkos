@@ -16,6 +16,9 @@ import (
 	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/config"
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/graphql/linear"
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/httpapi"
@@ -56,10 +59,15 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 		logger.Warn("setup required", slog.String("url", baseURL.String()+"/setup?code="+code))
 	}
 
+	projects := project.New(pool, time.Now)
+	issues := issue.New(pool, projects, time.Now)
+
 	router := httpapi.NewRouter(httpapi.Deps{
-		Ready:         func(c context.Context) error { return store.Ready(c, pool, migrations) },
-		UI:            ui,
-		NativeGraphQL: native.NewHandler(accounts, logger),
+		Ready: func(c context.Context) error { return store.Ready(c, pool, migrations) },
+		UI:    ui,
+		NativeGraphQL: native.NewHandler(native.Deps{
+			Accounts: accounts, Projects: projects, Issues: issues, Audit: audit.New(pool), Logger: logger,
+		}),
 		LinearGraphQL: linear.NewHandler(accounts, logger),
 		Logger:        logger,
 		Auth:          authn.Middleware(accounts, baseURL, logger),

@@ -11,12 +11,18 @@ import (
 
 	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
+	"github.com/askuksov/yalkos/internal/domain/project"
 )
 
 // Resolver is the root resolver.
 type Resolver struct {
 	Accounts *account.Service
+	Projects *project.Service
+	Issues   *issue.Service
+	Audit    *audit.Service
 	Logger   *slog.Logger
 }
 
@@ -62,4 +68,45 @@ func inviteOut(i account.Invite) *Invite {
 
 func apiKeyOut(k account.APIKey) *APIKey {
 	return &APIKey{ID: k.ID.String(), Name: k.Name, DisplayPrefix: k.DisplayPrefix, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt}
+}
+
+func (r *mutationResolver) setArchived(ctx context.Context, id string, archived bool) (*Project, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pid, err := parseID("id", id)
+	if err != nil {
+		return nil, err
+	}
+	p, err := r.Projects.SetArchived(ctx, a.User, pid, archived)
+	if err != nil {
+		return nil, err
+	}
+	return projectOut(p), nil
+}
+
+type memberChange func(ctx context.Context, actor account.User, projectID, userID uuid.UUID) error
+
+func (r *mutationResolver) changeMember(ctx context.Context, projectID, userID string, change memberChange) (*Project, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pid, err := parseID("projectId", projectID)
+	if err != nil {
+		return nil, err
+	}
+	uid, err := parseID("userId", userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := change(ctx, a.User, pid, uid); err != nil {
+		return nil, err
+	}
+	p, err := r.Projects.Get(ctx, pid.String())
+	if err != nil {
+		return nil, err
+	}
+	return projectOut(p), nil
 }

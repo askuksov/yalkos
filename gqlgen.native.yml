@@ -16,3 +16,14 @@ resolver:
   filename_template: "{name}.resolvers.go"
 
 omit_slice_element_pointers: true
+
+# Nullable input fields become graphql.Omittable: omitted vs explicit null.
+nullable_input_omittable: true
+
+models:
+  Date:
+    model: github.com/askuksov/yalkos/internal/graphql/native.Date
+  Project:
+    model: github.com/askuksov/yalkos/internal/graphql/native.Project
+  State:
+    model: github.com/askuksov/yalkos/internal/graphql/native.State
