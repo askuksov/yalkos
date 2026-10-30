@@ -12,6 +12,61 @@ import (
 	"github.com/google/uuid"
 )
 
+const clearDefaultState = `-- name: ClearDefaultState :one
+UPDATE states SET is_default = false, updated_at = $1
+WHERE project_id = $2 AND is_default
+RETURNING id, project_id, name, type, color, position, is_default, created_at, updated_at
+`
+
+type ClearDefaultStateParams struct {
+	Now       time.Time
+	ProjectID uuid.UUID
+}
+
+func (q *Queries) ClearDefaultState(ctx context.Context, arg ClearDefaultStateParams) (State, error) {
+	row := q.db.QueryRow(ctx, clearDefaultState, arg.Now, arg.ProjectID)
+	var i State
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.Position,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const countStates = `-- name: CountStates :one
+SELECT count(*) FROM states WHERE project_id = $1
+`
+
+func (q *Queries) CountStates(ctx context.Context, projectID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countStates, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countStatesOfType = `-- name: CountStatesOfType :one
+SELECT count(*) FROM states WHERE project_id = $1 AND type = $2
+`
+
+type CountStatesOfTypeParams struct {
+	ProjectID uuid.UUID
+	Type      string
+}
+
+func (q *Queries) CountStatesOfType(ctx context.Context, arg CountStatesOfTypeParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStatesOfType, arg.ProjectID, arg.Type)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createState = `-- name: CreateState :one
 INSERT INTO states (project_id, name, type, color, position, is_default, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
@@ -38,6 +93,36 @@ func (q *Queries) CreateState(ctx context.Context, arg CreateStateParams) (State
 		arg.IsDefault,
 		arg.Now,
 	)
+	var i State
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.Position,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteState = `-- name: DeleteState :exec
+DELETE FROM states WHERE id = $1
+`
+
+func (q *Queries) DeleteState(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteState, id)
+	return err
+}
+
+const getState = `-- name: GetState :one
+SELECT id, project_id, name, type, color, position, is_default, created_at, updated_at FROM states WHERE id = $1
+`
+
+func (q *Queries) GetState(ctx context.Context, id uuid.UUID) (State, error) {
+	row := q.db.QueryRow(ctx, getState, id)
 	var i State
 	err := row.Scan(
 		&i.ID,
@@ -85,4 +170,172 @@ func (q *Queries) ListStates(ctx context.Context, projectID uuid.UUID) ([]State,
 		return nil, err
 	}
 	return items, nil
+}
+
+const listStatesByIDs = `-- name: ListStatesByIDs :many
+SELECT id, project_id, name, type, color, position, is_default, created_at, updated_at FROM states WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) ListStatesByIDs(ctx context.Context, ids []uuid.UUID) ([]State, error) {
+	rows, err := q.db.Query(ctx, listStatesByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []State
+	for rows.Next() {
+		var i State
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Type,
+			&i.Color,
+			&i.Position,
+			&i.IsDefault,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const moveIssuesToState = `-- name: MoveIssuesToState :many
+WITH old AS (
+    SELECT i.id, i.completed_at, i.canceled_at FROM issues i WHERE i.state_id = $6::uuid FOR UPDATE
+)
+UPDATE issues SET
+    state_id = $1::uuid,
+    completed_at = CASE WHEN $2::bool THEN issues.completed_at ELSE $3::timestamptz END,
+    canceled_at = CASE WHEN $2::bool THEN issues.canceled_at ELSE $4::timestamptz END,
+    updated_at = $5
+FROM old
+WHERE issues.id = old.id
+RETURNING issues.id, issues.project_id, old.completed_at AS old_completed_at, old.canceled_at AS old_canceled_at,
+    issues.completed_at, issues.canceled_at, issues.deleted_at
+`
+
+type MoveIssuesToStateParams struct {
+	ToState     uuid.UUID
+	KeepTimes   bool
+	CompletedAt *time.Time
+	CanceledAt  *time.Time
+	Now         time.Time
+	FromState   uuid.UUID
+}
+
+type MoveIssuesToStateRow struct {
+	ID             uuid.UUID
+	ProjectID      uuid.UUID
+	OldCompletedAt *time.Time
+	OldCanceledAt  *time.Time
+	CompletedAt    *time.Time
+	CanceledAt     *time.Time
+	DeletedAt      *time.Time
+}
+
+// Moves every issue (deleted ones too) of from_state to to_state. When
+// keep_times is false, completed_at/canceled_at become the given values.
+func (q *Queries) MoveIssuesToState(ctx context.Context, arg MoveIssuesToStateParams) ([]MoveIssuesToStateRow, error) {
+	rows, err := q.db.Query(ctx, moveIssuesToState,
+		arg.ToState,
+		arg.KeepTimes,
+		arg.CompletedAt,
+		arg.CanceledAt,
+		arg.Now,
+		arg.FromState,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MoveIssuesToStateRow
+	for rows.Next() {
+		var i MoveIssuesToStateRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.OldCompletedAt,
+			&i.OldCanceledAt,
+			&i.CompletedAt,
+			&i.CanceledAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setStatePosition = `-- name: SetStatePosition :exec
+UPDATE states SET position = $1, updated_at = $2 WHERE id = $3
+`
+
+type SetStatePositionParams struct {
+	Position int32
+	Now      time.Time
+	ID       uuid.UUID
+}
+
+func (q *Queries) SetStatePosition(ctx context.Context, arg SetStatePositionParams) error {
+	_, err := q.db.Exec(ctx, setStatePosition, arg.Position, arg.Now, arg.ID)
+	return err
+}
+
+const stateHasIssues = `-- name: StateHasIssues :one
+SELECT EXISTS (SELECT 1 FROM issues WHERE state_id = $1)
+`
+
+func (q *Queries) StateHasIssues(ctx context.Context, stateID uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, stateHasIssues, stateID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const updateState = `-- name: UpdateState :one
+UPDATE states SET name = $1, color = $2, is_default = $3, updated_at = $4
+WHERE id = $5
+RETURNING id, project_id, name, type, color, position, is_default, created_at, updated_at
+`
+
+type UpdateStateParams struct {
+	Name      string
+	Color     string
+	IsDefault bool
+	Now       time.Time
+	ID        uuid.UUID
+}
+
+func (q *Queries) UpdateState(ctx context.Context, arg UpdateStateParams) (State, error) {
+	row := q.db.QueryRow(ctx, updateState,
+		arg.Name,
+		arg.Color,
+		arg.IsDefault,
+		arg.Now,
+		arg.ID,
+	)
+	var i State
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Type,
+		&i.Color,
+		&i.Position,
+		&i.IsDefault,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
