@@ -2,7 +2,7 @@
 
 Lightweight, self-hosted issue tracker with a Linear-compatible API.
 
-> Status: early development. Accounts, invites and API keys work; issues come next.
+> Status: early development. Accounts, invites, API keys, projects and issues work; projects and issues are API-only until the issue UI lands.
 
 ## Run with Docker
 
@@ -56,6 +56,33 @@ const me = await linear.viewer
 ```
 
 Send the key as `Authorization: <key>` or `Authorization: Bearer <key>`. Keys act as their user but cannot manage credentials: creating or revoking keys, changing the password and inviting people need a signed-in browser session.
+
+### Projects and issues
+
+Projects, workflow states and issues (with sub-issues) are available through the Yalkos API at `POST /api/graphql`; the schema is in `api/graphql/native/` and introspection is on. Owners and Admins manage projects and states; every user works with issues. API keys can do both.
+
+```sh
+API=http://localhost:8080/api/graphql
+KEY=yal_api_...
+
+# Create a project: it gets the states Backlog, Todo (default), In Progress, Done, Canceled.
+curl -s $API -H "Authorization: $KEY" -H 'Content-Type: application/json' \
+  -d '{"query":"mutation { createProject(input: {key: \"YLK\", name: \"Yalkos\"}) { id key } }"}'
+
+# Create an issue: it becomes YLK-1.
+curl -s $API -H "Authorization: $KEY" -H 'Content-Type: application/json' \
+  -d '{"query":"mutation($in: CreateIssueInput!) { createIssue(input: $in) { identifier state { name } } }",
+       "variables":{"in":{"projectId":"<project id>","title":"First issue","priority":2,"dueDate":"2026-12-01"}}}'
+
+# My open issues, highest priority first.
+curl -s $API -H "Authorization: $KEY" -H 'Content-Type: application/json' \
+  -d '{"query":"{ issues(filter: {assignee: {isMe: true}, stateType: {in: [UNSTARTED, STARTED]}}, orderBy: {field: PRIORITY}, first: 50) { nodes { identifier title priority } pageInfo { hasNextPage endCursor } } }"}'
+```
+
+- `issue(id:)` accepts a UUID or an identifier such as `YLK-1`. Identifiers keep working after the issue moves to another project or the project key changes.
+- Lists are Relay connections: `first`/`after` or `last`/`before` (default 50, max 250).
+- Every change to a project, state or issue is recorded; read it with `issue { history { nodes { action actor { name } changes { field from to } } } }`.
+- Validation errors carry `extensions.code: "INVALID_INPUT"`, `extensions.field`, `extensions.reason` (for example `required`, `too_long`, `taken`, `archived`) and optional `extensions.params`.
 
 ## Development
 
