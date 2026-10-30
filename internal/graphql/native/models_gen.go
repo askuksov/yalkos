@@ -27,6 +27,19 @@ type APIKey struct {
 	LastUsedAt    *time.Time `json:"lastUsedAt,omitempty"`
 }
 
+// projectId may be omitted when parentId is given.
+type CreateIssueInput struct {
+	ProjectID   graphql.Omittable[*string]  `json:"projectId,omitempty"`
+	ParentID    graphql.Omittable[*string]  `json:"parentId,omitempty"`
+	Title       string                      `json:"title"`
+	Description graphql.Omittable[*string]  `json:"description,omitempty"`
+	StateID     graphql.Omittable[*string]  `json:"stateId,omitempty"`
+	Priority    graphql.Omittable[*int]     `json:"priority,omitempty"`
+	AssigneeID  graphql.Omittable[*string]  `json:"assigneeId,omitempty"`
+	DueDate     graphql.Omittable[*Date]    `json:"dueDate,omitempty"`
+	SortOrder   graphql.Omittable[*float64] `json:"sortOrder,omitempty"`
+}
+
 type CreateProjectInput struct {
 	Key         string                     `json:"key"`
 	Name        string                     `json:"name"`
@@ -53,11 +66,87 @@ type CreatedInvite struct {
 	URL    string  `json:"url"`
 }
 
+type DateComparator struct {
+	Eq   graphql.Omittable[*Date] `json:"eq,omitempty"`
+	Lt   graphql.Omittable[*Date] `json:"lt,omitempty"`
+	Lte  graphql.Omittable[*Date] `json:"lte,omitempty"`
+	Gt   graphql.Omittable[*Date] `json:"gt,omitempty"`
+	Gte  graphql.Omittable[*Date] `json:"gte,omitempty"`
+	Null graphql.Omittable[*bool] `json:"null,omitempty"`
+}
+
+// from/to are JSON-encoded values (null when absent).
+type FieldChange struct {
+	Field string  `json:"field"`
+	From  *string `json:"from,omitempty"`
+	To    *string `json:"to,omitempty"`
+}
+
+type HistoryConnection struct {
+	Nodes    []HistoryEntry `json:"nodes"`
+	Edges    []HistoryEdge  `json:"edges"`
+	PageInfo *PageInfo      `json:"pageInfo"`
+}
+
+type HistoryEdge struct {
+	Node   *HistoryEntry `json:"node"`
+	Cursor string        `json:"cursor"`
+}
+
+// in: [] matches nothing; neq and nin keep issues where the field is empty.
+type IDComparator struct {
+	Eq   graphql.Omittable[*string]  `json:"eq,omitempty"`
+	Neq  graphql.Omittable[*string]  `json:"neq,omitempty"`
+	In   graphql.Omittable[[]string] `json:"in,omitempty"`
+	Nin  graphql.Omittable[[]string] `json:"nin,omitempty"`
+	Null graphql.Omittable[*bool]    `json:"null,omitempty"`
+}
+
+type IntComparator struct {
+	Eq  graphql.Omittable[*int]  `json:"eq,omitempty"`
+	Neq graphql.Omittable[*int]  `json:"neq,omitempty"`
+	In  graphql.Omittable[[]int] `json:"in,omitempty"`
+	Nin graphql.Omittable[[]int] `json:"nin,omitempty"`
+	Lt  graphql.Omittable[*int]  `json:"lt,omitempty"`
+	Lte graphql.Omittable[*int]  `json:"lte,omitempty"`
+	Gt  graphql.Omittable[*int]  `json:"gt,omitempty"`
+	Gte graphql.Omittable[*int]  `json:"gte,omitempty"`
+}
+
 type Invite struct {
 	ID        string    `json:"id"`
 	Role      Role      `json:"role"`
 	CreatedAt time.Time `json:"createdAt"`
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+type IssueConnection struct {
+	Nodes    []Issue     `json:"nodes"`
+	Edges    []IssueEdge `json:"edges"`
+	PageInfo *PageInfo   `json:"pageInfo"`
+}
+
+type IssueEdge struct {
+	Node   *Issue `json:"node"`
+	Cursor string `json:"cursor"`
+}
+
+// All set conditions must hold. Issues of archived projects are listed only with project eq/in or includeArchived.
+type IssueFilter struct {
+	Project         graphql.Omittable[*IDComparator]        `json:"project,omitempty"`
+	State           graphql.Omittable[*IDComparator]        `json:"state,omitempty"`
+	StateType       graphql.Omittable[*StateTypeComparator] `json:"stateType,omitempty"`
+	Assignee        graphql.Omittable[*UserComparator]      `json:"assignee,omitempty"`
+	Priority        graphql.Omittable[*IntComparator]       `json:"priority,omitempty"`
+	Parent          graphql.Omittable[*IDComparator]        `json:"parent,omitempty"`
+	HasChildren     graphql.Omittable[*bool]                `json:"hasChildren,omitempty"`
+	DueDate         graphql.Omittable[*DateComparator]      `json:"dueDate,omitempty"`
+	IncludeArchived graphql.Omittable[*bool]                `json:"includeArchived,omitempty"`
+}
+
+type IssueOrder struct {
+	Field     IssueOrderField                    `json:"field"`
+	Direction graphql.Omittable[*OrderDirection] `json:"direction,omitempty"`
 }
 
 type Mutation struct {
@@ -96,6 +185,24 @@ type SetupStatus struct {
 	Needed bool `json:"needed"`
 }
 
+type StateTypeComparator struct {
+	Eq  graphql.Omittable[*StateType]  `json:"eq,omitempty"`
+	In  graphql.Omittable[[]StateType] `json:"in,omitempty"`
+	Nin graphql.Omittable[[]StateType] `json:"nin,omitempty"`
+}
+
+// Omitted fields stay; explicit null clears assigneeId, dueDate, parentId.
+type UpdateIssueInput struct {
+	Title       graphql.Omittable[*string]  `json:"title,omitempty"`
+	Description graphql.Omittable[*string]  `json:"description,omitempty"`
+	StateID     graphql.Omittable[*string]  `json:"stateId,omitempty"`
+	Priority    graphql.Omittable[*int]     `json:"priority,omitempty"`
+	AssigneeID  graphql.Omittable[*string]  `json:"assigneeId,omitempty"`
+	DueDate     graphql.Omittable[*Date]    `json:"dueDate,omitempty"`
+	ParentID    graphql.Omittable[*string]  `json:"parentId,omitempty"`
+	SortOrder   graphql.Omittable[*float64] `json:"sortOrder,omitempty"`
+}
+
 // Omitted fields stay; explicit null clears icon and color.
 type UpdateProjectInput struct {
 	Key         graphql.Omittable[*string] `json:"key,omitempty"`
@@ -118,6 +225,77 @@ type User struct {
 	Role      Role      `json:"role"`
 	Disabled  bool      `json:"disabled"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// isMe: true means assigned to the viewer, false means not assigned to the viewer.
+type UserComparator struct {
+	Eq   graphql.Omittable[*string]  `json:"eq,omitempty"`
+	Neq  graphql.Omittable[*string]  `json:"neq,omitempty"`
+	In   graphql.Omittable[[]string] `json:"in,omitempty"`
+	Nin  graphql.Omittable[[]string] `json:"nin,omitempty"`
+	Null graphql.Omittable[*bool]    `json:"null,omitempty"`
+	IsMe graphql.Omittable[*bool]    `json:"isMe,omitempty"`
+}
+
+type IssueOrderField string
+
+const (
+	IssueOrderFieldSortOrder IssueOrderField = "SORT_ORDER"
+	IssueOrderFieldCreatedAt IssueOrderField = "CREATED_AT"
+	IssueOrderFieldUpdatedAt IssueOrderField = "UPDATED_AT"
+	IssueOrderFieldPriority  IssueOrderField = "PRIORITY"
+	IssueOrderFieldDueDate   IssueOrderField = "DUE_DATE"
+)
+
+var AllIssueOrderField = []IssueOrderField{
+	IssueOrderFieldSortOrder,
+	IssueOrderFieldCreatedAt,
+	IssueOrderFieldUpdatedAt,
+	IssueOrderFieldPriority,
+	IssueOrderFieldDueDate,
+}
+
+func (e IssueOrderField) IsValid() bool {
+	switch e {
+	case IssueOrderFieldSortOrder, IssueOrderFieldCreatedAt, IssueOrderFieldUpdatedAt, IssueOrderFieldPriority, IssueOrderFieldDueDate:
+		return true
+	}
+	return false
+}
+
+func (e IssueOrderField) String() string {
+	return string(e)
+}
+
+func (e *IssueOrderField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = IssueOrderField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid IssueOrderField", str)
+	}
+	return nil
+}
+
+func (e IssueOrderField) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *IssueOrderField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e IssueOrderField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }
 
 type OrderDirection string

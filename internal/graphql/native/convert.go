@@ -1,12 +1,15 @@
 package native
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/google/uuid"
 
+	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/page"
 	"github.com/askuksov/yalkos/internal/domain/project"
@@ -106,4 +109,89 @@ func parseOptID(field string, s *string) (*uuid.UUID, error) {
 		return nil, err
 	}
 	return &id, nil
+}
+
+// Issue is the GraphQL Issue; related entities resolve through loaders.
+type Issue struct {
+	ID          string
+	Identifier  string
+	Number      int
+	Title       string
+	Description string
+	Priority    int
+	DueDate     *Date
+	SortOrder   float64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	CompletedAt *time.Time
+	CanceledAt  *time.Time
+
+	uid, projectID, stateID, creatorID uuid.UUID
+	assigneeID, parentID               *uuid.UUID
+}
+
+// HistoryEntry is one audit event; actor resolves through the user loader.
+type HistoryEntry struct {
+	ID        string
+	Action    string
+	Changes   []FieldChange
+	CreatedAt time.Time
+
+	actorID *uuid.UUID
+}
+
+func issueOut(i issue.Issue) *Issue {
+	out := &Issue{
+		ID: i.ID.String(), Identifier: i.Identifier, Number: i.Number, Title: i.Title, Description: i.Description,
+		Priority: i.Priority, SortOrder: i.SortOrder, CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
+		CompletedAt: i.CompletedAt, CanceledAt: i.CanceledAt,
+		uid: i.ID, projectID: i.ProjectID, stateID: i.StateID, creatorID: i.CreatorID,
+		assigneeID: i.AssigneeID, parentID: i.ParentID,
+	}
+	if i.DueDate != nil {
+		d := Date(*i.DueDate)
+		out.DueDate = &d
+	}
+	return out
+}
+
+func issueConnOut(res page.Result[issue.Issue]) *IssueConnection {
+	conn := &IssueConnection{
+		Nodes:    make([]Issue, 0, len(res.Items)),
+		Edges:    make([]IssueEdge, 0, len(res.Items)),
+		PageInfo: pageInfoOut(res.Info),
+	}
+	for n, i := range res.Items {
+		node := issueOut(i)
+		conn.Nodes = append(conn.Nodes, *node)
+		conn.Edges = append(conn.Edges, IssueEdge{Node: node, Cursor: res.Cursors[n]})
+	}
+	return conn
+}
+
+// jsonText returns a stored JSON value as text; absent or JSON null is nil.
+func jsonText(raw json.RawMessage) *string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	s := string(raw)
+	return &s
+}
+
+func historyOut(res page.Result[audit.Entry]) *HistoryConnection {
+	conn := &HistoryConnection{
+		Nodes:    make([]HistoryEntry, 0, len(res.Items)),
+		Edges:    make([]HistoryEdge, 0, len(res.Items)),
+		PageInfo: pageInfoOut(res.Info),
+	}
+	for n, e := range res.Items {
+		changes := make([]FieldChange, 0, len(e.Changes))
+		for _, c := range e.Changes {
+			changes = append(changes, FieldChange{Field: c.Field, From: jsonText(c.From), To: jsonText(c.To)})
+		}
+		node := &HistoryEntry{ID: e.ID.String(), Action: e.Action, Changes: changes, CreatedAt: e.At, actorID: e.ActorID}
+		conn.Nodes = append(conn.Nodes, *node)
+		conn.Edges = append(conn.Edges, HistoryEdge{Node: node, Cursor: res.Cursors[n]})
+	}
+	return conn
 }

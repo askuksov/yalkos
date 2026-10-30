@@ -110,3 +110,28 @@ func (r *mutationResolver) changeMember(ctx context.Context, projectID, userID s
 	}
 	return projectOut(p), nil
 }
+
+// user loads an optional user reference.
+func (r *Resolver) user(ctx context.Context, id *uuid.UUID) (*User, error) {
+	if id == nil {
+		return nil, nil
+	}
+	u, err := loadersFrom(ctx).users.Load(ctx, *id)
+	if err != nil {
+		return nil, err
+	}
+	return userOut(u), nil
+}
+
+// optID turns an omittable ID input into a patch field (explicit null clears).
+func optID(field string, valueOK func() (*string, bool)) (kit.Opt[uuid.UUID], error) {
+	v, set := valueOK()
+	if !set {
+		return kit.Opt[uuid.UUID]{}, nil
+	}
+	id, err := parseOptID(field, v)
+	if err != nil {
+		return kit.Opt[uuid.UUID]{}, err
+	}
+	return kit.Opt[uuid.UUID]{Set: true, Value: id}, nil
+}

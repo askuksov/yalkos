@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/askuksov/yalkos/internal/domain/account"
@@ -91,9 +92,23 @@ func Presenter(logf func(ctx context.Context, err error)) graphql.ErrorPresenter
 			cause = gerr.Err
 		}
 		out := From(ctx, cause)
+		if f, ok := out.Extensions["field"].(string); ok && f == "" && gerr != nil {
+			// Scalar errors (e.g. a bad Date) know no field: take it from the input path.
+			out.Extensions["field"] = lastName(gerr.Path)
+		}
 		if out.Extensions["code"] == CodeInternal {
 			logf(ctx, cause)
 		}
 		return out
 	}
+}
+
+// lastName returns the last field name in path, or "" if it has none.
+func lastName(path ast.Path) string {
+	for i := len(path) - 1; i >= 0; i-- {
+		if n, ok := path[i].(ast.PathName); ok {
+			return string(n)
+		}
+	}
+	return ""
 }
