@@ -133,6 +133,46 @@ describe('ApiKeysPage', () => {
   })
 })
 
+describe('SessionWatcher', () => {
+  const signedIn = {
+    SetupStatus: () => ({ setupStatus: { needed: false } }),
+    Viewer: () => ({ viewer: owner }),
+  }
+  const lost = () => {
+    throw new GraphQLRequestError('AUTHENTICATION_ERROR', 'Authentication required')
+  }
+
+  it('redirects to /login when a query on a protected page loses the session', async () => {
+    serve({ ...signedIn, ApiKeys: lost })
+    renderAt('/settings/api-keys')
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/login'))
+  })
+
+  it('redirects to /login when a mutation loses the session', async () => {
+    serve({ ...signedIn, ApiKeys: () => ({ apiKeys: [] }), CreateApiKey: lost })
+    renderAt('/settings/api-keys')
+    await userEvent.type(await screen.findByLabelText('Key name'), 'CI')
+    expect(screen.getByTestId('where')).toHaveTextContent('/settings/api-keys')
+    await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/login'))
+  })
+
+  it('stays on /login after a wrong password', async () => {
+    serve({
+      ...signedOut,
+      Login: () => {
+        throw new GraphQLRequestError('AUTHENTICATION_ERROR', 'Invalid email or password')
+      },
+    })
+    renderAt('/login')
+    await userEvent.type(await screen.findByLabelText('Email'), 'o@example.com')
+    await userEvent.type(screen.getByLabelText('Password'), 'bad-password')
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByText('Invalid email or password')).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/login$/)
+  })
+})
+
 describe('InvitePage', () => {
   it('shows invalid link message', async () => {
     serve({
