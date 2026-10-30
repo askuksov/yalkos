@@ -110,7 +110,9 @@ func (w *where) intCond(col string, c *IntCond) {
 		op string
 	}{{c.Eq, "="}, {c.Neq, "<>"}, {c.Lt, "<"}, {c.Lte, "<="}, {c.Gt, ">"}, {c.Gte, ">="}} {
 		if op.v != nil {
-			w.add(col+" "+op.op+" %s", *op.v)
+			// bigint: an untyped parameter would take the column's smallint type
+			// and fail to encode large values.
+			w.add(col+" "+op.op+" %s::bigint", *op.v)
 		}
 	}
 	if c.In != nil {
