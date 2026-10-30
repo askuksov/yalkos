@@ -1,0 +1,175 @@
+# Issues, sub-issues, filters and change history.
+
+enum IssueOrderField {
+  SORT_ORDER
+  CREATED_AT
+  UPDATED_AT
+  PRIORITY
+  DUE_DATE
+}
+
+type Issue {
+  id: ID!
+  "KEY-N with the project's current key."
+  identifier: String!
+  number: Int!
+  title: String!
+  "Markdown."
+  description: String!
+  project: Project!
+  state: State!
+  "0 none, 1 urgent, 2 high, 3 medium, 4 low."
+  priority: Int!
+  assignee: User
+  creator: User!
+  parent: Issue
+  children(first: Int, after: String, last: Int, before: String, orderBy: IssueOrder): IssueConnection!
+  dueDate: Date
+  sortOrder: Float!
+  createdAt: Time!
+  updatedAt: Time!
+  completedAt: Time
+  canceledAt: Time
+  "Oldest first."
+  history(first: Int, after: String, last: Int, before: String): HistoryConnection!
+}
+
+type IssueEdge {
+  node: Issue!
+  cursor: String!
+}
+
+type IssueConnection {
+  nodes: [Issue!]!
+  edges: [IssueEdge!]!
+  pageInfo: PageInfo!
+}
+
+"from/to are JSON-encoded values (null when absent)."
+type FieldChange {
+  field: String!
+  from: String
+  to: String
+}
+
+type HistoryEntry {
+  id: ID!
+  "create, update or delete."
+  action: String!
+  actor: User
+  changes: [FieldChange!]!
+  createdAt: Time!
+}
+
+type HistoryEdge {
+  node: HistoryEntry!
+  cursor: String!
+}
+
+type HistoryConnection {
+  nodes: [HistoryEntry!]!
+  edges: [HistoryEdge!]!
+  pageInfo: PageInfo!
+}
+
+"in: [] matches nothing; neq and nin keep issues where the field is empty."
+input IDComparator {
+  eq: ID
+  neq: ID
+  in: [ID!]
+  nin: [ID!]
+  null: Boolean
+}
+
+"isMe: true means assigned to the viewer, false means not assigned to the viewer."
+input UserComparator {
+  eq: ID
+  neq: ID
+  in: [ID!]
+  nin: [ID!]
+  null: Boolean
+  isMe: Boolean
+}
+
+input StateTypeComparator {
+  eq: StateType
+  in: [StateType!]
+  nin: [StateType!]
+}
+
+input IntComparator {
+  eq: Int
+  neq: Int
+  in: [Int!]
+  nin: [Int!]
+  lt: Int
+  lte: Int
+  gt: Int
+  gte: Int
+}
+
+input DateComparator {
+  eq: Date
+  lt: Date
+  lte: Date
+  gt: Date
+  gte: Date
+  null: Boolean
+}
+
+"All set conditions must hold. Issues of archived projects are listed only with project eq/in or includeArchived."
+input IssueFilter {
+  project: IDComparator
+  state: IDComparator
+  stateType: StateTypeComparator
+  assignee: UserComparator
+  priority: IntComparator
+  parent: IDComparator
+  hasChildren: Boolean
+  dueDate: DateComparator
+  includeArchived: Boolean
+}
+
+input IssueOrder {
+  field: IssueOrderField!
+  direction: OrderDirection = ASC
+}
+
+"projectId may be omitted when parentId is given."
+input CreateIssueInput {
+  projectId: ID
+  parentId: ID
+  title: String!
+  description: String
+  stateId: ID
+  priority: Int
+  assigneeId: ID
+  dueDate: Date
+  sortOrder: Float
+}
+
+"Omitted fields stay; explicit null clears assigneeId, dueDate, parentId."
+input UpdateIssueInput {
+  title: String
+  description: String
+  stateId: ID
+  priority: Int
+  assigneeId: ID
+  dueDate: Date
+  parentId: ID
+  sortOrder: Float
+}
+
+extend type Query {
+  "UUID or identifier (KEY-N, also former ones)."
+  issue(id: String!): Issue!
+  issues(filter: IssueFilter, orderBy: IssueOrder, first: Int, after: String, last: Int, before: String): IssueConnection!
+}
+
+extend type Mutation {
+  createIssue(input: CreateIssueInput!): Issue!
+  updateIssue(id: ID!, input: UpdateIssueInput!): Issue!
+  "Moves the issue and its sub-issues; each gets a new number in the target project."
+  moveIssue(id: ID!, projectId: ID!, stateId: ID): Issue!
+  deleteIssue(id: ID!): Boolean!
+}
