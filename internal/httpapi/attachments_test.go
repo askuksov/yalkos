@@ -139,7 +139,7 @@ func TestUploadAndDownload(t *testing.T) {
 	}
 	if h.Get("Content-Type") != "image/png" || h.Get("X-Content-Type-Options") != "nosniff" ||
 		h.Get("Content-Security-Policy") != "sandbox" || h.Get("Content-Disposition") != `inline; filename*=UTF-8''shot%20one.png` ||
-		h.Get("Cache-Control") != "private, max-age=31536000, immutable" {
+		h.Get("Cache-Control") != "private, no-cache" {
 		t.Errorf("headers = %v", h)
 	}
 	// The name in the URL is ignored.
@@ -294,5 +294,27 @@ func TestUploadBadInput(t *testing.T) {
 	r.Header.Set("Content-Type", mw.FormDataContentType())
 	if rec := e.send(r, true); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"reason":"required"`) {
 		t.Errorf("no file = %d %s", rec.Code, rec.Body)
+	}
+}
+
+// A browser revalidates every view, so a file stops loading once the session
+// is gone instead of staying in its cache.
+func TestDownloadRevalidates(t *testing.T) {
+	e := newFileEnv(t, 1<<20)
+	u := e.upload(t, "shot.png", pngData)
+	first := e.download(t, u.URL)
+	modified := first.Header().Get("Last-Modified")
+	if modified == "" {
+		t.Fatal("no Last-Modified")
+	}
+	r := httptest.NewRequest(http.MethodGet, u.URL, nil)
+	r.Header.Set("If-Modified-Since", modified)
+	if rec := e.send(r, true); rec.Code != http.StatusNotModified {
+		t.Errorf("signed-in revalidation = %d, want 304", rec.Code)
+	}
+	r = httptest.NewRequest(http.MethodGet, u.URL, nil)
+	r.Header.Set("If-Modified-Since", modified)
+	if rec := e.send(r, false); rec.Code != http.StatusUnauthorized {
+		t.Errorf("signed-out revalidation = %d, want 401", rec.Code)
 	}
 }
