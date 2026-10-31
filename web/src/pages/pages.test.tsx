@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GraphQLRequestError, request } from '../api/client'
 import { opName, renderAt } from '../test/render'
+import { deferred } from '../test/serve'
 
 vi.mock('../api/client', async (orig) => {
   const actual = await orig<typeof import('../api/client')>()
@@ -23,12 +24,17 @@ function serve(handlers: Record<string, Handler>) {
 }
 
 const signedOut = {
+  Projects: () => ({ projects: { nodes: [] } }),
   SetupStatus: () => ({ setupStatus: { needed: false } }),
   Viewer: () => {
     throw new GraphQLRequestError('AUTHENTICATION_ERROR', 'Authentication required')
   },
 }
 const owner = { id: 'u1', name: 'Olga', email: 'o@example.com', role: 'OWNER' }
+// The shell around protected pages loads these.
+const shell = {
+  Projects: () => ({ projects: { nodes: [] } }),
+}
 
 beforeEach(() => {
   mocked.mockReset()
@@ -53,8 +59,8 @@ describe('LoginPage', () => {
     await userEvent.type(await screen.findByLabelText('Email'), 'o@example.com')
     await userEvent.type(screen.getByLabelText('Password'), 'owner-password')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/$/))
-    expect(await screen.findByText('Signed in as Olga (owner)')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/my-issues$/))
+    expect(await screen.findByRole('button', { name: /Olga/ })).toBeInTheDocument()
   })
 
   it('shows invalid credentials message', async () => {
@@ -112,6 +118,7 @@ describe('ApiKeysPage', () => {
   it('shows a new key once', async () => {
     const plain = 'yal_api_' + 'a'.repeat(40)
     serve({
+      ...shell,
       SetupStatus: () => ({ setupStatus: { needed: false } }),
       Viewer: () => ({ viewer: owner }),
       ApiKeys: () => ({
@@ -135,6 +142,7 @@ describe('ApiKeysPage', () => {
 
 describe('SessionWatcher', () => {
   const signedIn = {
+    ...shell,
     SetupStatus: () => ({ setupStatus: { needed: false } }),
     Viewer: () => ({ viewer: owner }),
   }
@@ -155,6 +163,74 @@ describe('SessionWatcher', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/settings/api-keys')
     await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/login'))
+  })
+
+  it('ignores an auth error from a mutation of the previous session', async () => {
+    const held = deferred<never>()
+    let loggedIn = true
+    serve({
+      ...shell,
+      SetupStatus: () => ({ setupStatus: { needed: false } }),
+      Viewer: () => {
+        if (!loggedIn) throw new GraphQLRequestError('AUTHENTICATION_ERROR', 'Authentication required')
+        return { viewer: owner }
+      },
+      ApiKeys: () => ({
+        apiKeys: [{ id: 'k1', name: 'CI', displayPrefix: 'yal_api_aaaa…', createdAt: '2026-10-30T09:05:00Z', lastUsedAt: null }],
+      }),
+      // Started under the old session; its answer arrives after the new sign-in.
+      CreateApiKey: () => held.promise,
+      RevokeApiKey: () => {
+        loggedIn = false
+        return lost()
+      },
+      Login: () => {
+        loggedIn = true
+        return { login: { id: 'u1' } }
+      },
+    })
+    const { client } = renderAt('/settings/api-keys')
+    await userEvent.type(await screen.findByLabelText('Key name'), 'CI')
+    await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Revoke' }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/login$/))
+
+    await userEvent.type(await screen.findByLabelText('Email'), 'o@example.com')
+    await userEvent.type(screen.getByLabelText('Password'), 'owner-password')
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/settings\/api-keys$/))
+    expect(await screen.findByText('yal_api_aaaa…')).toBeInTheDocument()
+
+    held.reject(new GraphQLRequestError('AUTHENTICATION_ERROR', 'Authentication required'))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/settings\/api-keys$/)
+    expect(client.getQueryData(['viewer'])).toBeDefined()
+    expect(screen.getByText('yal_api_aaaa…')).toBeInTheDocument()
+  })
+
+  it('still redirects on an auth error from a mutation of the current session after a new sign-in', async () => {
+    let loggedIn = false
+    serve({
+      ...shell,
+      SetupStatus: () => ({ setupStatus: { needed: false } }),
+      Viewer: () => {
+        if (!loggedIn) throw new GraphQLRequestError('AUTHENTICATION_ERROR', 'Authentication required')
+        return { viewer: owner }
+      },
+      ApiKeys: () => ({ apiKeys: [] }),
+      CreateApiKey: lost,
+      Login: () => {
+        loggedIn = true
+        return { login: { id: 'u1' } }
+      },
+    })
+    renderAt('/settings/api-keys')
+    await userEvent.type(await screen.findByLabelText('Email'), 'o@example.com')
+    await userEvent.type(screen.getByLabelText('Password'), 'owner-password')
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    await userEvent.type(await screen.findByLabelText('Key name'), 'CI')
+    await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/login$/))
   })
 
   it('stays on /login after a wrong password', async () => {
@@ -194,6 +270,7 @@ describe('setup flow', () => {
   it('lands on home after setup instead of bouncing back to /setup', async () => {
     let done = false
     serve({
+      ...shell,
       SetupStatus: () => ({ setupStatus: { needed: !done } }),
       Viewer: () => {
         if (!done) throw new GraphQLRequestError('AUTHENTICATION_ERROR', 'Authentication required')
@@ -212,8 +289,8 @@ describe('setup flow', () => {
     await userEvent.type(screen.getByLabelText('Email'), 'o@example.com')
     await userEvent.type(screen.getByLabelText('Password'), 'owner-password')
     await userEvent.click(screen.getByRole('button', { name: 'Create workspace' }))
-    expect(await screen.findByText('Signed in as Olga (owner)')).toBeInTheDocument()
-    expect(screen.getByTestId('where')).toHaveTextContent(/^\/$/)
+    expect(await screen.findByRole('button', { name: /Olga/ })).toBeInTheDocument()
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/my-issues$/)
   })
 })
 

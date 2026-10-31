@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
-import { Link } from 'react-router'
+import { Trans, useTranslation } from 'react-i18next'
 
+import s from '../app/app.module.css'
+import { PageHeader } from '../app/PageHeader'
 import { errorMessage, request } from '../api/client'
 import { ApiKeysQuery, CreateApiKeyMutation, RevokeApiKeyMutation } from '../api/operations'
 import { formatDateTime } from '../lib/date'
-import { Layout } from './Layout'
+import { Button } from '../ui/Button'
 
 export function ApiKeysPage() {
+  const { t } = useTranslation(['settings', 'common'])
   const qc = useQueryClient()
   const keys = useQuery({ queryKey: ['apiKeys'], queryFn: () => request(ApiKeysQuery) })
   const [name, setName] = useState('')
@@ -29,39 +32,66 @@ export function ApiKeysPage() {
   }
 
   return (
-    <Layout title="API keys">
-      <Link to="/">← Home</Link>
-      <p>Use a key with any Linear-compatible tool: <code>Authorization: &lt;key&gt;</code>.</p>
-      {created ? (
-        <section className="secret">
-          <p>
-            <strong>You will not see this key again.</strong> Copy it now.
-          </p>
-          <code>{created}</code>{' '}
-          <button type="button" onClick={() => void navigator.clipboard?.writeText(created)}>Copy</button>{' '}
-          <button type="button" onClick={() => setCreated('')}>Done</button>
-        </section>
-      ) : (
-        <form onSubmit={submit}>
-          <label>Key name<input value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} /></label>
-          <button type="submit" disabled={create.isPending}>Create key</button>
-        </form>
-      )}
-      {(create.error ?? revoke.error) && <p role="alert">{errorMessage(create.error ?? revoke.error)}</p>}
-      <table>
-        <thead><tr><th>Name</th><th>Key</th><th>Created</th><th>Last used</th><th /></tr></thead>
-        <tbody>
-          {keys.data?.apiKeys.map((k) => (
-            <tr key={k.id}>
-              <td>{k.name}</td>
-              <td><code>{k.displayPrefix}</code></td>
-              <td>{formatDateTime(k.createdAt)}</td>
-              <td>{k.lastUsedAt ? formatDateTime(k.lastUsedAt) : 'never'}</td>
-              <td><button type="button" onClick={() => revoke.mutate(k.id)}>Revoke</button></td>
+    <>
+      <PageHeader title={t('apiKeys.title')} />
+      <div className={s.content}>
+        <p>
+          <Trans t={t} i18nKey="apiKeys.hint" values={{ header: t('apiKeys.headerExample') }} components={{ code: <code /> }} />
+        </p>
+        {created ? (
+          <section className="secret">
+            <p>
+              <strong>{t('apiKeys.once')}</strong> {t('apiKeys.copyNow')}
+            </p>
+            <code>{created}</code>{' '}
+            <Button size="sm" onClick={() => void navigator.clipboard?.writeText(created)}>
+              {t('common:actions.copy')}
+            </Button>{' '}
+            <Button size="sm" onClick={() => setCreated('')}>
+              {t('common:actions.done')}
+            </Button>
+          </section>
+        ) : (
+          <form onSubmit={submit}>
+            <label>
+              {t('apiKeys.name')}
+              <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} />
+            </label>
+            <Button type="submit" variant="primary" disabled={create.isPending}>
+              {t('apiKeys.create')}
+            </Button>
+          </form>
+        )}
+        {(create.error ?? revoke.error) && <p role="alert">{errorMessage(create.error ?? revoke.error)}</p>}
+        <table>
+          <thead>
+            <tr>
+              <th>{t('members.name')}</th>
+              <th>{t('apiKeys.key')}</th>
+              <th>{t('apiKeys.created')}</th>
+              <th>{t('apiKeys.lastUsed')}</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </Layout>
+          </thead>
+          <tbody>
+            {keys.data?.apiKeys.map((k) => (
+              <tr key={k.id}>
+                <td>{k.name}</td>
+                <td>
+                  <code>{k.displayPrefix}</code>
+                </td>
+                <td>{formatDateTime(k.createdAt)}</td>
+                <td>{k.lastUsedAt ? formatDateTime(k.lastUsedAt) : t('apiKeys.never')}</td>
+                <td>
+                  <Button size="sm" onClick={() => revoke.mutate(k.id)}>
+                    {t('apiKeys.revoke')}
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }

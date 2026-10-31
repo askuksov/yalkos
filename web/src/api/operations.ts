@@ -89,3 +89,21 @@ export const RevokeApiKeyMutation = graphql(`
     revokeApiKey(id: $id)
   }
 `)
+
+export const ProjectsQuery = graphql(`
+  query Projects($includeArchived: Boolean) {
+    projects(includeArchived: $includeArchived, first: 250) {
+      nodes { id key name icon color archivedAt isMember }
+    }
+  }
+`)
+
+export const ProjectQuery = graphql(`
+  query Project($id: String!) {
+    project(id: $id) {
+      id key name description icon color archivedAt isMember
+      states { id name type color position isDefault }
+      members { id name }
+    }
+  }
+`)

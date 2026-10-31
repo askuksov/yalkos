@@ -1,23 +1,36 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import type { DocumentNode, OperationDefinitionNode } from 'graphql'
-import { MemoryRouter, Route, Routes } from 'react-router'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 
-import { AppRoutes } from '../App'
+import { routes } from '../app/routes'
+import { ToastProvider } from '../ui/Toast'
 import { Where } from './Where'
 
 export function renderAt(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(
+  const router = createMemoryRouter(
+    [
+      {
+        element: (
+          <>
+            <Outlet />
+            <Where />
+          </>
+        ),
+        children: routes,
+      },
+    ],
+    { initialEntries: [path] },
+  )
+  const view = render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>
-        <AppRoutes />
-        <Routes>
-          <Route path="*" element={<Where />} />
-        </Routes>
-      </MemoryRouter>
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>,
   )
+  return { ...view, router, client }
 }
 
 /** Operation name of a typed document, used to route mocked requests. */

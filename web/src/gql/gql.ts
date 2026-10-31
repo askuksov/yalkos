@@ -29,6 +29,8 @@ type Documents = {
     "\n  query ApiKeys {\n    apiKeys { id name displayPrefix createdAt lastUsedAt }\n  }\n": typeof types.ApiKeysDocument,
     "\n  mutation CreateApiKey($name: String!) {\n    createApiKey(name: $name) { key apiKey { id } }\n  }\n": typeof types.CreateApiKeyDocument,
     "\n  mutation RevokeApiKey($id: ID!) {\n    revokeApiKey(id: $id)\n  }\n": typeof types.RevokeApiKeyDocument,
+    "\n  query Projects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 250) {\n      nodes { id key name icon color archivedAt isMember }\n    }\n  }\n": typeof types.ProjectsDocument,
+    "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": typeof types.ProjectDocument,
 };
 const documents: Documents = {
     "\n  query SetupStatus {\n    setupStatus { needed }\n  }\n": types.SetupStatusDocument,
@@ -46,6 +48,8 @@ const documents: Documents = {
     "\n  query ApiKeys {\n    apiKeys { id name displayPrefix createdAt lastUsedAt }\n  }\n": types.ApiKeysDocument,
     "\n  mutation CreateApiKey($name: String!) {\n    createApiKey(name: $name) { key apiKey { id } }\n  }\n": types.CreateApiKeyDocument,
     "\n  mutation RevokeApiKey($id: ID!) {\n    revokeApiKey(id: $id)\n  }\n": types.RevokeApiKeyDocument,
+    "\n  query Projects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 250) {\n      nodes { id key name icon color archivedAt isMember }\n    }\n  }\n": types.ProjectsDocument,
+    "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": types.ProjectDocument,
 };
 
 /**
@@ -122,6 +126,14 @@ export function graphql(source: "\n  mutation CreateApiKey($name: String!) {\n  
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation RevokeApiKey($id: ID!) {\n    revokeApiKey(id: $id)\n  }\n"): (typeof documents)["\n  mutation RevokeApiKey($id: ID!) {\n    revokeApiKey(id: $id)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Projects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 250) {\n      nodes { id key name icon color archivedAt isMember }\n    }\n  }\n"): (typeof documents)["\n  query Projects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 250) {\n      nodes { id key name icon color archivedAt isMember }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n"): (typeof documents)["\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};
