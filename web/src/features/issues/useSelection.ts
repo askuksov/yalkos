@@ -10,9 +10,12 @@ import { targetsFrom } from '../command/targets'
  * [data-href]): J/K move, Enter opens, X toggles the checkbox, Esc clears the
  * checked set. Hover moves the same highlight (setSelected).
  */
-export function useSelection(container: RefObject<HTMLElement | null>, { checkable = true }: { checkable?: boolean } = {}) {
+export function useSelection(
+  container: RefObject<HTMLElement | null>,
+  { checkable = true, initialSelected = null }: { checkable?: boolean; initialSelected?: string | null } = {},
+) {
   const navigate = useNavigate()
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(initialSelected)
   const [checked, setChecked] = useState<ReadonlySet<string>>(new Set())
 
   const rows = () => [...(container.current?.querySelectorAll<HTMLElement>('[data-row-id]') ?? [])]

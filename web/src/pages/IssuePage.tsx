@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate, useParams } from 'react-router'
 
@@ -48,6 +48,12 @@ function useBack(projectKey: string) {
 }
 
 function IssueView({ issue }: { issue: PageIssue }) {
+  const top = useRef<HTMLDivElement>(null)
+  // The shell's scroll area is shared with the list: start the issue at the top.
+  useEffect(() => {
+    const main = top.current?.closest('main')
+    if (main) main.scrollTop = 0
+  }, [issue.id])
   const { t } = useTranslation(['issue', 'common'])
   const qc = useQueryClient()
   const toast = useToast()
@@ -87,7 +93,7 @@ function IssueView({ issue }: { issue: PageIssue }) {
   })
 
   return (
-    <div className={s.page}>
+    <div ref={top} className={s.page}>
       <IssueHeader
         issue={issue}
         readOnly={readOnly}
