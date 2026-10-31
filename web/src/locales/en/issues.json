@@ -16,7 +16,8 @@
       "kind": "Type",
       "label": "Labels",
       "nolabel": "No labels",
-      "milestone": "Milestone"
+      "milestone": "Milestone",
+      "nlabel": "Without labels"
     },
     "due": {
       "overdue": "Overdue",
