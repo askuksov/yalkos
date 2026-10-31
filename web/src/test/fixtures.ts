@@ -39,3 +39,39 @@ export function signedInAs(viewer: typeof owner, projects: ReturnType<typeof pro
     },
   }
 }
+
+type Row = {
+  id: string
+  identifier: string
+  title: string
+  priority: number
+  dueDate: string | null
+  sortOrder: number
+  state: { id: string; name: string; type: string; color: string }
+  assignee: { id: string; name: string } | null
+  parent: { id: string; identifier: string } | null
+  subIssueProgress: { completed: number; total: number }
+  project: { id: string; key: string; archivedAt: string | null }
+}
+
+/** An issue as the list fragment returns it. */
+export function issueRow(n: number, over: Partial<Row> = {}): Row {
+  const st = states[1]
+  return {
+    id: `i${n}`, identifier: `YLK-${n}`, title: `Issue ${n}`, priority: 0, dueDate: null, sortOrder: n * 1000,
+    state: { id: st.id, name: st.name, type: st.type, color: st.color },
+    assignee: null, parent: null, subIssueProgress: { completed: 0, total: 0 },
+    project: { id: 'p1', key: 'YLK', archivedAt: null },
+    ...over,
+  }
+}
+
+export function stateOf(id: string) {
+  const st = states.find((s) => s.id === id) ?? states[1]
+  return { id: st.id, name: st.name, type: st.type, color: st.color }
+}
+
+/** An issues connection page. */
+export function conn<T>(nodes: T[], { total = nodes.length, next = '' }: { total?: number; next?: string } = {}) {
+  return { issues: { totalCount: total, nodes, pageInfo: { hasNextPage: !!next, endCursor: next || null } } }
+}

@@ -78,3 +78,188 @@
   gap: var(--space-2);
   padding: var(--space-2);
 }
+
+/* List */
+.list {
+  flex: 1;
+  padding-block-end: 64px;
+}
+.group + .group {
+  border-block-start: 1px solid var(--border);
+}
+.groupHeader {
+  position: sticky;
+  z-index: 2;
+  inset-block-start: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: 36px;
+  padding-inline: var(--space-4) var(--space-3);
+  background: var(--bg-subtle);
+}
+.groupToggle {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+.count {
+  color: var(--fg-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: var(--row-h);
+  padding-inline-end: var(--space-4);
+  border-block-end: 1px solid var(--bg-subtle);
+}
+.rowSelected {
+  background: var(--bg-hover);
+}
+.rowLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  color: inherit;
+  text-decoration: none;
+}
+/* The whole row opens the issue; controls sit above the stretched link. */
+.rowLink::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+}
+.check,
+.chevron {
+  position: relative;
+  z-index: 1;
+}
+.check {
+  margin: 0;
+  opacity: 0;
+}
+.row:hover .check,
+.check:focus-visible,
+.checkVisible {
+  opacity: 1;
+}
+.chevronSlot {
+  display: inline-flex;
+  flex: none;
+  inline-size: 18px;
+}
+.chevron {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.chevron:hover {
+  background: var(--border);
+}
+.identifier {
+  flex: none;
+  min-inline-size: 64px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.progress,
+.badge {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.grow {
+  flex: 1;
+}
+.due {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+.overdue {
+  color: var(--danger);
+}
+.assignee {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  inline-size: 20px;
+}
+.more {
+  padding: var(--space-1) var(--space-4);
+}
+.emptyText {
+  padding: var(--space-4);
+  color: var(--fg-muted);
+}
+.skeleton {
+  block-size: 14px;
+  margin: 9px var(--space-4);
+  border-radius: 4px;
+  background: var(--bg-hover);
+}
+.bulk {
+  position: fixed;
+  z-index: 20;
+  inset-block-end: var(--space-4);
+  inset-inline: 0;
+  display: flex;
+  inline-size: fit-content;
+  margin-inline: auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-block-end: 1px solid var(--border);
+  background: var(--warning-bg);
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
