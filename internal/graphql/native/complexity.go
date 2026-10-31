@@ -20,6 +20,9 @@ const (
 	maxComplexity = 10_000
 	authCost      = 500
 	maxRootFields = 50
+	// stateWeight is the typical number of states per project (at most 50):
+	// State.project leads back to Project.states, so the list must be weighted.
+	stateWeight = 20
 )
 
 // pageSize is the number of items a connection may return.
@@ -34,9 +37,11 @@ func pageSize(first, last *int) int {
 	return min(max(n, 1), page.Max)
 }
 
-// connCost saturates just above the limit so deep nesting cannot overflow.
-func connCost(child int, first, last *int) int {
-	n := pageSize(first, last)
+// connCost is the cost of a connection page.
+func connCost(child int, first, last *int) int { return listCost(child, pageSize(first, last)) }
+
+// listCost saturates just above the limit so deep nesting cannot overflow.
+func listCost(child, n int) int {
 	if child > maxComplexity/n {
 		return maxComplexity + 1
 	}
@@ -57,6 +62,7 @@ func complexity() ComplexityRoot {
 	c.Issue.History = func(child int, first *int, _ *string, last *int, _ *string) int {
 		return connCost(child, first, last)
 	}
+	c.Project.States = func(child int) int { return listCost(child, stateWeight) }
 	c.Mutation.Login = func(child int, _, _ string) int { return authCost + child }
 	c.Mutation.Setup = func(child int, _ SetupInput) int { return authCost + child }
 	c.Mutation.AcceptInvite = func(child int, _ AcceptInviteInput) int { return authCost + child }
