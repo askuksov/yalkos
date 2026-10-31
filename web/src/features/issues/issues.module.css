@@ -1,0 +1,80 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.search {
+  inline-size: 200px;
+  block-size: 28px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-block-end: 1px solid var(--border);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-inline-size: 360px;
+  block-size: 24px;
+  padding-inline: var(--space-2) 2px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-subtle);
+  font-size: var(--font-size-small);
+}
+.chipText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chipRemove {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.chipRemove:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  inline-size: 280px;
+  padding: var(--space-3);
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.segmented button {
+  padding: 2px var(--space-2);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.segmented button[aria-pressed='true'] {
+  background: var(--bg-selected);
+}
+.dateRow {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
