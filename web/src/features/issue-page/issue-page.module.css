@@ -247,3 +247,67 @@
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+.comment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.commentHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.commentAuthor {
+  font-weight: 600;
+}
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block-start: var(--space-3);
+}
+.attachments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.fileList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+}
+.fileInfo {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.fileInfo a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thumb {
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+.dragOver {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+}

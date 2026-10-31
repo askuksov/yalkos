@@ -55,6 +55,7 @@ type Row = {
   type: { id: string; name: string; color: string } | null
   labels: { id: string; name: string; color: string }[]
   milestone: { id: string; name: string } | null
+  commentCount: number
 }
 
 /** An issue as the list fragment returns it. */
@@ -65,7 +66,7 @@ export function issueRow(n: number, over: Partial<Row> = {}): Row {
     state: { id: st.id, name: st.name, type: st.type, color: st.color },
     assignee: null, parent: null, subIssueProgress: { completed: 0, total: 0 },
     project: { id: 'p1', key: 'YLK', archivedAt: null },
-    type: null, labels: [], milestone: null,
+    type: null, labels: [], milestone: null, commentCount: 0,
     ...over,
   }
 }
@@ -133,4 +134,18 @@ export function milestone(n: number, over: Record<string, unknown> = {}) {
     progress: { completed: 0, total: 0 }, lead: null as { id: string; name: string } | null, project: { id: 'p1', key: 'YLK' },
     ...over,
   }
+}
+
+/** A timeline page as IssueTimeline returns it. */
+export function timeline(nodes: unknown[], { older = '' }: { older?: string } = {}) {
+  return { issue: { id: 'i1', timeline: { nodes, pageInfo: { hasPreviousPage: !!older, startCursor: older || null } } } }
+}
+
+export function event(id: string, changes: [string, unknown, unknown][], { action = 'update', at = '2026-10-30T12:00:00Z', actor = owner as { id: string; name: string } | null } = {}) {
+  const j = (v: unknown) => (v === null ? null : JSON.stringify(v))
+  return { __typename: 'HistoryEntry', id, action, actor: actor && { id: actor.id, name: actor.name }, createdAt: at, changes: changes.map(([field, from, to]) => ({ field, from: j(from), to: j(to) })) }
+}
+
+export function comment(id: string, body: string, { at = '2026-10-30T12:05:00Z', author = owner as { id: string; name: string }, editedAt = null as string | null } = {}) {
+  return { __typename: 'Comment', id, body, createdAt: at, editedAt, author: { id: author.id, name: author.name } }
 }

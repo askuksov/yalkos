@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, CornerDownRight, Target } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight, MessageSquare, Target } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -94,6 +94,11 @@ export function IssueRow({ issue, depth = 0, nested, orderBy }: Props) {
           </span>
         )}
         <span className={s.grow} />
+        {issue.commentCount > 0 && (
+          <span className={s.progress} title={t('list.comments', { count: issue.commentCount })}>
+            <MessageSquare size={12} aria-hidden /> {issue.commentCount}
+          </span>
+        )}
         {issue.dueDate && (
           <span className={[s.due, overdue ? s.overdue : ''].join(' ')} title={t(overdue ? 'list.overdue' : 'list.dueDate', { date: issue.dueDate })}>
             {issue.dueDate}

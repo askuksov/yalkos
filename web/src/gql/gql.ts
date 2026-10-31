@@ -37,10 +37,15 @@ type Documents = {
     "\n  query PaletteMilestones {\n    projects(first: 100) { nodes { id key isMember milestones(includeDone: false) { id name } } }\n  }\n": typeof types.PaletteMilestonesDocument,
     "\n  query IssuePage($id: String!) {\n    issue(id: $id) {\n      ...IssueRowFields\n      number description createdAt updatedAt\n      creator { id name }\n      project { id key name archivedAt states { id name type color position isDefault } }\n      children(first: 1) { totalCount }\n    }\n  }\n": typeof types.IssuePageDocument,
     "\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n": typeof types.MoveIssueDocument,
-    "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": typeof types.IssueHistoryDocument,
+    "\n  query IssueTimeline($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      timeline(last: 50, before: $before) {\n        nodes {\n          __typename\n          ... on Comment { id body createdAt editedAt author { id name } }\n          ... on HistoryEntry { id action actor { id name } changes { field from to } createdAt }\n        }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": typeof types.IssueTimelineDocument,
+    "\n  query IssueAttachments($id: String!) {\n    issue(id: $id) {\n      id\n      attachments { id name size contentType url inline createdAt uploader { id name } }\n    }\n  }\n": typeof types.IssueAttachmentsDocument,
+    "\n  mutation CreateComment($issueId: ID!, $body: String!, $attachmentIds: [ID!]) {\n    createComment(issueId: $issueId, body: $body, attachmentIds: $attachmentIds) { id body }\n  }\n": typeof types.CreateCommentDocument,
+    "\n  mutation UpdateComment($id: ID!, $body: String!) {\n    updateComment(id: $id, body: $body) { id body editedAt }\n  }\n": typeof types.UpdateCommentDocument,
+    "\n  mutation DeleteComment($id: ID!) {\n    deleteComment(id: $id)\n  }\n": typeof types.DeleteCommentDocument,
+    "\n  mutation DeleteAttachment($id: ID!) {\n    deleteAttachment(id: $id)\n  }\n": typeof types.DeleteAttachmentDocument,
     "\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n": typeof types.IssueRefDocument,
     "\n  mutation CreateIssue($input: CreateIssueInput!) {\n    createIssue(input: $input) { id identifier project { id } }\n  }\n": typeof types.CreateIssueDocument,
-    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n  }\n": typeof types.IssueRowFieldsFragmentDoc,
+    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n    commentCount\n  }\n": typeof types.IssueRowFieldsFragmentDoc,
     "\n  query IssueGroup($filter: IssueFilter, $orderBy: IssueOrder, $first: Int, $after: String) {\n    issues(filter: $filter, orderBy: $orderBy, first: $first, after: $after) {\n      totalCount\n      nodes { ...IssueRowFields }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": typeof types.IssueGroupDocument,
     "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      # 200 rows keep the query under the API cost limit (each row carries labels).\n      children(first: 200, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n": typeof types.IssueChildrenDocument,
     "\n  mutation UpdateIssue($id: ID!, $input: UpdateIssueInput!) {\n    updateIssue(id: $id, input: $input) { ...IssueRowFields }\n  }\n": typeof types.UpdateIssueDocument,
@@ -100,10 +105,15 @@ const documents: Documents = {
     "\n  query PaletteMilestones {\n    projects(first: 100) { nodes { id key isMember milestones(includeDone: false) { id name } } }\n  }\n": types.PaletteMilestonesDocument,
     "\n  query IssuePage($id: String!) {\n    issue(id: $id) {\n      ...IssueRowFields\n      number description createdAt updatedAt\n      creator { id name }\n      project { id key name archivedAt states { id name type color position isDefault } }\n      children(first: 1) { totalCount }\n    }\n  }\n": types.IssuePageDocument,
     "\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n": types.MoveIssueDocument,
-    "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": types.IssueHistoryDocument,
+    "\n  query IssueTimeline($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      timeline(last: 50, before: $before) {\n        nodes {\n          __typename\n          ... on Comment { id body createdAt editedAt author { id name } }\n          ... on HistoryEntry { id action actor { id name } changes { field from to } createdAt }\n        }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": types.IssueTimelineDocument,
+    "\n  query IssueAttachments($id: String!) {\n    issue(id: $id) {\n      id\n      attachments { id name size contentType url inline createdAt uploader { id name } }\n    }\n  }\n": types.IssueAttachmentsDocument,
+    "\n  mutation CreateComment($issueId: ID!, $body: String!, $attachmentIds: [ID!]) {\n    createComment(issueId: $issueId, body: $body, attachmentIds: $attachmentIds) { id body }\n  }\n": types.CreateCommentDocument,
+    "\n  mutation UpdateComment($id: ID!, $body: String!) {\n    updateComment(id: $id, body: $body) { id body editedAt }\n  }\n": types.UpdateCommentDocument,
+    "\n  mutation DeleteComment($id: ID!) {\n    deleteComment(id: $id)\n  }\n": types.DeleteCommentDocument,
+    "\n  mutation DeleteAttachment($id: ID!) {\n    deleteAttachment(id: $id)\n  }\n": types.DeleteAttachmentDocument,
     "\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n": types.IssueRefDocument,
     "\n  mutation CreateIssue($input: CreateIssueInput!) {\n    createIssue(input: $input) { id identifier project { id } }\n  }\n": types.CreateIssueDocument,
-    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n  }\n": types.IssueRowFieldsFragmentDoc,
+    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n    commentCount\n  }\n": types.IssueRowFieldsFragmentDoc,
     "\n  query IssueGroup($filter: IssueFilter, $orderBy: IssueOrder, $first: Int, $after: String) {\n    issues(filter: $filter, orderBy: $orderBy, first: $first, after: $after) {\n      totalCount\n      nodes { ...IssueRowFields }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": types.IssueGroupDocument,
     "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      # 200 rows keep the query under the API cost limit (each row carries labels).\n      children(first: 200, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n": types.IssueChildrenDocument,
     "\n  mutation UpdateIssue($id: ID!, $input: UpdateIssueInput!) {\n    updateIssue(id: $id, input: $input) { ...IssueRowFields }\n  }\n": types.UpdateIssueDocument,
@@ -249,7 +259,27 @@ export function graphql(source: "\n  mutation MoveIssue($id: ID!, $projectId: ID
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n"): (typeof documents)["\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n"];
+export function graphql(source: "\n  query IssueTimeline($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      timeline(last: 50, before: $before) {\n        nodes {\n          __typename\n          ... on Comment { id body createdAt editedAt author { id name } }\n          ... on HistoryEntry { id action actor { id name } changes { field from to } createdAt }\n        }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n"): (typeof documents)["\n  query IssueTimeline($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      timeline(last: 50, before: $before) {\n        nodes {\n          __typename\n          ... on Comment { id body createdAt editedAt author { id name } }\n          ... on HistoryEntry { id action actor { id name } changes { field from to } createdAt }\n        }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query IssueAttachments($id: String!) {\n    issue(id: $id) {\n      id\n      attachments { id name size contentType url inline createdAt uploader { id name } }\n    }\n  }\n"): (typeof documents)["\n  query IssueAttachments($id: String!) {\n    issue(id: $id) {\n      id\n      attachments { id name size contentType url inline createdAt uploader { id name } }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateComment($issueId: ID!, $body: String!, $attachmentIds: [ID!]) {\n    createComment(issueId: $issueId, body: $body, attachmentIds: $attachmentIds) { id body }\n  }\n"): (typeof documents)["\n  mutation CreateComment($issueId: ID!, $body: String!, $attachmentIds: [ID!]) {\n    createComment(issueId: $issueId, body: $body, attachmentIds: $attachmentIds) { id body }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation UpdateComment($id: ID!, $body: String!) {\n    updateComment(id: $id, body: $body) { id body editedAt }\n  }\n"): (typeof documents)["\n  mutation UpdateComment($id: ID!, $body: String!) {\n    updateComment(id: $id, body: $body) { id body editedAt }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteComment($id: ID!) {\n    deleteComment(id: $id)\n  }\n"): (typeof documents)["\n  mutation DeleteComment($id: ID!) {\n    deleteComment(id: $id)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteAttachment($id: ID!) {\n    deleteAttachment(id: $id)\n  }\n"): (typeof documents)["\n  mutation DeleteAttachment($id: ID!) {\n    deleteAttachment(id: $id)\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -261,7 +291,7 @@ export function graphql(source: "\n  mutation CreateIssue($input: CreateIssueInp
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n  }\n"): (typeof documents)["\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n  }\n"];
+export function graphql(source: "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n    commentCount\n  }\n"): (typeof documents)["\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n    commentCount\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

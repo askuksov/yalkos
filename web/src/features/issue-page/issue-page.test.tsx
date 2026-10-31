@@ -195,15 +195,15 @@ describe('issue page', () => {
 
   it('loads older activity', async () => {
     const entry = (id: string, title: string) => ({
-      id, action: 'update', actor: { id: 'u1', name: 'Olga' }, createdAt: '2026-10-30T14:02:00Z',
+      __typename: 'HistoryEntry', id, action: 'update', actor: { id: 'u1', name: 'Olga' }, createdAt: '2026-10-30T14:02:00Z',
       changes: [{ field: 'title', from: '"x"', to: JSON.stringify(title) }],
     })
     serve(
       withIssue(pageIssue(1), {
-        IssueHistory: (v: Vars) =>
+        IssueTimeline: (v: Vars) =>
           v?.before === 'c0'
-            ? { issue: { id: 'i1', history: { nodes: [entry('h1', 'Older')], pageInfo: { hasPreviousPage: false, startCursor: 'c-1' } } } }
-            : { issue: { id: 'i1', history: { nodes: [entry('h2', 'Newer')], pageInfo: { hasPreviousPage: true, startCursor: 'c0' } } } },
+            ? { issue: { id: 'i1', timeline: { nodes: [entry('h1', 'Older')], pageInfo: { hasPreviousPage: false, startCursor: 'c-1' } } } }
+            : { issue: { id: 'i1', timeline: { nodes: [entry('h2', 'Newer')], pageInfo: { hasPreviousPage: true, startCursor: 'c0' } } } },
       }),
     )
     renderAt('/issue/YLK-1')
