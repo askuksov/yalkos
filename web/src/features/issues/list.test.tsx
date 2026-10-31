@@ -102,6 +102,23 @@ describe('issue list', () => {
     expect(screen.getByText('Issue 6')).toBeInTheDocument()
   })
 
+  it('lists matching sub-issues flat when a filter is active and on My issues', async () => {
+    const child = todo(5, { parent: { id: 'i1', identifier: 'YLK-1' } })
+    serve(withGroups({ 's-todo': [child] }))
+    const { unmount } = renderAt('/p/YLK?q=session')
+    expect(await screen.findByText('Issue 5')).toBeInTheDocument()
+    expect(callsOf('IssueGroup').every((v) => (v.filter as { parent?: unknown }).parent === undefined)).toBe(true)
+    // Flat rows show their parent.
+    expect(screen.getByTitle('Sub-issue of YLK-1')).toBeInTheDocument()
+    unmount()
+
+    mocked.mockReset()
+    serve({ ...signedInAs(owner), IssueGroup: (v: Vars) => conn((v?.filter as { stateType?: { eq?: string } } | undefined)?.stateType?.eq === 'UNSTARTED' ? [child] : []) })
+    renderAt('/my-issues')
+    expect(await screen.findByText('Issue 5')).toBeInTheDocument()
+    expect(callsOf('IssueGroup').every((v) => (v.filter as { parent?: unknown }).parent === undefined)).toBe(true)
+  })
+
   it('moves selection with J and K and opens with Enter', async () => {
     serve(withGroups({ 's-todo': [todo(1), todo(2)] }))
     renderAt('/p/YLK')
