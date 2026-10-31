@@ -1,4 +1,5 @@
-import { type ReactNode, useCallback, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 
 import type { IssueFilter, IssueOrder, StateType } from '../../gql/graphql'
@@ -11,6 +12,7 @@ import { IssueGroup } from './IssueGroup'
 import s from './issues.module.css'
 import { SelectionContext } from './selection'
 import { useSelection } from './useSelection'
+import { viewMemory } from './viewMemory'
 
 export type ListScope =
   | { kind: 'project'; projectId: string; projectKey: string; states: PickerState[]; archived: boolean }
@@ -36,7 +38,20 @@ export function IssueList({ scope, params, users, viewerId, empty, groupAction }
   const { t } = useTranslation(['issues', 'common'])
   const container = useRef<HTMLDivElement>(null)
   const archived = scope.kind === 'project' && scope.archived
-  const sel = useSelection(container, { checkable: !archived })
+  const { key: entryKey } = useLocation()
+  const remembered = viewMemory.get(entryKey)
+  const sel = useSelection(container, { checkable: !archived, initialSelected: remembered?.selected ?? null })
+  const selectedRef = useRef(sel.selected)
+  useEffect(() => {
+    selectedRef.current = sel.selected
+  })
+  // Remember where the user was when leaving (opening an issue, switching pages).
+  useEffect(() => {
+    const main = container.current?.closest('main')
+    return () => {
+      viewMemory.set(entryKey, { scroll: main?.scrollTop ?? 0, selected: selectedRef.current })
+    }
+  }, [entryKey])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const onCount = useCallback((id: string, n: number) => setCounts((c) => (c[id] === n ? c : { ...c, [id]: n })), [])
 
@@ -73,6 +88,16 @@ export function IssueList({ scope, params, users, viewerId, empty, groupAction }
   const loaded = groups.every((g) => counts[g.id] !== undefined)
   const none = loaded && groups.every((g) => counts[g.id] === 0)
   const scopeKey = scope.kind === 'project' ? scope.projectKey : 'my'
+
+  // Restore the scroll offset once the groups have their rows.
+  const restored = useRef(false)
+  useEffect(() => {
+    if (!loaded || restored.current) return
+    restored.current = true
+    const main = container.current?.closest('main')
+    const saved = viewMemory.get(entryKey)
+    if (main && saved) main.scrollTop = saved.scroll
+  }, [loaded, entryKey])
 
   return (
     <SelectionContext.Provider value={{ ...sel, checkable: !archived }}>

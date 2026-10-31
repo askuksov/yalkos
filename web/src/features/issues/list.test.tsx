@@ -132,6 +132,23 @@ describe('issue list', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/issue/YLK-2'))
   })
 
+  it('keeps scroll position and selection when coming back from an issue', async () => {
+    serve(withGroups({ 's-todo': [todo(1), todo(2), todo(3)] }))
+    const { router } = renderAt('/p/YLK')
+    await screen.findByText('Issue 3')
+    fireEvent.keyDown(document.body, { key: 'j', code: 'KeyJ' })
+    fireEvent.keyDown(document.body, { key: 'j', code: 'KeyJ' })
+    const main = screen.getByRole('main')
+    main.scrollTop = 120
+    fireEvent.keyDown(document.body, { key: 'Enter', code: 'Enter' })
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/issue/YLK-2'))
+    main.scrollTop = 0
+    await router.navigate(-1)
+    await screen.findByText('Issue 3')
+    await waitFor(() => expect(screen.getByRole('link', { name: /Issue 2/ }).closest('[data-row-id]')).toHaveAttribute('aria-selected', 'true'))
+    await waitFor(() => expect(screen.getByRole('main').scrollTop).toBe(120))
+  })
+
   it('bulk-sets priority for checked issues', async () => {
     serve(
       withGroups({ 's-todo': [todo(1), todo(2), todo(3)] }, {}, {
