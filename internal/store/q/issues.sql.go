@@ -80,6 +80,15 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue
 	return i, err
 }
 
+const deleteIssueLabels = `-- name: DeleteIssueLabels :exec
+DELETE FROM issue_labels WHERE issue_id = $1
+`
+
+func (q *Queries) DeleteIssueLabels(ctx context.Context, issueID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteIssueLabels, issueID)
+	return err
+}
+
 const detachChildren = `-- name: DetachChildren :many
 UPDATE issues SET parent_id = NULL, updated_at = $1
 WHERE parent_id = $2 AND deleted_at IS NULL
@@ -257,6 +266,24 @@ func (q *Queries) GetIssueForUpdate(ctx context.Context, id uuid.UUID) (GetIssue
 	return i, err
 }
 
+const insertIssueLabels = `-- name: InsertIssueLabels :exec
+INSERT INTO issue_labels (issue_id, label_id, exclusive_group_id)
+SELECT $1::uuid, l.id, CASE WHEN g.exclusive THEN g.id END
+FROM labels l LEFT JOIN labels g ON g.id = l.parent_id
+WHERE l.id = ANY($2::uuid[])
+`
+
+type InsertIssueLabelsParams struct {
+	IssueID  uuid.UUID
+	LabelIds []uuid.UUID
+}
+
+// exclusive_group_id is the label's group when that group is exclusive.
+func (q *Queries) InsertIssueLabels(ctx context.Context, arg InsertIssueLabelsParams) error {
+	_, err := q.db.Exec(ctx, insertIssueLabels, arg.IssueID, arg.LabelIds)
+	return err
+}
+
 const insertIssueNumber = `-- name: InsertIssueNumber :exec
 INSERT INTO issue_numbers (project_id, number, issue_id) VALUES ($1, $2, $3)
 `
@@ -295,6 +322,35 @@ func (q *Queries) IssueAncestorIDs(ctx context.Context, id uuid.UUID) ([]uuid.UU
 			return nil, err
 		}
 		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const issueLabelIDs = `-- name: IssueLabelIDs :many
+SELECT issue_id, label_id FROM issue_labels WHERE issue_id = ANY($1::uuid[]) ORDER BY issue_id, label_id
+`
+
+type IssueLabelIDsRow struct {
+	IssueID uuid.UUID
+	LabelID uuid.UUID
+}
+
+func (q *Queries) IssueLabelIDs(ctx context.Context, issueIds []uuid.UUID) ([]IssueLabelIDsRow, error) {
+	rows, err := q.db.Query(ctx, issueLabelIDs, issueIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IssueLabelIDsRow
+	for rows.Next() {
+		var i IssueLabelIDsRow
+		if err := rows.Scan(&i.IssueID, &i.LabelID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -342,6 +398,49 @@ func (q *Queries) ListIssuesByIDs(ctx context.Context, ids []uuid.UUID) ([]ListI
 			&i.Issue.DeletedAt,
 			&i.Issue.MilestoneID,
 			&i.ProjectKey,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockLabelsForShare = `-- name: LockLabelsForShare :many
+SELECT id, workspace_id, parent_id, is_group, exclusive, name, description, color, position, created_by, created_at, updated_at FROM labels
+WHERE id = ANY($1::uuid[])
+   OR id IN (SELECT l.parent_id FROM labels l WHERE l.id = ANY($1::uuid[]) AND l.parent_id IS NOT NULL)
+ORDER BY id
+FOR SHARE
+`
+
+// Labels and their groups, share-locked: a concurrent regroup or exclusivity
+// change (which locks them for update) waits for this issue write.
+func (q *Queries) LockLabelsForShare(ctx context.Context, ids []uuid.UUID) ([]Label, error) {
+	rows, err := q.db.Query(ctx, lockLabelsForShare, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Label
+	for rows.Next() {
+		var i Label
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.ParentID,
+			&i.IsGroup,
+			&i.Exclusive,
+			&i.Name,
+			&i.Description,
+			&i.Color,
+			&i.Position,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

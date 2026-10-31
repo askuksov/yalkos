@@ -20,5 +20,6 @@ func snapshot(i Issue) map[string]any {
 		"completedAt": i.CompletedAt,
 		"canceledAt":  i.CanceledAt,
 		"milestoneId": i.MilestoneID,
+		"labelIds":    i.LabelIDs,
 	}
 }

@@ -84,6 +84,10 @@ func (e env) issueWith(t *testing.T, labels ...label.Label) issue.Issue {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Only the given labels: drop the default type the issue was created with.
+	if _, err := e.pool.Exec(ctx, `DELETE FROM issue_labels WHERE issue_id = $1`, i.ID); err != nil {
+		t.Fatal(err)
+	}
 	for _, l := range labels {
 		if _, err := e.pool.Exec(ctx, `INSERT INTO issue_labels (issue_id, label_id, exclusive_group_id)
 			SELECT $1, l.id, CASE WHEN g.exclusive THEN g.id END FROM labels l LEFT JOIN labels g ON g.id = l.parent_id

@@ -31,10 +31,13 @@ type Issue struct {
 	Priority                       int
 	AssigneeID, ParentID           *uuid.UUID
 	MilestoneID                    *uuid.UUID
-	DueDate                        *time.Time
-	SortOrder                      float64
-	CreatedAt, UpdatedAt           time.Time
-	CompletedAt, CanceledAt        *time.Time
+	// LabelIDs (sorted) is filled by Create, Update and Get; lists load
+	// labels in batches with Service.LabelIDs.
+	LabelIDs                []uuid.UUID
+	DueDate                 *time.Time
+	SortOrder               float64
+	CreatedAt, UpdatedAt    time.Time
+	CompletedAt, CanceledAt *time.Time
 }
 
 // Service holds issue rules.
@@ -186,10 +189,12 @@ func checkMilestone(ctx context.Context, tx *q.Queries, projectID uuid.UUID, id 
 type CreateInput struct {
 	ProjectID, ParentID, StateID, AssigneeID *uuid.UUID
 	MilestoneID                              *uuid.UUID
-	Title, Description                       string
-	Priority                                 int
-	DueDate                                  *time.Time
-	SortOrder                                *float64
+	// LabelIDs without a type get the workspace's default type.
+	LabelIDs           []uuid.UUID
+	Title, Description string
+	Priority           int
+	DueDate            *time.Time
+	SortOrder          *float64
 }
 
 // Create adds an issue with the project's next number.
@@ -275,7 +280,15 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 		if err := tx.InsertIssueNumber(ctx, q.InsertIssueNumberParams{ProjectID: projectID, Number: number, IssueID: row.ID}); err != nil {
 			return fmt.Errorf("issue number: %w", err)
 		}
+		labelIDs, err := createLabels(ctx, tx, in.LabelIDs)
+		if err != nil {
+			return err
+		}
+		if err := writeLabels(ctx, tx, row.ID, labelIDs); err != nil {
+			return err
+		}
 		out = toIssue(row, p.Key)
+		out.LabelIDs = labelIDs
 		return record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now)
 	})
 	if err != nil {
@@ -297,7 +310,7 @@ func (s *Service) Get(ctx context.Context, ref string) (Issue, error) {
 		if err != nil {
 			return Issue{}, fmt.Errorf("get issue: %w", err)
 		}
-		return toIssue(row.Issue, row.ProjectKey), nil
+		return s.withLabels(ctx, toIssue(row.Issue, row.ProjectKey))
 	}
 	m := identifierRe.FindStringSubmatch(ref)
 	if m == nil {
@@ -314,7 +327,16 @@ func (s *Service) Get(ctx context.Context, ref string) (Issue, error) {
 	if err != nil {
 		return Issue{}, fmt.Errorf("get issue: %w", err)
 	}
-	return toIssue(row.Issue, row.ProjectKey), nil
+	return s.withLabels(ctx, toIssue(row.Issue, row.ProjectKey))
+}
+
+func (s *Service) withLabels(ctx context.Context, i Issue) (Issue, error) {
+	m, err := issueLabelIDs(ctx, s.q, []uuid.UUID{i.ID})
+	if err != nil {
+		return Issue{}, err
+	}
+	i.LabelIDs = m[i.ID]
+	return i, nil
 }
 
 // ByIDs loads live issues in the order of ids; missing ones are omitted.
@@ -346,6 +368,13 @@ type Patch struct {
 	ParentID           kit.Opt[uuid.UUID]
 	MilestoneID        kit.Opt[uuid.UUID]
 	SortOrder          *float64
+	// LabelIDs replaces the labels; otherwise AddLabelIDs and RemoveLabelIDs patch them.
+	LabelIDs                    *[]uuid.UUID
+	AddLabelIDs, RemoveLabelIDs []uuid.UUID
+}
+
+func (p Patch) touchesLabels() bool {
+	return p.LabelIDs != nil || len(p.AddLabelIDs) > 0 || len(p.RemoveLabelIDs) > 0
 }
 
 // Update applies a patch; an unchanged issue records nothing and keeps updatedAt.
@@ -374,8 +403,28 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		if err != nil {
 			return err
 		}
+		labelsNow, err := issueLabelIDs(ctx, tx, []uuid.UUID{id})
+		if err != nil {
+			return err
+		}
+		cur.LabelIDs = labelsNow[id]
 		now := s.now()
 		next := cur
+		if p.touchesLabels() {
+			var set []uuid.UUID
+			if p.LabelIDs != nil {
+				set = *p.LabelIDs
+			}
+			refs := slices.Concat(cur.LabelIDs, set, p.AddLabelIDs)
+			labels, err := lockLabels(ctx, tx, refs)
+			if err != nil {
+				return err
+			}
+			next.LabelIDs, err = resolveLabels(cur.LabelIDs, set, p.AddLabelIDs, p.RemoveLabelIDs, labels, p.LabelIDs != nil)
+			if err != nil {
+				return err
+			}
+		}
 		if title != nil {
 			next.Title = *title
 		}
@@ -435,6 +484,11 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		})
 		if err != nil {
 			return fmt.Errorf("update issue: %w", err)
+		}
+		if !slices.Equal(cur.LabelIDs, next.LabelIDs) {
+			if err := writeLabels(ctx, tx, id, next.LabelIDs); err != nil {
+				return err
+			}
 		}
 		out = next
 		out.UpdatedAt = row.UpdatedAt
