@@ -14,8 +14,10 @@ import (
 
 	"github.com/askuksov/yalkos/db"
 	"github.com/askuksov/yalkos/internal/authn"
+	"github.com/askuksov/yalkos/internal/blob"
 	"github.com/askuksov/yalkos/internal/config"
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/audit"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/project"
@@ -62,6 +64,22 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	projects := project.New(pool, time.Now)
 	issues := issue.New(pool, projects, time.Now)
 
+	if cfg.DataDir == "" {
+		return errors.New("DATA_DIR is required")
+	}
+	files, err := blob.NewLocalFS(cfg.DataDir)
+	if err != nil {
+		return err
+	}
+	maxUploadMB := cfg.MaxUploadMB
+	if maxUploadMB == 0 {
+		maxUploadMB = 25
+	}
+	attachments := attachment.New(pool, issues, files, &blob.Locks{}, int64(maxUploadMB)<<20, time.Now)
+	issues.SetLinker(attachments)
+	// Pending uploads and unreferenced files are removed hourly until shutdown.
+	go attachments.RunCleanup(ctx, time.Hour, logger)
+
 	router := httpapi.NewRouter(httpapi.Deps{
 		Ready: func(c context.Context) error { return store.Ready(c, pool, migrations) },
 		UI:    ui,
@@ -71,6 +89,7 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 		LinearGraphQL: linear.NewHandler(accounts, logger),
 		Logger:        logger,
 		Auth:          authn.Middleware(accounts, baseURL, logger),
+		Attachments:   attachments,
 	})
 
 	ln, err := net.Listen("tcp", cfg.ListenAddr)

@@ -40,12 +40,30 @@ type Issue struct {
 	CompletedAt, CanceledAt *time.Time
 }
 
+// Linker links the actor's pending uploads to an issue inside the caller's
+// transaction: the explicit ids and those found in markdown.
+type Linker interface {
+	Link(ctx context.Context, tx *q.Queries, actorID, issueID uuid.UUID, explicit []uuid.UUID, markdown string) error
+}
+
 // Service holds issue rules.
 type Service struct {
 	pool     *pgxpool.Pool
 	q        *q.Queries
 	projects *project.Service
+	linker   Linker
 	now      func() time.Time
+}
+
+// SetLinker connects attachments: uploads named by a new issue or a changed
+// description get linked to the issue.
+func (s *Service) SetLinker(l Linker) { s.linker = l }
+
+func (s *Service) link(ctx context.Context, tx *q.Queries, actor account.User, issueID uuid.UUID, explicit []uuid.UUID, md string) error {
+	if s.linker == nil {
+		return nil
+	}
+	return s.linker.Link(ctx, tx, actor.ID, issueID, explicit, md)
 }
 
 // New builds the service; now is the clock.
@@ -196,7 +214,9 @@ type CreateInput struct {
 	ProjectID, ParentID, StateID, AssigneeID *uuid.UUID
 	MilestoneID                              *uuid.UUID
 	// LabelIDs without a type get the workspace's default type.
-	LabelIDs           []uuid.UUID
+	LabelIDs []uuid.UUID
+	// AttachmentIDs are the actor's pending uploads to link (with those in Description).
+	AttachmentIDs      []uuid.UUID
 	Title, Description string
 	Priority           int
 	DueDate            *time.Time
@@ -295,7 +315,10 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 		}
 		out = toIssue(row, p.Key)
 		out.LabelIDs = labelIDs
-		return record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now)
+		if err := record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now); err != nil {
+			return err
+		}
+		return s.link(ctx, tx, actor, out.ID, in.AttachmentIDs, in.Description)
 	})
 	if err != nil {
 		return Issue{}, err
@@ -498,7 +521,13 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		}
 		out = next
 		out.UpdatedAt = row.UpdatedAt
-		return record(ctx, tx, actor, out, "update", changes, now)
+		if err := record(ctx, tx, actor, out, "update", changes, now); err != nil {
+			return err
+		}
+		if next.Description != cur.Description {
+			return s.link(ctx, tx, actor, id, nil, next.Description)
+		}
+		return nil
 	})
 	if err != nil {
 		return Issue{}, err

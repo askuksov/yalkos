@@ -17,6 +17,10 @@ services:
       LOG_LEVEL: info
       # Public URL: invite links and Secure cookies (https) depend on it.
       BASE_URL: ${YALKOS_BASE_URL:-http://localhost:${YALKOS_PORT:-8080}}
+      # Uploaded files; back them up together with the database.
+      DATA_DIR: /data
+    volumes:
+      - yalkos-data:/data
     depends_on:
       db:
         condition: service_healthy
@@ -39,3 +43,4 @@ services:
 
 volumes:
   yalkos-pgdata:
+  yalkos-data:

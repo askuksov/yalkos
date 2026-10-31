@@ -19,11 +19,14 @@ LIMIT @lim;
 
 -- name: DeleteProjectAudit :exec
 -- Events of the project, its states and milestones, the issues currently in
--- it and their comments; events of comments already deleted while in this
--- project go too.
+-- it and their comments and attachments; events of comments and attachments
+-- already deleted while in this project go too.
 DELETE FROM audit_events
 WHERE entity_id IN (SELECT i.id FROM issues i WHERE i.project_id = @project_id::uuid)
    OR (entity_type IN ('project', 'state', 'milestone') AND audit_events.project_id = @project_id::uuid)
    OR (entity_type = 'comment' AND (
         entity_id IN (SELECT c.id FROM comments c JOIN issues i ON i.id = c.issue_id WHERE i.project_id = @project_id::uuid)
-     OR (audit_events.project_id = @project_id::uuid AND NOT EXISTS (SELECT 1 FROM comments c WHERE c.id = audit_events.entity_id))));
+     OR (audit_events.project_id = @project_id::uuid AND NOT EXISTS (SELECT 1 FROM comments c WHERE c.id = audit_events.entity_id))))
+   OR (entity_type = 'attachment' AND (
+        entity_id IN (SELECT a.id FROM attachments a JOIN issues i ON i.id = a.issue_id WHERE i.project_id = @project_id::uuid)
+     OR (audit_events.project_id = @project_id::uuid AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.id = audit_events.entity_id))));

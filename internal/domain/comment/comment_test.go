@@ -37,7 +37,7 @@ func newEnv(t *testing.T) env {
 	pool, users, clock := testfx.New(t)
 	projects := project.New(pool, clock)
 	issues := issue.New(pool, projects, clock)
-	e := env{pool: pool, users: users, projects: projects, issues: issues, comments: comment.New(pool, issues, clock)}
+	e := env{pool: pool, users: users, projects: projects, issues: issues, comments: comment.New(pool, issues, nil, clock)}
 	p, err := projects.Create(ctx, users.Admin, project.CreateInput{Key: "YLK", Name: "Yalkos"})
 	if err != nil {
 		t.Fatal(err)

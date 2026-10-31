@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -62,7 +64,7 @@ func TestRunServesAndReady(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	s := start(ctx, t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0"})
+	s := start(ctx, t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0", DataDir: t.TempDir()})
 	if code := get(t, "http://"+s.addr+"/readyz"); code != 200 {
 		t.Errorf("/readyz = %d, want 200", code)
 	}
@@ -71,11 +73,32 @@ func TestRunServesAndReady(t *testing.T) {
 	}
 }
 
+func TestRunServesAttachments(t *testing.T) {
+	url, _ := testdb.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dir := filepath.Join(t.TempDir(), "data")
+	s := start(ctx, t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0", DataDir: dir, MaxUploadMB: 1})
+	resp, err := http.Post("http://"+s.addr+"/api/attachments", "multipart/form-data; boundary=x", strings.NewReader("--x--"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("POST /api/attachments = %d, want 401", resp.StatusCode)
+	}
+	for _, d := range []string{dir, filepath.Join(dir, "blobs"), filepath.Join(dir, "tmp")} {
+		if info, err := os.Stat(d); err != nil || info.Mode().Perm() != 0o700 {
+			t.Errorf("%s: %v %v", d, info, err)
+		}
+	}
+}
+
 func TestRunStopsOnContextCancel(t *testing.T) {
 	url, _ := testdb.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	s := start(ctx, t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0"})
+	s := start(ctx, t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0", DataDir: t.TempDir()})
 	cancel()
 	select {
 	case err := <-s.errCh:
@@ -90,7 +113,7 @@ func TestRunStopsOnContextCancel(t *testing.T) {
 func TestRunFailsOnBadDatabase(t *testing.T) {
 	var listened atomic.Bool
 	done := make(chan error, 1)
-	cfg := config.Config{DatabaseURL: "postgres://u:p@127.0.0.1:1/x?sslmode=disable", ListenAddr: "127.0.0.1:0"}
+	cfg := config.Config{DatabaseURL: "postgres://u:p@127.0.0.1:1/x?sslmode=disable", ListenAddr: "127.0.0.1:0", DataDir: t.TempDir()}
 	go func() {
 		done <- app.Run(context.Background(), cfg, fstest.MapFS{}, quiet, func(string) { listened.Store(true) })
 	}()
@@ -142,7 +165,7 @@ func runAndCaptureLogs(t *testing.T, cfg config.Config) string {
 
 func TestRunLogsSetupCode(t *testing.T) {
 	url, _ := testdb.New(t)
-	logs := runAndCaptureLogs(t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0"})
+	logs := runAndCaptureLogs(t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0", DataDir: t.TempDir()})
 	if !strings.Contains(logs, `"msg":"setup required"`) {
 		t.Fatalf("no setup log: %s", logs)
 	}
@@ -163,7 +186,7 @@ func TestRunNoSetupLogAfterSetup(t *testing.T) {
 		Email: "o@example.com", Password: "owner-password"}, "127.0.0.1"); err != nil {
 		t.Fatal(err)
 	}
-	if logs := runAndCaptureLogs(t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0"}); strings.Contains(logs, "setup required") {
+	if logs := runAndCaptureLogs(t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0", DataDir: t.TempDir()}); strings.Contains(logs, "setup required") {
 		t.Errorf("setup log after setup: %s", logs)
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/audit"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
@@ -38,12 +39,21 @@ type Service struct {
 	pool   *pgxpool.Pool
 	q      *q.Queries
 	issues *issue.Service
+	linker attachment.Linker
 	now    func() time.Time
 }
 
-// New builds the service; now is the clock.
-func New(pool *pgxpool.Pool, issues *issue.Service, now func() time.Time) *Service {
-	return &Service{pool: pool, q: q.New(pool), issues: issues, now: now}
+// New builds the service; linker (optional) links uploads named by a comment
+// to its issue; now is the clock.
+func New(pool *pgxpool.Pool, issues *issue.Service, linker attachment.Linker, now func() time.Time) *Service {
+	return &Service{pool: pool, q: q.New(pool), issues: issues, linker: linker, now: now}
+}
+
+func (s *Service) link(ctx context.Context, tx *q.Queries, actor account.User, issueID uuid.UUID, explicit []uuid.UUID, body string) error {
+	if s.linker == nil {
+		return nil
+	}
+	return s.linker.Link(ctx, tx, actor.ID, issueID, explicit, body)
 }
 
 func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
@@ -77,10 +87,9 @@ func record(ctx context.Context, tx *q.Queries, actor account.User, id uuid.UUID
 	})
 }
 
-// Create adds a comment to a live issue of a writable project.
-// attachmentIDs are linked to the issue once attachments exist.
+// Create adds a comment to a live issue of a writable project; the actor's
+// pending uploads in attachmentIDs or in the text are linked to the issue.
 func (s *Service) Create(ctx context.Context, actor account.User, issueID uuid.UUID, body string, attachmentIDs []uuid.UUID) (Comment, error) {
-	_ = attachmentIDs
 	body, err := validBody(body)
 	if err != nil {
 		return Comment{}, err
@@ -97,7 +106,10 @@ func (s *Service) Create(ctx context.Context, actor account.User, issueID uuid.U
 			return fmt.Errorf("create comment: %w", err)
 		}
 		out = toComment(row)
-		return record(ctx, tx, actor, row.ID, i.ProjectID, "create", now)
+		if err := record(ctx, tx, actor, row.ID, i.ProjectID, "create", now); err != nil {
+			return err
+		}
+		return s.link(ctx, tx, actor, issueID, attachmentIDs, body)
 	})
 	if err != nil {
 		return Comment{}, err
@@ -156,7 +168,10 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 			return fmt.Errorf("update comment: %w", err)
 		}
 		out = toComment(row)
-		return record(ctx, tx, actor, id, i.ProjectID, "update", now)
+		if err := record(ctx, tx, actor, id, i.ProjectID, "update", now); err != nil {
+			return err
+		}
+		return s.link(ctx, tx, actor, i.ID, nil, body)
 	})
 	if err != nil {
 		return Comment{}, err

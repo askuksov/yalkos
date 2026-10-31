@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -21,6 +22,10 @@ type Config struct {
 	// BaseURL is the public URL of the app (BASE_URL, default http://localhost:8080),
 	// used for links and to decide whether cookies are Secure.
 	BaseURL *url.URL
+	// DataDir holds uploaded files (DATA_DIR, default ./data).
+	DataDir string
+	// MaxUploadMB caps one uploaded file (MAX_UPLOAD_MB, 1–1024, default 25).
+	MaxUploadMB int
 }
 
 // Load reads the configuration through getenv (os.Getenv in production).
@@ -46,6 +51,18 @@ func Load(getenv func(string) string) (Config, error) {
 		return Config{}, err
 	}
 	cfg.BaseURL = base
+	cfg.DataDir = getenv("DATA_DIR")
+	if cfg.DataDir == "" {
+		cfg.DataDir = "./data"
+	}
+	cfg.MaxUploadMB = 25
+	if v := getenv("MAX_UPLOAD_MB"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 1024 {
+			return Config{}, fmt.Errorf("MAX_UPLOAD_MB: %q must be a number of megabytes from 1 to 1024", v)
+		}
+		cfg.MaxUploadMB = n
+	}
 	return cfg, nil
 }
 

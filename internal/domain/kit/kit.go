@@ -28,6 +28,7 @@ const (
 	ReasonNotAllowed    Reason = "not_allowed"
 	ReasonMismatch      Reason = "mismatch"
 	ReasonTooMany       Reason = "too_many"
+	ReasonTooLarge      Reason = "too_large"
 )
 
 // InputError reports an invalid input field. Msg is an English fallback;

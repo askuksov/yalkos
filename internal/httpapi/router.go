@@ -1,4 +1,5 @@
-// Package httpapi wires HTTP routes: health checks, both GraphQL endpoints and the web UI.
+// Package httpapi wires HTTP routes: health checks, both GraphQL endpoints,
+// file uploads and downloads, and the web UI.
 package httpapi
 
 import (
@@ -7,6 +8,8 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+
+	"github.com/askuksov/yalkos/internal/domain/attachment"
 )
 
 // maxGraphQLBody caps GraphQL request bodies (1 MiB) so one request cannot exhaust memory.
@@ -22,8 +25,10 @@ type Deps struct {
 	NativeGraphQL http.Handler
 	LinearGraphQL http.Handler
 	Logger        *slog.Logger
-	// Auth wraps the GraphQL endpoints with request authentication (nil = none).
+	// Auth wraps the GraphQL and file endpoints with request authentication (nil = none).
 	Auth func(http.Handler) http.Handler
+	// Attachments serves file uploads and downloads (nil = no file routes).
+	Attachments *attachment.Service
 }
 
 // NewRouter returns the root HTTP handler.
@@ -39,6 +44,10 @@ func NewRouter(d Deps) http.Handler {
 	}
 	mux.Handle("/api/graphql", postOnly(authWrap(d.NativeGraphQL)))
 	mux.Handle("/graphql", postOnly(authWrap(d.LinearGraphQL)))
+	if d.Attachments != nil {
+		mux.Handle("POST /api/attachments", authWrap(upload(d.Attachments, d.Logger)))
+		mux.Handle("GET /api/attachments/{id}/{name}", authWrap(download(d.Attachments, d.Logger)))
+	}
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})

@@ -21,7 +21,7 @@ func TestTimelineMerge(t *testing.T) {
 	pool, users, clock := testfx.New(t)
 	projects := project.New(pool, clock)
 	issues := issue.New(pool, projects, clock)
-	comments := comment.New(pool, issues, clock)
+	comments := comment.New(pool, issues, nil, clock)
 	p, err := projects.Create(ctx, users.Admin, project.CreateInput{Key: "YLK", Name: "Yalkos"})
 	if err != nil {
 		t.Fatal(err)
