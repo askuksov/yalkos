@@ -263,3 +263,63 @@
   gap: var(--space-3);
   padding: var(--space-4);
 }
+
+/* Create issue */
+.createForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.createTitle {
+  border: 0 !important;
+  padding-inline: 0 !important;
+  font-size: 16px;
+  font-weight: 600;
+  outline: none;
+}
+.createDescription {
+  min-block-size: 96px;
+  resize: vertical;
+}
+.props {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.dateField {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+}
+.dateField input {
+  block-size: 24px;
+  padding-block: 0;
+  font-size: var(--font-size-small);
+}
+.createFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}
+.createMore {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+}
+.fieldError {
+  margin: 0;
+  font-size: var(--font-size-small);
+}
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

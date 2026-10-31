@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { PageHeader } from '../app/PageHeader'
@@ -7,6 +8,7 @@ import { errorMessage, request } from '../api/client'
 import { useIsAdmin, useMembers, useViewer } from '../api/hooks'
 import { DisplayMenu } from '../features/issues/DisplayMenu'
 import { FilterBar, FilterChips } from '../features/issues/FilterBar'
+import { useCreateDefaults, useCreateIssue } from '../features/issues/createIssue'
 import { UnarchiveProjectMutation } from '../features/issues/fragments'
 import { IssueList } from '../features/issues/IssueList'
 import s from '../features/issues/issues.module.css'
@@ -22,6 +24,8 @@ export function ProjectIssuesPage() {
   const users = useMembers().data ?? []
   const archived = !!project.archivedAt
   const scope = { params, onChange: setParams, states: project.states, users, viewerId: viewer?.id ?? '' }
+  const { openCreateIssue } = useCreateIssue()
+  useCreateDefaults(archived ? null : { projectId: project.id })
   return (
     <>
       <PageHeader title={project.name}>
@@ -38,8 +42,22 @@ export function ProjectIssuesPage() {
         empty={
           <div className={s.empty}>
             <p>{t('list.empty')}</p>
+            {!archived && (
+              <Button variant="primary" onClick={() => openCreateIssue({ projectId: project.id })}>
+                {t('create.emptyButton')}
+              </Button>
+            )}
           </div>
         }
+        groupAction={(stateId) => (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<Plus size={14} aria-hidden />}
+            aria-label={t('create.inState', { state: project.states.find((x) => x.id === stateId)?.name ?? '' })}
+            onClick={() => openCreateIssue({ projectId: project.id, stateId })}
+          />
+        )}
       />
     </>
   )

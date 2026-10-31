@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet } from 'react-router'
 
+import { CreateIssueProvider } from '../features/issues/CreateIssueDialog'
 import { useHotkey } from '../lib/hotkeys'
 import { Button } from '../ui/Button'
 import s from './app.module.css'
@@ -36,6 +37,7 @@ export function AppShell() {
   useHotkey('[', toggle)
 
   return (
+    <CreateIssueProvider>
     <div className={[s.shell, collapsed ? s.collapsed : ''].join(' ')}>
       {collapsed ? (
         <Button variant="ghost" className={s.expand} icon={<PanelLeft size={16} aria-hidden />} aria-label={t('nav.expandSidebar')} onClick={toggle} />
@@ -46,5 +48,6 @@ export function AppShell() {
         <Outlet />
       </main>
     </div>
+    </CreateIssueProvider>
   )
 }

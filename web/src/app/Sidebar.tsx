@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, ChevronDown, ChevronRight, CircleUser, Compass, KeyRound, LogOut, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, CircleUser, Compass, KeyRound, LogOut, Plus, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, useLocation, useNavigate } from 'react-router'
@@ -8,24 +8,32 @@ import { request } from '../api/client'
 import { useIsAdmin, useProjects, useViewer } from '../api/hooks'
 import { LogoutMutation } from '../api/operations'
 import { startSession } from '../auth/session'
+import { useCreateIssue } from '../features/issues/createIssue'
 import { compareNames } from '../i18n'
 import { getTheme, setTheme, type ThemeSetting } from '../theme/theme'
 import { Avatar } from '../ui/Avatar'
+import { Kbd } from '../ui/Kbd'
 import { hueOf } from '../ui/avatarColor'
 import { Menu } from '../ui/Menu'
 import s from './app.module.css'
 
 export function Sidebar() {
-  const { t } = useTranslation()
+  const { t } = useTranslation(['common', 'issues'])
   const projects = useProjects()
   const isAdmin = useIsAdmin()
   const { pathname } = useLocation()
   const mine = (projects.data ?? []).filter((p) => p.isMember).sort((a, b) => compareNames(a.name, b.name))
   const [open, setOpen] = useState<Record<string, boolean>>({})
+  const { openForPage } = useCreateIssue()
 
   return (
     <aside className={s.sidebar}>
       <div className={s.workspace}>{t('app.name')}</div>
+      <button type="button" className={s.navButton} onClick={openForPage}>
+        <Plus size={15} aria-hidden />
+        <span className={s.navLabel}>{t('issues:create.button')}</span>
+        <Kbd>C</Kbd>
+      </button>
       <nav aria-label={t('nav.main')} className={s.nav}>
         <NavLink to="/my-issues" className={s.navLink}>
           <CircleUser size={15} aria-hidden />
