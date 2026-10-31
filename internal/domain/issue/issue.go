@@ -1,4 +1,4 @@
-// Package issue implements issues and sub-issues (spec §2.4).
+// Package issue implements issues and sub-issues.
 package issue
 
 import (

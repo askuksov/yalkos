@@ -13,7 +13,7 @@ var (
 // Reason is a machine-readable cause of an InputError; the UI translates it.
 type Reason string
 
-// Input error reasons (plan M3, "Error reasons").
+// Input error reasons.
 const (
 	ReasonRequired      Reason = "required"
 	ReasonTooShort      Reason = "too_short"

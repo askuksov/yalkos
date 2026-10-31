@@ -1,4 +1,4 @@
-# Linear-compatible API: a hand-written subset of Linear's schema (ADR-003, ADR-006).
+# Linear-compatible API: a hand-written subset of Linear's schema.
 # Names must match Linear exactly.
 
 type Query {

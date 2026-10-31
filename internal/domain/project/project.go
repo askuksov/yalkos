@@ -1,5 +1,5 @@
 // Package project implements projects (issue containers with a key, states
-// and members) per spec §2.2.
+// and members).
 package project
 
 import (
@@ -441,7 +441,7 @@ func (s *Service) List(ctx context.Context, includeArchived bool, a page.Args) (
 	return out, nil
 }
 
-// defaultStates are created with every project (spec §2.2).
+// defaultStates are created with every project.
 var defaultStates = []struct {
 	name, typ, color string
 	isDefault        bool

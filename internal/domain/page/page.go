@@ -1,4 +1,4 @@
-// Package page implements Relay-style pagination (spec §2.7): argument
+// Package page implements Relay-style pagination: argument
 // checks, opaque keyset cursors and page assembly.
 package page
 

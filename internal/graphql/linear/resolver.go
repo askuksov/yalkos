@@ -14,7 +14,7 @@ type Resolver struct {
 	Logger   *slog.Logger
 }
 
-// userOut maps a Yalkos user to Linear's User shape (ADR-006 mapping lives here).
+// userOut maps a Yalkos user to Linear's User shape; the Yalkos ↔ Linear name mapping lives in this package.
 func userOut(u account.User) *User {
 	return &User{
 		ID:          u.ID.String(),
