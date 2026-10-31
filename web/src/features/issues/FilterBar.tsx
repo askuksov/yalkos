@@ -36,7 +36,7 @@ type Scope = {
   milestones?: { id: string; name: string }[]
 }
 
-type Category = 'state' | 'type' | 'kind' | 'label' | 'milestone' | 'assignee' | 'priority' | 'due'
+type Category = 'state' | 'type' | 'kind' | 'label' | 'nlabel' | 'milestone' | 'assignee' | 'priority' | 'due'
 
 function toggle<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v]
@@ -84,7 +84,8 @@ export function FilterBar({ params, onChange, states, users, viewerId, hideAssig
       ? [
           { key: 'kind', label: t('filter.categories.kind'), run: () => setCategory('kind') },
           { key: 'label', label: t('filter.categories.label'), run: () => setCategory('label') },
-          { key: 'nolabel', label: t('filter.categories.nolabel'), run: () => apply({ ...params, nolabel: params.nolabel ? undefined : true, label: [] }) },
+          { key: 'nlabel', label: t('filter.categories.nlabel'), run: () => setCategory('nlabel') },
+          { key: 'nolabel', label: t('filter.categories.nolabel'), run: () => apply({ ...params, nolabel: params.nolabel ? undefined : true, label: [], nlabel: [] }) },
         ]
       : []),
     ...(milestones ? [{ key: 'milestone', label: t('filter.categories.milestone'), run: () => setCategory('milestone') }] : []),
@@ -193,6 +194,22 @@ export function FilterBar({ params, onChange, states, users, viewerId, hideAssig
             placeholder={t('filter.categories.label')}
           />
         )}
+        {category === 'nlabel' && (
+          <Picker
+            items={labelItems}
+            getKey={(x) => x.key}
+            getLabel={(x) => x.label}
+            renderItem={(x) => (
+              <>
+                <span className={ls.dot} style={{ background: x.color }} aria-hidden />
+                <span>{x.label}</span>
+              </>
+            )}
+            onSelect={(x) => apply({ ...params, nlabel: toggle(params.nlabel, x.key), nolabel: undefined })}
+            onClose={close}
+            placeholder={t('filter.categories.nlabel')}
+          />
+        )}
         {category === 'milestone' && milestones && (
           <Picker
             items={[...milestones.map((m) => ({ key: m.id, label: m.name })), { key: 'none', label: t('milestones.none') }]}
@@ -284,6 +301,8 @@ export function FilterChips({ params, onChange, states, users, viewerId, labels,
     const name = params.milestone === 'none' ? t('milestones.none') : (milestones?.find((m) => m.id === params.milestone)?.name ?? params.milestone)
     chips.push({ key: 'milestone', name: t('filter.categories.milestone'), values: [name], without: { ...params, milestone: undefined } })
   }
+  if (params.nlabel.length)
+    chips.push({ key: 'nlabel', name: t('filter.categories.nlabel'), values: params.nlabel.map(labelName), without: { ...params, nlabel: [] } })
   if (params.nolabel) chips.push({ key: 'nolabel', name: t('filter.categories.nolabel'), without: { ...params, nolabel: undefined } })
   if (params.due) {
     const label = isDate(params.due) ? t('filter.due.beforeDate', { date: params.due }) : t(`filter.due.${params.due as 'overdue' | 'week' | 'none'}`)
@@ -307,7 +326,7 @@ export function FilterChips({ params, onChange, states, users, viewerId, labels,
       })}
       {chips.length > 1 && (
         <Button size="sm" variant="ghost" onClick={() =>
-            onChange({ ...params, state: [], type: [], assignee: [], priority: [], kind: [], label: [], nolabel: undefined, milestone: undefined, due: undefined, children: undefined, parent: undefined })
+            onChange({ ...params, state: [], type: [], assignee: [], priority: [], kind: [], label: [], nlabel: [], nolabel: undefined, milestone: undefined, due: undefined, children: undefined, parent: undefined })
           }>
           {t('filter.clear')}
         </Button>

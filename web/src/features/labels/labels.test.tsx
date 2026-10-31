@@ -108,6 +108,20 @@ describe('labels and types', () => {
     expect(await screen.findByText('Type: Bug')).toBeInTheDocument()
   })
 
+  it('filters by labels an issue must not have', async () => {
+    serve(handlers())
+    renderAt('/p/YLK?label=perf&nlabel=security,backend')
+    await screen.findByText('Issue 1')
+    const f = callsOf('IssueGroup')[0].filter as Record<string, unknown>
+    expect(f.label).toEqual({ in: ['perf'], nin: ['security', 'backend'] })
+    expect(await screen.findByText('Without labels: Security or Backend')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Remove filter: Without labels' }))
+    await waitFor(() => expect(screen.queryByText('Without labels: Security or Backend')).toBeNull())
+    await waitFor(() => expect(callsOf('IssueGroup').at(-1)?.filter).toMatchObject({ label: { in: ['perf'] } }))
+    const last = callsOf('IssueGroup').at(-1)?.filter as { label?: Record<string, unknown> } | undefined
+    expect(last?.label?.nin).toBeUndefined()
+  })
+
   it('explains a regroup conflict', async () => {
     serve(handlers(owner, {
       UpdateLabel: () => {
