@@ -1,0 +1,96 @@
+.board {
+  display: flex;
+  flex: 1;
+  gap: var(--space-3);
+  min-block-size: 0;
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+}
+.column {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  inline-size: 280px;
+  min-block-size: 0;
+  border-radius: 8px;
+  background: var(--bg-subtle);
+}
+.over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+.columnHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: 36px;
+  padding-inline: var(--space-3) var(--space-2);
+}
+.columnName {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.count {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.grow {
+  flex: 1;
+}
+.cards {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 60px;
+  padding: 0 var(--space-2) var(--space-2);
+  overflow-y: auto;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  cursor: grab;
+  touch-action: manipulation;
+}
+.selected {
+  border-color: var(--accent);
+}
+.cardTop,
+.cardBottom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.identifier,
+.meta,
+.badge {
+  color: var(--fg-muted);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.overdue {
+  color: var(--danger);
+}
+.cardTitle {
+  display: -webkit-box;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.end {
+  block-size: 1px;
+}
