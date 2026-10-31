@@ -2,7 +2,7 @@
 
 Lightweight, self-hosted issue tracker with a Linear-compatible API.
 
-> Status: early development. Accounts, invites, API keys, projects and issues work in the browser and through the API; comments, labels and milestones are next.
+> Status: early development. Accounts, invites, API keys, projects, issues, labels, milestones, comments and file attachments work in the browser and through the API.
 
 ## Run with Docker
 
@@ -12,7 +12,7 @@ echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env   # once; keep this fil
 docker compose up -d
 ```
 
-Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containers start: `app` and `db` (PostgreSQL 18). Migrations run automatically on start. Only the app port is published; the database is reachable from the `app` container only.
+Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containers start: `app` and `db` (PostgreSQL 18). Migrations run automatically on start. Only the app port is published; the database is reachable from the `app` container only. Uploaded files live in the `yalkos-data` volume (`/data` in the app container).
 
 PostgreSQL stores the password when its data volume is first created; changing `YALKOS_DB_PASSWORD` later requires changing it inside the database as well.
 
@@ -38,6 +38,17 @@ Forgot the password? There is no email in this version; reset it from the server
 ```sh
 docker compose exec -T app /yalkos user set-password --email you@example.com <<< 'new-password'
 ```
+
+### Backup
+
+Back up the database and the files together:
+
+```sh
+docker compose exec -T db pg_dump -U yalkos yalkos > yalkos.sql
+docker run --rm -v yalkos_yalkos-data:/data -v "$PWD":/backup alpine tar czf /backup/yalkos-data.tgz -C /data .
+```
+
+Files are stored under `/data/blobs/` by content hash; restore both the dump and the archive.
 
 ### API keys
 
@@ -85,11 +96,32 @@ curl -s $API -H "Authorization: $KEY" -H 'Content-Type: application/json' \
 - Every change to a project, state or issue is recorded; read it with `issue { history { nodes { action actor { name } changes { field from to } } } }`.
 - Validation errors carry `extensions.code: "INVALID_INPUT"`, `extensions.field`, `extensions.reason` (for example `required`, `too_long`, `taken`, `archived`) and optional `extensions.params`.
 
+### Labels, milestones, comments and files
+
+- **Labels** belong to the workspace: `labels`, `createLabel`, `updateLabel`, `deleteLabel`. A label with `isGroup: true` holds labels one level deep; in an `exclusive` group an issue carries at most one of its labels. The group **Type** (Bug, Feature, Task, Improvement) gives every issue its type: a new issue without one gets the default type (`labelSettings { defaultType }`, `setDefaultType`). On issues: `labels`, `type`; inputs `labelIds` (replace), `addLabelIds`, `removeLabelIds`; filters `label: {in, nin, null}` and `type: {in, null}`.
+- **Milestones** belong to one project: `project { milestones }`, `milestone(id:)`, `createMilestone`, `updateMilestone`, `reorderMilestones`, `deleteMilestone`. The status follows the issues (planned → in progress → done) until set by hand; `updateMilestone(input: {statusAutomatic: true})` returns to automatic. `progress { completed total }` counts live issues, canceled ones aside. Issues have `milestone` and `milestoneId`; a moved issue leaves its milestone.
+- **Comments** are flat Markdown: `issue { comments commentCount }`, `createComment`, `updateComment` (author only), `deleteComment` (author, Owner or Admin; the text is gone for good). `issue { timeline }` lists comments and changes by time.
+- **Files** go over plain HTTP with a session or an API key; nothing is public:
+
+```sh
+# Upload (multipart; send issueId before the file). Without issueId the file waits for
+# the issue or comment that links it, and is removed after 24 hours if nothing does.
+curl -s http://localhost:8080/api/attachments -H "Authorization: $KEY" -F issueId=<issue id> -F file=@shot.png
+# {"id":"…","url":"/api/attachments/…/shot.png","name":"shot.png","size":48213,"contentType":"image/png","inline":true}
+
+curl -s -o shot.png -H "Authorization: $KEY" http://localhost:8080/api/attachments/<id>/shot.png
+```
+
+  The server detects the file type from its content. PNG, JPEG, GIF, WebP and PDF open in the browser; every other file (SVG and HTML included) downloads. Links in Markdown are stored relative (`/api/attachments/…`). `issue { attachments }` lists an issue's files, `deleteAttachment` removes one (uploader, Owner or Admin); `limits { maxUploadMb }` is the size limit.
+
 ## Using Yalkos
 
 - **My issues** lists everything assigned to you, grouped by state type. Each project has a **list** (grouped by state, sub-issues nested under their parent) and a **board** (one column per state; drag cards between columns or within one).
 - Filters and display options live in the URL, so a filtered view can be bookmarked or shared.
-- The issue page edits the title and the Markdown description in place; properties (state, priority, assignee, due date, parent, project) open a picker. Moving an issue to another project gives it a new identifier; old identifiers and old project keys keep working as links.
+- The issue page edits the title and the Markdown description in place; properties (state, type, labels, milestone, priority, assignee, due date, parent, project) open a picker. Moving an issue to another project gives it a new identifier and removes its milestone; old identifiers and old project keys keep working as links.
+- Paste or drop a screenshot into a description or comment to upload it; drop files anywhere on an issue page or use **Attach file** to add them to its **Attachments**. `YLK-12` in any text links to that issue; `@` in an editor mentions a member.
+- Comments and changes share one timeline under the issue. `Cmd/Ctrl+Enter` posts a comment; an unsent comment is kept as a draft in the browser.
+- Each project has **Milestones** (drag to reorder) with progress, target date and lead; a milestone's page lists its issues. Labels, groups and the default type are under **Settings → Labels**.
 - `Cmd+K` (`Ctrl+K` on Windows and Linux) opens the command palette: search issues by text, type an identifier such as `YLK-12` to open it, jump to a project, or change the open issue.
 - **Browse projects** lists every project; join or leave them there. Owners and Admins create projects and manage states, members and archiving under the project's **Settings**.
 - Theme: System, Light or Dark from the user menu at the bottom of the sidebar.
@@ -106,6 +138,8 @@ Keyboard shortcuts (shortcuts follow the physical key, so they work with any key
 | `Enter` | list, board | Open the selected issue |
 | `X` | list, board | Select for bulk changes (state, assignee, priority, delete) |
 | `S` / `A` / `P` | selected or open issue | Change state / assignee / priority |
+| `T` / `M` | selected or open issue | Set type / milestone |
+| `L` | list, issue page | Add a label |
 | `E` | issue page | Edit the description |
 | `F` | list, board | Focus the text filter |
 | `[` | anywhere | Collapse the sidebar |
@@ -138,6 +172,8 @@ Server configuration (environment variables):
 | `LISTEN_ADDR` | `:8080` | HTTP listen address |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
 | `BASE_URL` | `http://localhost:8080` | Public URL (invite links, `Secure` cookies for https) |
+| `DATA_DIR` | `./data` (`/data` in Docker) | Uploaded files (created with mode 0700) |
+| `MAX_UPLOAD_MB` | `25` | Largest file to upload, 1–1024 |
 
 Local ports used by `make dev` / `make test`, override if they are taken:
 
