@@ -126,6 +126,19 @@ describe('projects', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/p\/YK\/settings$/))
   })
 
+  it('a custom colour does not submit the general form', async () => {
+    serve({ ...signedInAs(owner), UpdateProject: () => ({ updateProject: { id: 'p1', key: 'YLK', name: 'Renamed', description: '', icon: null, color: '#123456' } }) })
+    renderAt('/p/YLK/settings')
+    const name = await screen.findByLabelText('Name')
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Renamed')
+    await userEvent.click(screen.getAllByRole('button', { name: 'Color' })[0])
+    await userEvent.type(screen.getByLabelText('Hex color'), '#123456{Enter}')
+    expect(callsOf('UpdateProject')).toEqual([])
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(callsOf('UpdateProject')).toEqual([{ id: 'p1', input: { name: 'Renamed', color: '#123456' } }]))
+  })
+
   it('members see settings read-only', async () => {
     serve(signedInAs(member))
     renderAt('/p/YLK/settings')
