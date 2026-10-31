@@ -29,6 +29,18 @@ type DateCond struct {
 	Null                 *bool
 }
 
+// LabelCond matches labels: In = any of, Nin = none of, Null true = no labels.
+type LabelCond struct {
+	In, Nin []uuid.UUID
+	Null    *bool
+}
+
+// TypeCond matches the issue type: In = one of these types, Null true = no type.
+type TypeCond struct {
+	In   []uuid.UUID
+	Null *bool
+}
+
 // StateTypeCond compares the issue's state type.
 type StateTypeCond struct {
 	Eq      *project.StateType
@@ -39,6 +51,8 @@ type StateTypeCond struct {
 type Filter struct {
 	Project, State, Assignee, Parent *IDCond
 	Milestone                        *IDCond
+	Label                            *LabelCond
+	Type                             *TypeCond
 	StateType                        *StateTypeCond
 	Priority                         *IntCond
 	DueDate                          *DateCond
@@ -148,6 +162,47 @@ func (w *where) dateCond(col string, c *DateCond) {
 	}
 }
 
+const (
+	hasLabel     = "EXISTS (SELECT 1 FROM issue_labels il WHERE il.issue_id = i.id"
+	typeGroupSQL = "(SELECT w.type_group_id FROM workspaces w LIMIT 1)"
+	hasType      = "EXISTS (SELECT 1 FROM issue_labels il JOIN labels l ON l.id = il.label_id WHERE il.issue_id = i.id AND l.parent_id = " + typeGroupSQL + ")"
+)
+
+func (w *where) labels(c *LabelCond) {
+	if c == nil {
+		return
+	}
+	if c.In != nil {
+		w.add(hasLabel+" AND il.label_id = ANY(%s::uuid[]))", c.In)
+	}
+	if len(c.Nin) > 0 {
+		w.add("NOT "+hasLabel+" AND il.label_id = ANY(%s::uuid[]))", c.Nin)
+	}
+	if c.Null != nil {
+		if *c.Null {
+			w.conds = append(w.conds, "NOT "+hasLabel+")")
+		} else {
+			w.conds = append(w.conds, hasLabel+")")
+		}
+	}
+}
+
+func (w *where) types(c *TypeCond) {
+	if c == nil {
+		return
+	}
+	if c.In != nil {
+		w.add(hasLabel+" AND il.label_id = ANY(%s::uuid[]))", c.In)
+	}
+	if c.Null != nil {
+		if *c.Null {
+			w.conds = append(w.conds, "NOT "+hasType)
+		} else {
+			w.conds = append(w.conds, hasType)
+		}
+	}
+}
+
 func typeStrings(ts []project.StateType) []string {
 	out := make([]string, len(ts))
 	for i, t := range ts {
@@ -179,6 +234,8 @@ func (f Filter) build(w *where) {
 	w.id("i.assignee_id", f.Assignee)
 	w.id("i.parent_id", f.Parent)
 	w.id("i.milestone_id", f.Milestone)
+	w.labels(f.Label)
+	w.types(f.Type)
 	w.stateType("st.type", f.StateType)
 	w.intCond("i.priority", f.Priority)
 	w.dateCond("i.due_date", f.DueDate)

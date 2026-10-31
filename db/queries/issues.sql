@@ -73,3 +73,25 @@ SELECT c.parent_id,
 FROM issues c JOIN states st ON st.id = c.state_id
 WHERE c.parent_id = ANY(@parent_ids::uuid[]) AND c.deleted_at IS NULL
 GROUP BY c.parent_id;
+
+-- name: LockLabelsForShare :many
+-- Labels and their groups, share-locked: a concurrent regroup or exclusivity
+-- change (which locks them for update) waits for this issue write.
+SELECT * FROM labels
+WHERE id = ANY(@ids::uuid[])
+   OR id IN (SELECT l.parent_id FROM labels l WHERE l.id = ANY(@ids::uuid[]) AND l.parent_id IS NOT NULL)
+ORDER BY id
+FOR SHARE;
+
+-- name: IssueLabelIDs :many
+SELECT issue_id, label_id FROM issue_labels WHERE issue_id = ANY(@issue_ids::uuid[]) ORDER BY issue_id, label_id;
+
+-- name: DeleteIssueLabels :exec
+DELETE FROM issue_labels WHERE issue_id = $1;
+
+-- name: InsertIssueLabels :exec
+-- exclusive_group_id is the label's group when that group is exclusive.
+INSERT INTO issue_labels (issue_id, label_id, exclusive_group_id)
+SELECT @issue_id::uuid, l.id, CASE WHEN g.exclusive THEN g.id END
+FROM labels l LEFT JOIN labels g ON g.id = l.parent_id
+WHERE l.id = ANY(@label_ids::uuid[]);
