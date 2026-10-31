@@ -152,7 +152,9 @@ func download(svc *attachment.Service, logger *slog.Logger) http.Handler {
 		h := w.Header()
 		h.Set("Content-Type", a.ContentType)
 		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("Cache-Control", "private, max-age=31536000, immutable")
+		// Revalidate on every view (cheap 304 via Last-Modified): a browser
+		// must not keep showing a file after its session is gone.
+		h.Set("Cache-Control", "private, no-cache")
 		disposition := "attachment"
 		if attachment.Inline(a.ContentType) {
 			disposition = "inline"
