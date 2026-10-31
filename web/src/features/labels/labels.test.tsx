@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GraphQLRequestError } from '../../api/client'
-import { chip, conn, issueRow, labelsData, member, owner, pageIssue, signedInAs } from '../../test/fixtures'
+import { chip, conn, issueRow, labelsData, member, owner, pageIssue, signedInAs, timeline } from '../../test/fixtures'
 import { renderAt } from '../../test/render'
 import { callsOf, mocked, serve } from '../../test/serve'
 
@@ -54,7 +54,8 @@ describe('labels and types', () => {
   it('T opens the type picker on the open issue', async () => {
     serve(handlers(owner, {
       IssuePage: () => ({ issue: pageIssue(1, { type: chip('task'), labels: [chip('task')] }) }),
-      IssueHistory: () => ({ issue: { id: 'i1', history: { nodes: [], pageInfo: { hasPreviousPage: false, startCursor: null } } } }),
+      IssueTimeline: () => timeline([]),
+      IssueAttachments: () => ({ issue: { id: 'i1', attachments: [] } }),
       IssueChildren: () => ({ issue: { id: 'i1', children: { nodes: [] } } }),
       UpdateIssue: () => ({ updateIssue: { ...issueRow(1), type: chip('bug'), labels: [chip('bug')] } }),
     }))
@@ -69,7 +70,8 @@ describe('labels and types', () => {
   it('creates a label from the picker', async () => {
     serve(handlers(owner, {
       IssuePage: () => ({ issue: pageIssue(1, { type: chip('task'), labels: [chip('task')] }) }),
-      IssueHistory: () => ({ issue: { id: 'i1', history: { nodes: [], pageInfo: { hasPreviousPage: false, startCursor: null } } } }),
+      IssueTimeline: () => timeline([]),
+      IssueAttachments: () => ({ issue: { id: 'i1', attachments: [] } }),
       IssueChildren: () => ({ issue: { id: 'i1', children: { nodes: [] } } }),
       CreateLabel: (v: Vars) => ({
         createLabel: { id: 'new1', name: (v?.input as { name: string } | undefined)?.name ?? '', color: '#6b6b73', description: '', isGroup: false, exclusive: false, position: 9000, parent: null },

@@ -18,15 +18,52 @@ export const MoveIssueMutation = graphql(`
   }
 `)
 
-export const IssueHistoryQuery = graphql(`
-  query IssueHistory($id: String!, $before: String) {
+export const IssueTimelineQuery = graphql(`
+  query IssueTimeline($id: String!, $before: String) {
     issue(id: $id) {
       id
-      history(last: 50, before: $before) {
-        nodes { id action actor { id name } changes { field from to } createdAt }
+      timeline(last: 50, before: $before) {
+        nodes {
+          __typename
+          ... on Comment { id body createdAt editedAt author { id name } }
+          ... on HistoryEntry { id action actor { id name } changes { field from to } createdAt }
+        }
         pageInfo { hasPreviousPage startCursor }
       }
     }
+  }
+`)
+
+export const IssueAttachmentsQuery = graphql(`
+  query IssueAttachments($id: String!) {
+    issue(id: $id) {
+      id
+      attachments { id name size contentType url inline createdAt uploader { id name } }
+    }
+  }
+`)
+
+export const CreateCommentMutation = graphql(`
+  mutation CreateComment($issueId: ID!, $body: String!, $attachmentIds: [ID!]) {
+    createComment(issueId: $issueId, body: $body, attachmentIds: $attachmentIds) { id body }
+  }
+`)
+
+export const UpdateCommentMutation = graphql(`
+  mutation UpdateComment($id: ID!, $body: String!) {
+    updateComment(id: $id, body: $body) { id body editedAt }
+  }
+`)
+
+export const DeleteCommentMutation = graphql(`
+  mutation DeleteComment($id: ID!) {
+    deleteComment(id: $id)
+  }
+`)
+
+export const DeleteAttachmentMutation = graphql(`
+  mutation DeleteAttachment($id: ID!) {
+    deleteAttachment(id: $id)
   }
 `)
 

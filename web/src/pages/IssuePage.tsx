@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { type DragEvent, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate, useParams } from 'react-router'
 
 import { NotFound } from '../app/ProjectRoute'
 import { useTitle } from '../app/useTitle'
 import { errorMessage, GraphQLRequestError, request } from '../api/client'
-import { Activity } from '../features/issue-page/Activity'
+import { Attachments } from '../features/issue-page/Attachments'
 import { IssueDescription } from '../features/issue-page/IssueDescription'
 import { IssueHeader } from '../features/issue-page/IssueHeader'
 import { IssueProperties } from '../features/issue-page/IssueProperties'
@@ -15,6 +15,8 @@ import s from '../features/issue-page/issue-page.module.css'
 import { MoveIssueDialog } from '../features/issue-page/MoveIssueDialog'
 import { IssuePageQuery } from '../features/issue-page/operations'
 import { SubIssues } from '../features/issue-page/SubIssues'
+import { Timeline } from '../features/issue-page/Timeline'
+import { useAttach } from '../features/issue-page/useAttach'
 import type { PageIssue, PropName } from '../features/issue-page/types'
 import { usePageTarget, usePalette } from '../features/command/palette'
 import { pushRecent } from '../features/command/recent'
@@ -64,6 +66,9 @@ function IssueView({ issue }: { issue: PageIssue }) {
   const [prop, setProp] = useState<PropName | null>(null)
   const [moving, setMoving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const attach = useAttach(issue.id)
+  const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files')
   useTitle(t('docTitle', { identifier: issue.identifier, title: issue.title }))
   useCreateDefaults(readOnly ? null : { projectId: issue.project.id, parentId: issue.id, parentIdentifier: issue.identifier })
 
@@ -96,7 +101,26 @@ function IssueView({ issue }: { issue: PageIssue }) {
   })
 
   return (
-    <div ref={top} className={s.page}>
+    <div
+      ref={top}
+      className={[s.page, dragOver ? s.dragOver : ''].join(' ')}
+      // Files dropped anywhere on the page attach to the issue (the editors take their own drops).
+      data-drop-zone
+      onDragOver={(e) => {
+        if (readOnly || e.defaultPrevented || !hasFiles(e)) return
+        e.preventDefault()
+        setDragOver(true)
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget === e.target) setDragOver(false)
+      }}
+      onDrop={(e) => {
+        setDragOver(false)
+        if (readOnly || e.defaultPrevented || !hasFiles(e)) return
+        e.preventDefault()
+        attach(Array.from(e.dataTransfer.files))
+      }}
+    >
       <IssueHeader
         issue={issue}
         readOnly={readOnly}
@@ -110,12 +134,14 @@ function IssueView({ issue }: { issue: PageIssue }) {
         </div>
       )}
       <div className={s.layout}>
-        <main className={s.main}>
+        {/* The shell already renders <main>: one main landmark per page. */}
+        <div className={s.main}>
           <IssueTitle issue={issue} readOnly={readOnly} />
           <IssueDescription issue={issue} readOnly={readOnly} editing={editing} setEditing={setEditing} />
+          <Attachments issueId={issue.id} description={issue.description} readOnly={readOnly} />
           <SubIssues issue={issue} readOnly={readOnly} />
-          <Activity issue={issue} />
-        </main>
+          <Timeline issue={issue} readOnly={readOnly} />
+        </div>
         <IssueProperties issue={issue} readOnly={readOnly} open={prop} setOpen={setProp} onMove={() => setMoving(true)} />
       </div>
       <MoveIssueDialog issue={issue} open={moving} onClose={() => setMoving(false)} />

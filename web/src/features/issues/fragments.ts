@@ -12,6 +12,7 @@ export const IssueRowFields = graphql(`
     type { id name color }
     labels { id name color }
     milestone { id name }
+    commentCount
   }
 `)
 

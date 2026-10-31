@@ -39,6 +39,8 @@ export function IssueDescription({ issue, readOnly, editing, setEditing }: Props
       setEditing(false)
       void qc.invalidateQueries({ queryKey: ['issue'] })
       void qc.invalidateQueries({ queryKey: ['history'] })
+      // Uploads pasted while editing join the issue on save.
+      void qc.invalidateQueries({ queryKey: ['attachments', issue.id] })
     },
     onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
   })

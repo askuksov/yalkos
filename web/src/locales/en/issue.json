@@ -93,7 +93,19 @@
     "someone": "someone",
     "deletedState": "a deleted state",
     "unknownIssue": "an issue",
-    "unknownProject": "another project"
+    "unknownProject": "another project",
+    "labelAdded": "{{actor}} added label {{name}}",
+    "labelRemoved": "{{actor}} removed label {{name}}",
+    "typeSet": "{{actor}} set type to {{name}}",
+    "typeChanged": "{{actor}} changed type from {{from}} to {{to}}",
+    "typeRemoved": "{{actor}} removed type {{name}}",
+    "milestone": "{{actor}} added the issue to milestone {{name}}",
+    "milestoneRemoved": "{{actor}} removed it from milestone {{name}}",
+    "attached": "{{actor}} attached {{name}}",
+    "fileDeleted": "{{actor}} deleted {{name}}",
+    "commentDeleted": "{{actor}} deleted a comment",
+    "unknownLabel": "a deleted label",
+    "unknownMilestone": "a deleted milestone"
   },
   "editor": {
     "write": "Write",
@@ -101,5 +113,36 @@
     "nothingToPreview": "Nothing to preview",
     "uploading": "![Uploading {{name}}…]()",
     "mention": "Mention someone"
+  },
+  "comments": {
+    "label": "Comment",
+    "placeholder": "Leave a comment… (⌘/Ctrl+Enter to post)",
+    "post": "Comment",
+    "edit": "Edit comment",
+    "delete": "Delete comment",
+    "edited": "(edited)",
+    "save": "Save",
+    "cancel": "Cancel",
+    "deleteTitle": "Delete this comment?",
+    "deleteBody": "The comment is removed for good.",
+    "deleteSubmit": "Delete"
+  },
+  "attachments": {
+    "title": "Attachments",
+    "attach": "Attach file",
+    "empty": "No files. Drop files on the page or attach them here.",
+    "download": "Download {{name}}",
+    "delete": "Delete {{name}}",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteBody": "The file is removed from the issue.",
+    "used": "This file is used in the description or comments.",
+    "deleteSubmit": "Delete",
+    "uploaded": "{{name}} attached",
+    "by": "{{name}} · {{date}}",
+    "size": {
+      "b": "{{n}} B",
+      "kb": "{{n}} KB",
+      "mb": "{{n}} MB"
+    }
   }
 }

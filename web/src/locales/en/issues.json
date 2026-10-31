@@ -61,7 +61,9 @@
     "selected_one": "{{count}} selected",
     "selected_other": "{{count}} selected",
     "clearSelection": "Clear selection",
-    "milestone": "Milestone: {{name}}"
+    "milestone": "Milestone: {{name}}",
+    "comments_one": "{{count}} comment",
+    "comments_other": "{{count}} comments"
   },
   "bulk": {
     "state": "State",

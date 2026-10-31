@@ -19,6 +19,9 @@ export type DescribeContext = {
   projects: Map<string, string>
   /** Issue number right before each entry (by entry id), for moves that keep the number. */
   numberAt?: Map<string, number>
+  /** Label names; type marks labels of the type group. */
+  labels?: Map<string, { name: string; type: boolean }>
+  milestones?: Map<string, string>
 }
 
 /** Change values are JSON text; null when absent. */
@@ -81,6 +84,22 @@ export function describe(entry: HistoryEntry, ctx: DescribeContext): string[] {
       case 'dueDate':
         lines.push(to ? t('activity.due', { actor, date: String(to) }) : t('activity.dueRemoved', { actor }))
         break
+      case 'labelIds':
+        lines.push(...labelLines(actor, from, to, ctx))
+        break
+      case 'milestoneId':
+        if (to) lines.push(t('activity.milestone', { actor, name: (typeof to === 'string' && ctx.milestones?.get(to)) || t('activity.unknownMilestone') }))
+        else lines.push(t('activity.milestoneRemoved', { actor, name: (typeof from === 'string' && ctx.milestones?.get(from)) || t('activity.unknownMilestone') }))
+        break
+      case 'attachmentAdded':
+        lines.push(t('activity.attached', { actor, name: fileName(to) }))
+        break
+      case 'attachmentDeleted':
+        lines.push(t('activity.fileDeleted', { actor, name: fileName(from) }))
+        break
+      case 'commentDeleted':
+        lines.push(t('activity.commentDeleted', { actor }))
+        break
       case 'parentId':
         lines.push(
           to ? t('activity.parent', { actor, parent: (typeof to === 'string' && ctx.issues.get(to)) || t('activity.unknownIssue') }) : t('activity.parentRemoved', { actor }),
@@ -88,6 +107,32 @@ export function describe(entry: HistoryEntry, ctx: DescribeContext): string[] {
         break
     }
   }
+  return lines
+}
+
+function fileName(v: unknown): string {
+  return v && typeof v === 'object' && typeof (v as { name?: unknown }).name === 'string' ? (v as { name: string }).name : ''
+}
+
+const ids = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+
+/** Lines for a label set change: the type first (set/changed/removed), then added and removed labels. */
+function labelLines(actor: string, from: unknown, to: unknown, ctx: DescribeContext): string[] {
+  const { t } = ctx
+  const before = ids(from)
+  const after = ids(to)
+  const added = after.filter((x) => !before.includes(x))
+  const removed = before.filter((x) => !after.includes(x))
+  const name = (id: string) => ctx.labels?.get(id)?.name ?? t('activity.unknownLabel')
+  const isType = (id: string) => !!ctx.labels?.get(id)?.type
+  const typeIn = added.find(isType)
+  const typeOut = removed.find(isType)
+  const lines: string[] = []
+  if (typeIn && typeOut) lines.push(t('activity.typeChanged', { actor, from: name(typeOut), to: name(typeIn) }))
+  else if (typeIn) lines.push(t('activity.typeSet', { actor, name: name(typeIn) }))
+  else if (typeOut) lines.push(t('activity.typeRemoved', { actor, name: name(typeOut) }))
+  for (const id of added) if (!isType(id)) lines.push(t('activity.labelAdded', { actor, name: name(id) }))
+  for (const id of removed) if (!isType(id)) lines.push(t('activity.labelRemoved', { actor, name: name(id) }))
   return lines
 }
 

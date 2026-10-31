@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { conn, issueRow, labelsData, milestone, owner, pageIssue, project, signedInAs } from '../../test/fixtures'
+import { conn, issueRow, labelsData, milestone, owner, pageIssue, project, signedInAs, timeline } from '../../test/fixtures'
 import { renderAt } from '../../test/render'
 import { callsOf, mocked, serve } from '../../test/serve'
 import { ToastProvider } from '../../ui/Toast'
@@ -35,7 +35,8 @@ function handlers(extra = {}) {
     Milestones: () => ({ project: { id: 'p1', milestones: [bank, launch] } }),
     MilestonePage: () => ({ milestone: { ...bank, description: 'Connect *banks*', createdBy: { id: owner.id } } }),
     IssueGroup: (v: Vars) => conn((v?.filter as { state?: { eq?: string } } | undefined)?.state?.eq === 's-todo' ? [issueRow(1)] : []),
-    IssueHistory: () => ({ issue: { id: 'i1', history: { nodes: [], pageInfo: { hasPreviousPage: false, startCursor: null } } } }),
+    IssueTimeline: () => timeline([]),
+      IssueAttachments: () => ({ issue: { id: 'i1', attachments: [] } }),
     IssueChildren: () => ({ issue: { id: 'i1', children: { nodes: [] } } }),
     ...extra,
   }
