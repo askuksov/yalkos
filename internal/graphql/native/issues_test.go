@@ -431,6 +431,7 @@ func TestQueryCostByPageSize(t *testing.T) {
 		"nested children":  `{ issues(first: 250) { nodes { children(first: 250) { nodes { id } } } } }`,
 		"history per item": `{ issues(first: 250) { nodes { history { nodes { id action } } } } }`,
 		"deep nesting":     "{ issues { nodes { " + strings.Repeat("children { nodes { ", 8) + "id" + strings.Repeat(" } }", 8) + " } } }",
+		"states cycle":     `{ project(id: "YLK") { ` + strings.Repeat("states { project { ", 4) + "id" + strings.Repeat(" } }", 4) + " } }",
 		"projects states":  `{ projects(first: 250) { nodes { states { id } members { id } } } issues(first: 250) { nodes { children(first: 50) { nodes { id title } } } } }`,
 	}
 	for name, q := range rejected {
