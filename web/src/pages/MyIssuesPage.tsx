@@ -17,7 +17,7 @@ export function MyIssuesPage() {
     <>
       <PageHeader title={t('nav.myIssues')}>
         <FilterBar {...scope} />
-        <DisplayMenu params={params} onChange={setParams} />
+        <DisplayMenu params={params} onChange={setParams} nestable={false} />
       </PageHeader>
       <FilterChips {...scope} />
       <IssueList scope={{ kind: 'my' }} params={params} users={users} viewerId={viewer?.id ?? ''} />

@@ -12,10 +12,12 @@ type Props = {
   onChange: (next: ViewParams) => void
   /** Project scope: list/board switch (My issues is list-only). */
   onView?: (view: 'list' | 'board') => void
+  /** My issues is always flat. */
+  nestable?: boolean
 }
 
 /** View, nesting, order and direction. */
-export function DisplayMenu({ params, onChange, onView }: Props) {
+export function DisplayMenu({ params, onChange, onView, nestable = true }: Props) {
   const { t } = useTranslation('issues')
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null)
   const [open, setOpen] = useState(false)
@@ -39,7 +41,7 @@ export function DisplayMenu({ params, onChange, onView }: Props) {
               </span>
             </div>
           )}
-          {params.view === 'list' && (
+          {params.view === 'list' && nestable && (
             <div className={s.row}>
               <label htmlFor={ids.nested}>{t('display.nested')}</label>
               <input id={ids.nested} type="checkbox" checked={params.nest} onChange={(e) => onChange({ ...params, nest: e.target.checked })} />

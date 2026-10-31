@@ -41,11 +41,14 @@ export function IssueList({ scope, params, users, viewerId, empty, groupAction }
   const onCount = useCallback((id: string, n: number) => setCounts((c) => (c[id] === n ? c : { ...c, [id]: n })), [])
 
   const filtered = hasFilters(params)
+  // Nesting shows top-level issues only, so it applies to an unfiltered project
+  // list; with filters, and on My issues, matching sub-issues list flat.
+  const nested = params.nest && scope.kind === 'project' && !filtered
   const search = toSearch(params)
   const orderBy: IssueOrder = { field: params.order, direction: params.dir }
   const groups = useMemo((): Group[] => {
     const base = toFilter(params, today(), viewerId)
-    if (params.nest) base.parent = { null: true }
+    if (nested) base.parent = { null: true }
     if (scope.kind === 'project') {
       return [...scope.states]
         .sort((a, b) => a.position - b.position)
@@ -65,7 +68,7 @@ export function IssueList({ scope, params, users, viewerId, empty, groupAction }
         icon: <StateIcon type={ty} color="var(--fg-muted)" />,
         filter: { ...base, assignee: { isMe: true }, stateType: { ...base.stateType, eq: ty } },
       }))
-  }, [scope, params, viewerId, t])
+  }, [scope, params, viewerId, t, nested])
 
   const loaded = groups.every((g) => counts[g.id] !== undefined)
   const none = loaded && groups.every((g) => counts[g.id] === 0)
@@ -88,7 +91,7 @@ export function IssueList({ scope, params, users, viewerId, empty, groupAction }
               icon={g.icon}
               filter={g.filter}
               orderBy={orderBy}
-              nested={params.nest}
+              nested={nested}
               hideEmpty={filtered}
               collapseFor={(n) => g.type === 'CANCELED' || (g.type === 'COMPLETED' && n > 10)}
               onCount={onCount}
