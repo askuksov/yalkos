@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -17,6 +18,12 @@ import (
 
 // multipartOverhead is allowed on top of the file limit for the multipart framing.
 const multipartOverhead = 1 << 20
+
+// An upload may take minUploadTime, or longer for big limits at minUploadRate bytes/s.
+const (
+	minUploadTime = 5 * time.Minute
+	minUploadRate = 50 << 10
+)
 
 func writeUnauthenticated(w http.ResponseWriter) {
 	writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "authentication required"})
@@ -64,6 +71,12 @@ func upload(svc *attachment.Service, logger *slog.Logger) http.Handler {
 		if r.ContentLength > limit {
 			writeFileError(w, logger, tooLargeErr(svc))
 			return
+		}
+		// The server's ReadTimeout suits API requests; a large file on a slow
+		// link needs longer. Allow the limit at minUploadRate, at least minUploadTime.
+		deadline := max(minUploadTime, time.Duration(limit/minUploadRate)*time.Second)
+		if err := http.NewResponseController(w).SetReadDeadline(time.Now().Add(deadline)); err != nil {
+			logger.Warn("upload read deadline", slog.String("error", err.Error()))
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		mr, err := r.MultipartReader()
