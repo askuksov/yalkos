@@ -30,6 +30,7 @@ type Issue struct {
 	Identifier, Title, Description string
 	Priority                       int
 	AssigneeID, ParentID           *uuid.UUID
+	MilestoneID                    *uuid.UUID
 	DueDate                        *time.Time
 	SortOrder                      float64
 	CreatedAt, UpdatedAt           time.Time
@@ -60,6 +61,7 @@ func toIssue(i q.Issue, key string) Issue {
 		Title: i.Title, Description: i.Description, Priority: int(i.Priority),
 		AssigneeID: i.AssigneeID, ParentID: i.ParentID, DueDate: i.DueDate, SortOrder: i.SortOrder,
 		CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt, CompletedAt: i.CompletedAt, CanceledAt: i.CanceledAt,
+		MilestoneID: i.MilestoneID,
 	}
 }
 
@@ -161,9 +163,29 @@ func checkAssignee(ctx context.Context, tx *q.Queries, id *uuid.UUID) error {
 	return nil
 }
 
-// CreateInput is the new issue form. ProjectID may be omitted for a sub-issue.
+// checkMilestone validates a milestone of the issue's project (nil is none).
+func checkMilestone(ctx context.Context, tx *q.Queries, projectID uuid.UUID, id *uuid.UUID) error {
+	if id == nil {
+		return nil
+	}
+	m, err := tx.GetMilestone(ctx, *id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return kit.Input("milestoneId", kit.ReasonNotFound, "no such milestone")
+	}
+	if err != nil {
+		return fmt.Errorf("get milestone: %w", err)
+	}
+	if m.ProjectID != projectID {
+		return kit.Input("milestoneId", kit.ReasonWrongProject, "milestone belongs to another project")
+	}
+	return nil
+}
+
+// CreateInput is the new issue form. ProjectID may be omitted for a sub-issue;
+// a sub-issue without MilestoneID gets its parent's milestone.
 type CreateInput struct {
 	ProjectID, ParentID, StateID, AssigneeID *uuid.UUID
+	MilestoneID                              *uuid.UUID
 	Title, Description                       string
 	Priority                                 int
 	DueDate                                  *time.Time
@@ -205,6 +227,7 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 		if err != nil {
 			return err
 		}
+		milestoneID := in.MilestoneID
 		if in.ParentID != nil {
 			// Re-check under the project lock: the parent may have moved or gone.
 			parent, err := liveIssue(ctx, tx, *in.ParentID, "parentId")
@@ -214,6 +237,12 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 			if parent.ProjectID != projectID {
 				return kit.Input("parentId", kit.ReasonWrongProject, "parent belongs to another project")
 			}
+			if milestoneID == nil {
+				milestoneID = parent.MilestoneID
+			}
+		}
+		if err := checkMilestone(ctx, tx, projectID, milestoneID); err != nil {
+			return err
 		}
 		st, err := stateFor(ctx, tx, projectID, in.StateID)
 		if err != nil {
@@ -238,6 +267,7 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 			ProjectID: projectID, Number: number, Title: title, Description: in.Description, StateID: st.ID,
 			Priority: int16(in.Priority), AssigneeID: in.AssigneeID, CreatorID: actor.ID, ParentID: in.ParentID,
 			DueDate: dateOnly(in.DueDate), SortOrder: sortOrder, Now: now, CompletedAt: completed, CanceledAt: canceled,
+			MilestoneID: milestoneID,
 		})
 		if err != nil {
 			return fmt.Errorf("create issue: %w", err)
@@ -314,6 +344,7 @@ type Patch struct {
 	AssigneeID         kit.Opt[uuid.UUID]
 	DueDate            kit.Opt[time.Time]
 	ParentID           kit.Opt[uuid.UUID]
+	MilestoneID        kit.Opt[uuid.UUID]
 	SortOrder          *float64
 }
 
@@ -385,6 +416,12 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 			}
 			next.ParentID = p.ParentID.Value
 		}
+		if p.MilestoneID.Set {
+			if err := checkMilestone(ctx, tx, cur.ProjectID, p.MilestoneID.Value); err != nil {
+				return err
+			}
+			next.MilestoneID = p.MilestoneID.Value
+		}
 		changes := audit.Diff(snapshot(cur), snapshot(next))
 		if len(changes) == 0 {
 			out = cur
@@ -394,7 +431,7 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 			ID: id, Title: next.Title, Description: next.Description, StateID: next.StateID,
 			Priority: int16(next.Priority), AssigneeID: next.AssigneeID, ParentID: next.ParentID,
 			DueDate: next.DueDate, SortOrder: next.SortOrder, CompletedAt: next.CompletedAt,
-			CanceledAt: next.CanceledAt, Now: now,
+			CanceledAt: next.CanceledAt, MilestoneID: next.MilestoneID, Now: now,
 		})
 		if err != nil {
 			return fmt.Errorf("update issue: %w", err)

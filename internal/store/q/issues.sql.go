@@ -14,9 +14,9 @@ import (
 
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO issues (project_id, number, title, description, state_id, priority, assignee_id, creator_id,
-    parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at)
+    parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, milestone_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11, $12, $12, $13, $14)
+    $9, $10, $11, $12, $12, $13, $14, $15)
 RETURNING id, project_id, number, title, description, state_id, priority, assignee_id, creator_id, parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, deleted_at, milestone_id
 `
 
@@ -35,6 +35,7 @@ type CreateIssueParams struct {
 	Now         time.Time
 	CompletedAt *time.Time
 	CanceledAt  *time.Time
+	MilestoneID *uuid.UUID
 }
 
 func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue, error) {
@@ -53,6 +54,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue
 		arg.Now,
 		arg.CompletedAt,
 		arg.CanceledAt,
+		arg.MilestoneID,
 	)
 	var i Issue
 	err := row.Scan(
@@ -416,8 +418,8 @@ const updateIssue = `-- name: UpdateIssue :one
 UPDATE issues SET
     title = $1, description = $2, state_id = $3, priority = $4,
     assignee_id = $5, parent_id = $6, due_date = $7, sort_order = $8,
-    completed_at = $9, canceled_at = $10, updated_at = $11
-WHERE id = $12
+    completed_at = $9, canceled_at = $10, milestone_id = $11, updated_at = $12
+WHERE id = $13
 RETURNING id, project_id, number, title, description, state_id, priority, assignee_id, creator_id, parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, deleted_at, milestone_id
 `
 
@@ -432,6 +434,7 @@ type UpdateIssueParams struct {
 	SortOrder   float64
 	CompletedAt *time.Time
 	CanceledAt  *time.Time
+	MilestoneID *uuid.UUID
 	Now         time.Time
 	ID          uuid.UUID
 }
@@ -448,6 +451,7 @@ func (q *Queries) UpdateIssue(ctx context.Context, arg UpdateIssueParams) (Issue
 		arg.SortOrder,
 		arg.CompletedAt,
 		arg.CanceledAt,
+		arg.MilestoneID,
 		arg.Now,
 		arg.ID,
 	)

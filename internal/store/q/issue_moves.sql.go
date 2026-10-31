@@ -45,7 +45,7 @@ func (q *Queries) IssueDescendantIDs(ctx context.Context, id uuid.UUID) ([]uuid.
 const moveIssue = `-- name: MoveIssue :one
 UPDATE issues SET
     project_id = $1, number = $2, state_id = $3, parent_id = $4,
-    completed_at = $5, canceled_at = $6, updated_at = $7
+    completed_at = $5, canceled_at = $6, milestone_id = NULL, updated_at = $7
 WHERE id = $8
 RETURNING id, project_id, number, title, description, state_id, priority, assignee_id, creator_id, parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, deleted_at, milestone_id
 `
@@ -61,6 +61,7 @@ type MoveIssueParams struct {
 	ID          uuid.UUID
 }
 
+// Milestones belong to one project: a moved issue leaves its milestone.
 func (q *Queries) MoveIssue(ctx context.Context, arg MoveIssueParams) (Issue, error) {
 	row := q.db.QueryRow(ctx, moveIssue,
 		arg.ProjectID,
