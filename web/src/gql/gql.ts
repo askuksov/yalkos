@@ -45,6 +45,8 @@ type Documents = {
     "\n  mutation UpdateIssue($id: ID!, $input: UpdateIssueInput!) {\n    updateIssue(id: $id, input: $input) { ...IssueRowFields }\n  }\n": typeof types.UpdateIssueDocument,
     "\n  mutation DeleteIssue($id: ID!) {\n    deleteIssue(id: $id)\n  }\n": typeof types.DeleteIssueDocument,
     "\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n": typeof types.UnarchiveProjectDocument,
+    "\n  query IssueLink($id: String!) {\n    issue(id: $id) { id identifier title state { id name type color } }\n  }\n": typeof types.IssueLinkDocument,
+    "\n  query Limits {\n    limits { maxUploadMb }\n  }\n": typeof types.LimitsDocument,
     "\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n": typeof types.PickIssuesDocument,
     "\n  query BrowseProjects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 100) {\n      nodes { id key name description color archivedAt isMember members { id } }\n    }\n  }\n": typeof types.BrowseProjectsDocument,
     "\n  mutation CreateProject($input: CreateProjectInput!) {\n    createProject(input: $input) { id key }\n  }\n": typeof types.CreateProjectDocument,
@@ -91,6 +93,8 @@ const documents: Documents = {
     "\n  mutation UpdateIssue($id: ID!, $input: UpdateIssueInput!) {\n    updateIssue(id: $id, input: $input) { ...IssueRowFields }\n  }\n": types.UpdateIssueDocument,
     "\n  mutation DeleteIssue($id: ID!) {\n    deleteIssue(id: $id)\n  }\n": types.DeleteIssueDocument,
     "\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n": types.UnarchiveProjectDocument,
+    "\n  query IssueLink($id: String!) {\n    issue(id: $id) { id identifier title state { id name type color } }\n  }\n": types.IssueLinkDocument,
+    "\n  query Limits {\n    limits { maxUploadMb }\n  }\n": types.LimitsDocument,
     "\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n": types.PickIssuesDocument,
     "\n  query BrowseProjects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 100) {\n      nodes { id key name description color archivedAt isMember members { id } }\n    }\n  }\n": types.BrowseProjectsDocument,
     "\n  mutation CreateProject($input: CreateProjectInput!) {\n    createProject(input: $input) { id key }\n  }\n": types.CreateProjectDocument,
@@ -244,6 +248,14 @@ export function graphql(source: "\n  mutation DeleteIssue($id: ID!) {\n    delet
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n"): (typeof documents)["\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query IssueLink($id: String!) {\n    issue(id: $id) { id identifier title state { id name type color } }\n  }\n"): (typeof documents)["\n  query IssueLink($id: String!) {\n    issue(id: $id) { id identifier title state { id name type color } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Limits {\n    limits { maxUploadMb }\n  }\n"): (typeof documents)["\n  query Limits {\n    limits { maxUploadMb }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

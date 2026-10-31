@@ -17,6 +17,7 @@ import { priorityKey } from '../../ui/priority'
 import { PriorityIcon } from '../../ui/PriorityIcon'
 import { StateIcon } from '../../ui/StateIcon'
 import { useToast } from '../../ui/useToast'
+import { MarkdownEditor } from '../markdown/MarkdownEditor'
 import { AssigneePicker } from '../pickers/AssigneePicker'
 import { IssuePicker } from '../pickers/IssuePicker'
 import { PriorityPicker } from '../pickers/PriorityPicker'
@@ -89,6 +90,9 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
   const [parent, setParent] = useState<Parent>(opts.parentId ? { id: opts.parentId, identifier: opts.parentIdentifier ?? '' } : null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([])
+  // A new editor (and its upload list) after "create more".
+  const [round, setRound] = useState(0)
   const [createMore, setCreateMore] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [open, setOpen] = useState<Open>(null)
@@ -115,6 +119,8 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
       if (createMore) {
         setTitle('')
         setDescription('')
+        setAttachmentIds([])
+        setRound((r) => r + 1)
         setErrors({})
         titleRef.current?.focus()
       } else {
@@ -138,6 +144,7 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
     if (projectId) input.projectId = projectId
     if (parent) input.parentId = parent.id
     if (description.trim()) input.description = description
+    if (attachmentIds.length) input.attachmentIds = attachmentIds
     if (stateId) input.stateId = stateId
     if (priority) input.priority = priority
     if (assigneeId) input.assigneeId = assigneeId
@@ -182,16 +189,15 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
           {errors.title}
         </p>
       )}
-      <label className={s.srOnly} htmlFor={ids.desc}>
-        {t('create.description')}
-      </label>
-      <textarea
+      <MarkdownEditor
+        key={round}
         id={ids.desc}
-        className={s.createDescription}
+        label={t('create.description')}
         rows={5}
         placeholder={t('create.descriptionPlaceholder')}
         value={description}
-        onChange={(e) => setDescription(e.target.value)}
+        onChange={setDescription}
+        onAttachmentsChange={setAttachmentIds}
       />
       {errors.description && (
         <p role="alert" className={s.fieldError}>

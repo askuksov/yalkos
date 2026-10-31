@@ -9,6 +9,7 @@ import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Dialog'
 import { useToast } from '../../ui/useToast'
 import s from './issue-page.module.css'
+import { MarkdownEditor } from '../markdown/MarkdownEditor'
 import { Markdown } from './Markdown'
 import type { PageIssue } from './types'
 
@@ -29,7 +30,6 @@ export function IssueDescription({ issue, readOnly, editing, setEditing }: Props
   const qc = useQueryClient()
   const toast = useToast()
   const [draft, setDraft] = useState(issue.description)
-  const [tab, setTab] = useState<'write' | 'preview'>('write')
   const [asking, setAsking] = useState(false)
   const dirty = editing && draft !== issue.description
 
@@ -54,7 +54,6 @@ export function IssueDescription({ issue, readOnly, editing, setEditing }: Props
 
   const start = () => {
     setDraft(issue.description)
-    setTab('write')
     setEditing(true)
   }
   const cancel = () => (dirty ? setAsking(true) : setEditing(false))
@@ -72,46 +71,30 @@ export function IssueDescription({ issue, readOnly, editing, setEditing }: Props
   const [wasEditing, setWasEditing] = useState(editing)
   if (editing !== wasEditing) {
     setWasEditing(editing)
-    if (editing) {
-      setDraft(issue.description)
-      setTab('write')
-    }
+    if (editing) setDraft(issue.description)
   }
 
   return (
     <section className={s.description} aria-label={t('description.label')}>
       {editing ? (
         <div className={s.editor}>
-          <div className={s.tabs} role="tablist">
-            {(['write', 'preview'] as const).map((k) => (
-              <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
-                {t(`description.${k}`)}
-              </button>
-            ))}
-          </div>
-          {tab === 'write' ? (
-            <textarea
-              className={s.textarea}
-              aria-label={t('description.label')}
-              autoFocus
-              rows={12}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault()
-                  save.mutate()
-                } else if (e.key === 'Escape') {
-                  e.preventDefault()
-                  cancel()
-                }
-              }}
-            />
-          ) : draft.trim() ? (
-            <Markdown source={draft} />
-          ) : (
-            <p className={s.muted}>{t('description.nothingToPreview')}</p>
-          )}
+          <MarkdownEditor
+            label={t('description.label')}
+            autoFocus
+            rows={12}
+            value={draft}
+            onChange={setDraft}
+            issueId={issue.id}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                save.mutate()
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                cancel()
+              }
+            }}
+          />
           <div className={s.editorActions}>
             <Button size="sm" onClick={cancel}>
               {t('description.cancel')}

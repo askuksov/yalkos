@@ -1,0 +1,65 @@
+.issueRef {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.mention {
+  padding-inline: 3px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  inline-size: 100%;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.tabs button {
+  padding: 2px var(--space-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected='true'] {
+  background: var(--bg-selected);
+}
+
+.textarea {
+  inline-size: 100%;
+  min-block-size: 96px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+
+.dragging {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+.preview {
+  min-block-size: 96px;
+  margin: 0;
+}
+
+.muted {
+  color: var(--fg-muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--font-size-small);
+}

@@ -6,10 +6,15 @@ import { GraphQLRequestError } from '../../api/client'
 import { conn, issueRow, owner, signedInAs } from '../../test/fixtures'
 import { renderAt } from '../../test/render'
 import { callsOf, mocked, serve } from '../../test/serve'
+import { uploadFile } from '../markdown/upload'
 
 vi.mock('../../api/client', async (orig) => {
   const actual = await orig<typeof import('../../api/client')>()
   return { ...actual, request: vi.fn() }
+})
+vi.mock('../markdown/upload', async (orig) => {
+  const actual = await orig<typeof import('../markdown/upload')>()
+  return { ...actual, uploadFile: vi.fn() }
 })
 
 beforeEach(() => {
@@ -21,6 +26,7 @@ function handlers(extra = {}) {
   created = 2
   return {
     ...signedInAs(owner),
+    Limits: () => ({ limits: { maxUploadMb: 25 } }),
     IssueGroup: (v: Record<string, unknown> | undefined) =>
       conn((v?.filter as { state?: { eq?: string } })?.state?.eq === 's-todo' ? [issueRow(1)] : []),
     CreateIssue: () => {
@@ -120,5 +126,22 @@ describe('create issue dialog', () => {
     await userEvent.click(await screen.findByRole('button', { name: /New issue/ }))
     const dialog = await screen.findByRole('dialog', { name: 'New issue' })
     expect(await within(dialog).findByRole('button', { name: 'Project' })).toHaveTextContent('YLK')
+  })
+
+  it('sends uploads pasted into the description as attachmentIds', async () => {
+    vi.mocked(uploadFile).mockResolvedValue({ id: 'a1', url: '/api/attachments/a1/shot.png', name: 'shot.png', size: 3, contentType: 'image/png', inline: true })
+    serve(handlers())
+    renderAt('/p/YLK')
+    await screen.findByText('Issue 1')
+    pressC()
+    const dialog = await screen.findByRole('dialog', { name: 'New issue' })
+    await userEvent.type(within(dialog).getByLabelText('Title'), 'With screenshot')
+    const desc = within(dialog).getByRole('textbox', { name: 'Description' })
+    fireEvent.paste(desc, { clipboardData: { files: [new File(['abc'], 'shot.png', { type: 'image/png' })], types: ['Files'], getData: () => '' } })
+    await waitFor(() => expect(desc).toHaveValue('![shot.png](/api/attachments/a1/shot.png)'))
+    expect(vi.mocked(uploadFile)).toHaveBeenCalledWith(expect.any(File), undefined)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create issue' }))
+    await waitFor(() => expect(callsOf('CreateIssue')).toHaveLength(1))
+    expect(callsOf('CreateIssue')[0].input).toMatchObject({ description: '![shot.png](/api/attachments/a1/shot.png)', attachmentIds: ['a1'] })
   })
 })

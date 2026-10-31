@@ -25,6 +25,7 @@
     "archived": "The project is archived",
     "not_allowed": "Not allowed",
     "mismatch": "Does not match",
-    "too_many": "Too many: at most {{max}}"
+    "too_many": "Too many: at most {{max}}",
+    "too_large": "File is larger than {{maxMb}} MB"
   }
 }
