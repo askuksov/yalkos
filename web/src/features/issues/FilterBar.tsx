@@ -26,6 +26,8 @@ type Scope = {
   states?: PickerState[]
   users: PickerUser[]
   viewerId: string
+  /** My issues: the assignee is always the viewer. */
+  hideAssignee?: boolean
 }
 
 type Category = 'state' | 'type' | 'assignee' | 'priority' | 'due'
@@ -35,7 +37,7 @@ function toggle<T>(list: T[], v: T): T[] {
 }
 
 /** Text filter (F focuses it) and the Filter menu, for the page header. */
-export function FilterBar({ params, onChange, states, users, viewerId }: Scope) {
+export function FilterBar({ params, onChange, states, users, viewerId, hideAssignee }: Scope) {
   const { t } = useTranslation(['issues', 'common'])
   const input = useRef<HTMLInputElement>(null)
   const [text, setText] = useState(params.q ?? '')
@@ -70,7 +72,7 @@ export function FilterBar({ params, onChange, states, users, viewerId }: Scope) 
   const categories: Entry[] = [
     ...(states ? [{ key: 'state', label: t('filter.categories.state'), run: () => setCategory('state') }] : []),
     { key: 'type', label: t('filter.categories.type'), run: () => setCategory('type') },
-    { key: 'assignee', label: t('filter.categories.assignee'), run: () => setCategory('assignee') },
+    ...(hideAssignee ? [] : [{ key: 'assignee', label: t('filter.categories.assignee'), run: () => setCategory('assignee') }]),
     { key: 'priority', label: t('filter.categories.priority'), run: () => setCategory('priority') },
     { key: 'due', label: t('filter.categories.due'), run: () => setCategory('due') },
     { key: 'children', label: t('filter.categories.children'), run: () => apply({ ...params, children: params.children ? undefined : true }) },

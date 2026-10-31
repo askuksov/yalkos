@@ -40,5 +40,33 @@
       "CREATED_AT": "Created",
       "DUE_DATE": "Due date"
     }
+  },
+  "list": {
+    "showMore": "Show more",
+    "showSubIssues": "Show sub-issues of {{identifier}}",
+    "hideSubIssues": "Hide sub-issues of {{identifier}}",
+    "progress": "{{completed}} of {{total}} sub-issues done",
+    "parentBadge": "Sub-issue of {{identifier}}",
+    "overdue": "Overdue: {{date}}",
+    "dueDate": "Due {{date}}",
+    "empty": "No issues yet",
+    "noMatches": "No issues match the filters",
+    "archived": "This project is archived",
+    "unarchive": "Unarchive",
+    "select": "Select {{identifier}}",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
+    "clearSelection": "Clear selection"
+  },
+  "bulk": {
+    "state": "State",
+    "assignee": "Assignee",
+    "priority": "Priority",
+    "delete": "Delete",
+    "deleteTitle": "Delete issues",
+    "deleteConfirm_one": "Delete {{count}} issue? Its sub-issues stay as top-level issues.",
+    "deleteConfirm_other": "Delete {{count}} issues? Their sub-issues stay as top-level issues.",
+    "deleted_one": "{{count}} issue deleted",
+    "deleted_other": "{{count}} issues deleted"
   }
 }

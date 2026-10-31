@@ -152,3 +152,8 @@ export function toFilter(p: ViewParams, todayDate: string, viewerId?: string): I
   if (p.q) f.search = p.q
   return f
 }
+
+/** Past its due date and not completed or canceled. */
+export function isOverdue(i: { dueDate: string | null; state: { type: StateType } }): boolean {
+  return !!i.dueDate && i.dueDate < today() && i.state.type !== 'COMPLETED' && i.state.type !== 'CANCELED'
+}

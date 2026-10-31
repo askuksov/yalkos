@@ -290,7 +290,7 @@ describe('setup flow', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'owner-password')
     await userEvent.click(screen.getByRole('button', { name: 'Create workspace' }))
     expect(await screen.findByRole('button', { name: /Olga/ })).toBeInTheDocument()
-    expect(screen.getByTestId('where')).toHaveTextContent(/^\/my-issues$/)
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/my-issues$/))
   })
 })
 

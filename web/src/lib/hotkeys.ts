@@ -31,6 +31,11 @@ export function matches(e: KeyboardEvent, key: string): boolean {
   return e.code === c.code && mod === c.mod && !other && e.shiftKey === c.shift && e.altKey === c.alt
 }
 
+/** Buttons, links and form fields: Enter/Space already mean something there. */
+export function isInteractive(t: EventTarget | null): boolean {
+  return t instanceof HTMLElement && (isEditable(t) || t.closest('button, a, [role="button"], summary') !== null)
+}
+
 export function isEditable(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false
   if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') return true
@@ -46,9 +51,9 @@ type Options = { enabled?: boolean; allowInInputs?: boolean }
 /**
  * Runs handler on a key combo such as 'c', 'mod+k' (Meta on macOS, Ctrl
  * elsewhere), 'shift+/' or '?'. Skips typing targets and open dialogs unless
- * allowInInputs.
+ * allowInInputs. A handler returning false declines: the key keeps its default.
  */
-export function useHotkey(key: string, handler: (e: KeyboardEvent) => void, { enabled = true, allowInInputs = false }: Options = {}) {
+export function useHotkey(key: string, handler: (e: KeyboardEvent) => void | false, { enabled = true, allowInInputs = false }: Options = {}) {
   const ref = useRef(handler)
   useEffect(() => {
     ref.current = handler
@@ -58,8 +63,7 @@ export function useHotkey(key: string, handler: (e: KeyboardEvent) => void, { en
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || !matches(e, key)) return
       if (!allowInInputs && (isEditable(e.target) || dialogOpen())) return
-      e.preventDefault()
-      ref.current(e)
+      if (ref.current(e) !== false) e.preventDefault()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
