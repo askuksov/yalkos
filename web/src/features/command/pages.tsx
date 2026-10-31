@@ -123,7 +123,17 @@ export function DuePage({ targets, done }: PageProps) {
           if (date) apply(date)
         }}
       >
-        <input type="date" aria-label={t('due.set')} value={date} onChange={(e) => setDate(e.target.value)} />
+        <input
+          type="date"
+          aria-label={t('due.set')}
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          onKeyDown={(e) => {
+            // The palette root takes Enter and arrows to pick an item ("Remove due date");
+            // here Enter submits the date and arrows edit it. Escape still closes the palette.
+            if (e.key === 'Enter' || e.key.startsWith('Arrow')) e.stopPropagation()
+          }}
+        />
         <Button type="submit" size="sm" disabled={!date}>
           {t('due.set')}
         </Button>
