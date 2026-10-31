@@ -18,9 +18,6 @@
     "label": "Description",
     "edit": "Edit",
     "empty": "No description",
-    "write": "Write",
-    "preview": "Preview",
-    "nothingToPreview": "Nothing to preview",
     "save": "Save",
     "cancel": "Cancel"
   },
@@ -92,5 +89,12 @@
     "deletedState": "a deleted state",
     "unknownIssue": "an issue",
     "unknownProject": "another project"
+  },
+  "editor": {
+    "write": "Write",
+    "preview": "Preview",
+    "nothingToPreview": "Nothing to preview",
+    "uploading": "![Uploading {{name}}…]()",
+    "mention": "Mention someone"
   }
 }
