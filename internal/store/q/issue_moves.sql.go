@@ -47,7 +47,7 @@ UPDATE issues SET
     project_id = $1, number = $2, state_id = $3, parent_id = $4,
     completed_at = $5, canceled_at = $6, updated_at = $7
 WHERE id = $8
-RETURNING id, project_id, number, title, description, state_id, priority, assignee_id, creator_id, parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, deleted_at
+RETURNING id, project_id, number, title, description, state_id, priority, assignee_id, creator_id, parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, deleted_at, milestone_id
 `
 
 type MoveIssueParams struct {
@@ -91,6 +91,7 @@ func (q *Queries) MoveIssue(ctx context.Context, arg MoveIssueParams) (Issue, er
 		&i.CompletedAt,
 		&i.CanceledAt,
 		&i.DeletedAt,
+		&i.MilestoneID,
 	)
 	return i, err
 }

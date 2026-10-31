@@ -3,9 +3,12 @@ package account_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/db"
 	"github.com/askuksov/yalkos/internal/domain/account"
@@ -35,6 +38,7 @@ func (c *clock) add(d time.Duration) {
 type env struct {
 	svc   *account.Service
 	clock *clock
+	pool  *pgxpool.Pool
 }
 
 func newEnv(t *testing.T) env {
@@ -49,7 +53,7 @@ func newEnv(t *testing.T) env {
 	if err := svc.RefreshSetupCode(ctx); err != nil {
 		t.Fatal(err)
 	}
-	return env{svc: svc, clock: c}
+	return env{svc: svc, clock: c, pool: pool}
 }
 
 func setupInput(code string) account.SetupInput {
@@ -90,6 +94,22 @@ func TestSetupCreatesOwnerAndSession(t *testing.T) {
 	}
 	if needed, _ := e.svc.SetupNeeded(ctx); needed {
 		t.Error("SetupNeeded still true")
+	}
+}
+
+func TestSetupSeedsTypes(t *testing.T) {
+	e := newEnv(t)
+	e.setupOwner(t)
+	var group, def string
+	var labels []string
+	if err := e.pool.QueryRow(context.Background(), `SELECT g.name, d.name,
+		  (SELECT array_agg(l.name ORDER BY l.position) FROM labels l WHERE l.parent_id = g.id)
+		FROM workspaces w JOIN labels g ON g.id = w.type_group_id JOIN labels d ON d.id = w.default_type_label_id`).
+		Scan(&group, &def, &labels); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if group != "Type" || def != "Task" || strings.Join(labels, ",") != "Bug,Feature,Task,Improvement" {
+		t.Errorf("group %q default %q labels %v", group, def, labels)
 	}
 }
 
