@@ -318,3 +318,38 @@ func TestDownloadRevalidates(t *testing.T) {
 		t.Errorf("signed-out revalidation = %d, want 401", rec.Code)
 	}
 }
+
+// The server's ReadTimeout fits API requests; an upload on a slow link gets
+// its own read deadline, sized to the file limit.
+func TestSlowUploadOutlastsReadTimeout(t *testing.T) {
+	e := newFileEnv(t, 1<<20)
+	srv := httptest.NewUnstartedServer(e.h)
+	srv.Config.ReadTimeout = 300 * time.Millisecond
+	srv.Start()
+	t.Cleanup(srv.Close)
+
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
+	go func() {
+		fw, _ := mw.CreateFormFile("file", "slow.png")
+		_, _ = fw.Write(pngData)
+		for range 6 { // ~900 ms in total, three times the server's ReadTimeout
+			time.Sleep(150 * time.Millisecond)
+			_, _ = fw.Write(make([]byte, 1024))
+		}
+		_ = mw.Close()
+		_ = pw.Close()
+	}()
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/attachments", pr)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("Cookie", e.cookie)
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf("slow upload: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("slow upload = %d %s", resp.StatusCode, body)
+	}
+}

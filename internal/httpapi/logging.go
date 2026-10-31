@@ -18,6 +18,9 @@ func (r *statusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+// Unwrap lets http.ResponseController reach the connection (read deadlines, flushing).
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 // logPath hides secrets carried in URL paths (invite tokens).
 func logPath(p string) string {
 	if strings.HasPrefix(p, "/invite/") {
