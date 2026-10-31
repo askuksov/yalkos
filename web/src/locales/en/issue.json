@@ -1,1 +1,66 @@
-{}
+{
+  "breadcrumb": "Breadcrumb",
+  "copyId": "Copy ID",
+  "copyLink": "Copy link",
+  "more": "More actions",
+  "menu": {
+    "copyIdentifier": "Copy identifier",
+    "copyLink": "Copy link",
+    "createSubIssue": "Create sub-issue",
+    "move": "Move to project",
+    "delete": "Delete"
+  },
+  "title": {
+    "label": "Title",
+    "edit": "Edit title"
+  },
+  "description": {
+    "label": "Description",
+    "edit": "Edit",
+    "empty": "No description",
+    "write": "Write",
+    "preview": "Preview",
+    "nothingToPreview": "Nothing to preview",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "discard": {
+    "title": "Discard changes?",
+    "body": "Your edits to the description will be lost.",
+    "discard": "Discard",
+    "keep": "Keep editing"
+  },
+  "props": {
+    "label": "Properties",
+    "state": "State",
+    "priority": "Priority",
+    "assignee": "Assignee",
+    "dueDate": "Due date",
+    "clearDue": "Clear",
+    "parent": "Parent",
+    "noParent": "None",
+    "setParent": "Set parent",
+    "removeParent": "Remove parent",
+    "project": "Project",
+    "move": "Move",
+    "created": "Created",
+    "createdBy": "{{name}} · {{date}}",
+    "updated": "Updated"
+  },
+  "move": {
+    "title": "Move to project",
+    "pick": "Move to project…",
+    "confirm": "{{identifier}} will get a new identifier in {{key}}.",
+    "confirmWithChildren": "{{identifier}} and its sub-issues will get new identifiers in {{key}}.",
+    "submit": "Move",
+    "back": "Back"
+  },
+  "delete": {
+    "title": "Delete issue",
+    "body": "Delete {{identifier}}? Its sub-issues stay as top-level issues.",
+    "submit": "Delete",
+    "done": "Issue deleted"
+  },
+  "archived": "This project is archived",
+  "docTitle": "{{identifier}} {{title}}"
+}

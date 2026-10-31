@@ -75,3 +75,18 @@ export function stateOf(id: string) {
 export function conn<T>(nodes: T[], { total = nodes.length, next = '' }: { total?: number; next?: string } = {}) {
   return { issues: { totalCount: total, nodes, pageInfo: { hasNextPage: !!next, endCursor: next || null } } }
 }
+
+/** An issue as the issue page query returns it. */
+export function pageIssue(n: number, over: Record<string, unknown> = {}) {
+  return {
+    ...issueRow(n),
+    number: n,
+    description: '',
+    createdAt: '2026-10-30T12:02:00Z',
+    updatedAt: '2026-10-30T14:40:00Z',
+    creator: { id: owner.id, name: owner.name },
+    project: { id: 'p1', key: 'YLK', name: 'Yalkos', archivedAt: null as string | null, states },
+    children: { totalCount: 0 },
+    ...over,
+  }
+}
