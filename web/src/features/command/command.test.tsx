@@ -89,6 +89,19 @@ describe('command palette', () => {
     expect(await within(dialog).findByRole('option', { name: 'YLK-1 and its sub-issues will get new identifiers in WEB.' })).toBeInTheDocument()
   })
 
+  it('Enter in the due date field sets the date instead of removing it', async () => {
+    serve(handlers({ IssuePage: () => ({ issue: pageIssue(1, { dueDate: '2026-11-01' }) }), UpdateIssue: () => ({ updateIssue: pageIssue(1) }) }))
+    renderAt('/issue/YLK-1')
+    await screen.findByRole('complementary', { name: 'Properties' })
+    modK()
+    const dialog = await screen.findByRole('dialog', { name: 'Command palette' })
+    await userEvent.click(within(dialog).getByRole('option', { name: 'Set due date…' }))
+    const date = within(dialog).getByLabelText('Set due date')
+    fireEvent.change(date, { target: { value: '2026-12-24' } })
+    await userEvent.type(date, '{Enter}')
+    await waitFor(() => expect(callsOf('UpdateIssue')).toEqual([{ id: 'i1', input: { dueDate: '2026-12-24' } }]))
+  })
+
   it('goes back with Backspace on empty input', async () => {
     serve(handlers({ IssuePage: () => ({ issue: pageIssue(1) }) }))
     renderAt('/issue/YLK-1')
