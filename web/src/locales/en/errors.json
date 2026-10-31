@@ -1,0 +1,30 @@
+{
+  "generic": "Something went wrong. Try again.",
+  "codes": {
+    "AUTHENTICATION_ERROR": "Invalid email or password",
+    "RATE_LIMITED": "Too many attempts. Try again in a few minutes.",
+    "INVITE_INVALID": "This invite link is invalid or has expired.",
+    "FORBIDDEN": "You do not have permission to do this.",
+    "NOT_FOUND": "Not found.",
+    "NETWORK_ERROR": "Could not reach the server. Check your connection.",
+    "INTERNAL_ERROR": "Something went wrong on the server. Try again.",
+    "SETUP_REQUIRED": "This instance needs to be set up first.",
+    "ALREADY_SET_UP": "This instance is already set up.",
+    "COMPLEXITY_LIMIT_EXCEEDED": "The request is too large."
+  },
+  "reasons": {
+    "required": "Required",
+    "too_short": "Must be at least {{min}} characters",
+    "too_long": "Must be at most {{max}} characters",
+    "invalid_format": "Invalid format",
+    "out_of_range": "Must be between {{min}} and {{max}}",
+    "taken": "Already taken",
+    "not_found": "Not found",
+    "wrong_project": "Belongs to another project",
+    "cycle": "Would make an issue its own sub-issue",
+    "archived": "The project is archived",
+    "not_allowed": "Not allowed",
+    "mismatch": "Does not match",
+    "too_many": "Too many: at most {{max}}"
+  }
+}

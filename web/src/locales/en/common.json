@@ -1,0 +1,49 @@
+{
+  "app": {
+    "name": "Yalkos"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "create": "Create",
+    "delete": "Delete",
+    "edit": "Edit",
+    "open": "Open",
+    "clear": "Clear",
+    "copy": "Copy",
+    "done": "Done",
+    "retry": "Try again",
+    "showMore": "Show more",
+    "discard": "Discard",
+    "keepEditing": "Keep editing"
+  },
+  "status": {
+    "loading": "Loading…",
+    "loadFailed": "Could not load. Reload the page.",
+    "copied": "Copied"
+  },
+  "priority": {
+    "none": "No priority",
+    "urgent": "Urgent",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "stateType": {
+    "backlog": "Backlog",
+    "unstarted": "Unstarted",
+    "started": "Started",
+    "completed": "Completed",
+    "canceled": "Canceled"
+  },
+  "theme": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "toast": {
+    "region": "Notifications"
+  }
+}

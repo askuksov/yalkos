@@ -1,16 +1,84 @@
-:root {
-  color-scheme: light dark;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+@import './theme/tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  block-size: 100%;
 }
 
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--font-size);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+}
+
+a {
+  color: var(--accent);
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input:not([type='checkbox'], [type='radio']),
+textarea,
+select {
+  padding: 5px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: var(--space-1) var(--space-2);
+  text-align: start;
+}
+
+[role='alert'] {
+  color: var(--danger);
 }
 
 .page {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 16px;
+  max-inline-size: 720px;
+  margin-inline: auto;
+  padding: var(--space-4);
 }
 
 .brand {
@@ -19,28 +87,13 @@ body {
 
 form label {
   display: block;
-  margin: 8px 0;
+  margin-block: var(--space-2);
 }
 
 form input,
 form select {
   display: block;
-  margin-top: 4px;
-}
-
-table {
-  border-collapse: collapse;
-  margin: 12px 0;
-}
-
-th,
-td {
-  padding: 4px 8px;
-  text-align: left;
-}
-
-[role='alert'] {
-  color: #b42318;
+  margin-block-start: var(--space-1);
 }
 
 .secret code {
