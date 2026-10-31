@@ -18,7 +18,7 @@ ORDER BY created_at DESC, id DESC
 LIMIT @lim;
 
 -- name: DeleteProjectAudit :exec
--- Events of the project, its states and the issues currently in it.
+-- Events of the project, its states and milestones, and the issues currently in it.
 DELETE FROM audit_events
 WHERE entity_id IN (SELECT i.id FROM issues i WHERE i.project_id = @project_id::uuid)
-   OR (entity_type IN ('project', 'state') AND audit_events.project_id = @project_id::uuid);
+   OR (entity_type IN ('project', 'state', 'milestone') AND audit_events.project_id = @project_id::uuid);
