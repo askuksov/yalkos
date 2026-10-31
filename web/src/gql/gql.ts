@@ -33,6 +33,7 @@ type Documents = {
     "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": typeof types.ProjectDocument,
     "\n  query PaletteIssue($id: String!) {\n    issue(id: $id) { id identifier title project { id key } }\n  }\n": typeof types.PaletteIssueDocument,
     "\n  query PaletteSearch($filter: IssueFilter, $first: Int) {\n    issues(filter: $filter, first: $first, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title project { id key } state { name type color } }\n    }\n  }\n": typeof types.PaletteSearchDocument,
+    "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } }\n  }\n": typeof types.PaletteChildCountDocument,
     "\n  query IssuePage($id: String!) {\n    issue(id: $id) {\n      ...IssueRowFields\n      number description createdAt updatedAt\n      creator { id name }\n      project { id key name archivedAt states { id name type color position isDefault } }\n      children(first: 1) { totalCount }\n    }\n  }\n": typeof types.IssuePageDocument,
     "\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n": typeof types.MoveIssueDocument,
     "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": typeof types.IssueHistoryDocument,
@@ -78,6 +79,7 @@ const documents: Documents = {
     "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": types.ProjectDocument,
     "\n  query PaletteIssue($id: String!) {\n    issue(id: $id) { id identifier title project { id key } }\n  }\n": types.PaletteIssueDocument,
     "\n  query PaletteSearch($filter: IssueFilter, $first: Int) {\n    issues(filter: $filter, first: $first, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title project { id key } state { name type color } }\n    }\n  }\n": types.PaletteSearchDocument,
+    "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } }\n  }\n": types.PaletteChildCountDocument,
     "\n  query IssuePage($id: String!) {\n    issue(id: $id) {\n      ...IssueRowFields\n      number description createdAt updatedAt\n      creator { id name }\n      project { id key name archivedAt states { id name type color position isDefault } }\n      children(first: 1) { totalCount }\n    }\n  }\n": types.IssuePageDocument,
     "\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n": types.MoveIssueDocument,
     "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": types.IssueHistoryDocument,
@@ -194,6 +196,10 @@ export function graphql(source: "\n  query PaletteIssue($id: String!) {\n    iss
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query PaletteSearch($filter: IssueFilter, $first: Int) {\n    issues(filter: $filter, first: $first, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title project { id key } state { name type color } }\n    }\n  }\n"): (typeof documents)["\n  query PaletteSearch($filter: IssueFilter, $first: Int) {\n    issues(filter: $filter, first: $first, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title project { id key } state { name type color } }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } }\n  }\n"): (typeof documents)["\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

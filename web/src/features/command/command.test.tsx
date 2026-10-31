@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GraphQLRequestError } from '../../api/client'
-import { conn, owner, pageIssue, signedInAs } from '../../test/fixtures'
+import { conn, owner, pageIssue, project, signedInAs } from '../../test/fixtures'
 import { renderAt } from '../../test/render'
 import { callsOf, mocked, serve } from '../../test/serve'
 import { pushRecent } from './recent'
@@ -70,6 +70,23 @@ describe('command palette', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Command palette' })
     await userEvent.click(await within(dialog).findByRole('option', { name: 'Done' }))
     await waitFor(() => expect(callsOf('UpdateIssue')).toEqual([{ id: 'i1', input: { stateId: 's-done' } }]))
+  })
+
+  it('names the sub-issues when moving from the palette', async () => {
+    serve(
+      handlers({
+        ...signedInAs(owner, [project(), project({ id: 'p2', key: 'WEB', name: 'Website' })]),
+        IssuePage: () => ({ issue: pageIssue(1, { children: { totalCount: 2 } }) }),
+        PaletteChildCount: () => ({ issue: { id: 'i1', children: { totalCount: 2 } } }),
+      }),
+    )
+    renderAt('/issue/YLK-1')
+    await screen.findByRole('complementary', { name: 'Properties' })
+    modK()
+    const dialog = await screen.findByRole('dialog', { name: 'Command palette' })
+    await userEvent.click(within(dialog).getByRole('option', { name: 'Move to project…' }))
+    await userEvent.click(await within(dialog).findByRole('option', { name: /Website/ }))
+    expect(await within(dialog).findByRole('option', { name: 'YLK-1 and its sub-issues will get new identifiers in WEB.' })).toBeInTheDocument()
   })
 
   it('goes back with Backspace on empty input', async () => {
