@@ -420,6 +420,10 @@ func TestIssueListQueryCount(t *testing.T) {
 	if n := countList(t, owner, queries, `id project { key states { id } members { id } }`); n > 8 {
 		t.Fatalf("issue list with project states/members ran %d SQL statements, want ≤ 8", n)
 	}
+	// Sub-issue progress batches into one query for the page.
+	if n := countList(t, owner, queries, `id subIssueProgress { completed total }`); n > 8 {
+		t.Fatalf("issue list with sub-issue progress ran %d SQL statements, want ≤ 8", n)
+	}
 }
 
 // Connections cost their page size times their selection, so nested lists
@@ -435,6 +439,9 @@ func TestQueryCostByPageSize(t *testing.T) {
 		"members fan-out":  `{ projects(first: 250) { nodes { members { id email } } } }`,
 		"states cycle x3":  `{ project(id: "YLK") { ` + strings.Repeat("states { project { ", 2) + "states { id }" + strings.Repeat(" } }", 2) + " } }",
 		"projects states":  `{ projects(first: 250) { nodes { states { id } members { id } } } issues(first: 250) { nodes { children(first: 50) { nodes { id title } } } } }`,
+		// Each count is its own aggregate query, so counts weigh more than a scalar.
+		"counts per item": `{ issues(first: 250) { nodes { a: children(first: 1) { totalCount } b: children(first: 1) { totalCount }
+			c: children(first: 1) { totalCount } d: children(first: 1) { totalCount } } } }`,
 	}
 	for name, q := range rejected {
 		if r := owner.do(q, nil); r.code() != "COMPLEXITY_LIMIT_EXCEEDED" {
@@ -449,10 +456,50 @@ func TestQueryCostByPageSize(t *testing.T) {
 			history { nodes { id action createdAt actor { name } changes { field from to } } } } }`,
 		"projects":                  `{ projects { nodes { id key name states { id name type color position isDefault } members { id name } } } }`,
 		"state with project states": `{ project(id: "YLK") { states { id name project { id states { id name } } } } }`,
+		"list group": `{ issues(first: 50) { totalCount nodes { id identifier title priority dueDate sortOrder
+			state { id name type color } assignee { id name } parent { id identifier } subIssueProgress { completed total }
+			project { id key archivedAt } } pageInfo { hasNextPage endCursor } } }`,
+		"board page with progress": `{ issues(first: 250) { nodes { id identifier title subIssueProgress { completed total } } } }`,
 	}
 	for name, q := range allowed {
 		if r := owner.do(q, nil); r.code() == "COMPLEXITY_LIMIT_EXCEEDED" {
 			t.Errorf("%s rejected: %s", name, r.raw[:min(len(r.raw), 300)])
 		}
+	}
+}
+
+func TestIssuesTotalCountAPI(t *testing.T) {
+	s := newServer(t)
+	owner := ownerBrowser(t, s)
+	p := createProject(t, owner, "YLK", "Yalkos")
+	parent := createIssue(t, owner, map[string]any{"projectId": p.ID, "title": "Fix login redirect"})
+	createIssue(t, owner, map[string]any{"parentId": parent.ID, "title": "Child one"})
+	createIssue(t, owner, map[string]any{"parentId": parent.ID, "title": "Child two", "stateId": stateID(p, "Done")})
+
+	var conn struct {
+		TotalCount int        `json:"totalCount"`
+		Nodes      []gqlIssue `json:"nodes"`
+	}
+	owner.do(`{ issues(first: 1) { totalCount nodes { id } } }`, nil).decode(t, "issues", &conn)
+	if conn.TotalCount != 3 || len(conn.Nodes) != 1 {
+		t.Fatalf("issues(first: 1) = %+v, want totalCount 3 and one node", conn)
+	}
+	owner.do(`{ issues(filter: { search: "logi" }) { totalCount nodes { id } } }`, nil).decode(t, "issues", &conn)
+	if conn.TotalCount != 1 || len(conn.Nodes) != 1 || conn.Nodes[0].ID != parent.ID {
+		t.Fatalf("search logi = %+v", conn)
+	}
+
+	var got struct {
+		Children struct {
+			TotalCount int `json:"totalCount"`
+		} `json:"children"`
+		SubIssueProgress struct {
+			Completed int `json:"completed"`
+			Total     int `json:"total"`
+		} `json:"subIssueProgress"`
+	}
+	owner.do(`{ issue(id: "YLK-1") { children(first: 1) { totalCount } subIssueProgress { completed total } } }`, nil).decode(t, "issue", &got)
+	if got.Children.TotalCount != 2 || got.SubIssueProgress.Completed != 1 || got.SubIssueProgress.Total != 2 {
+		t.Fatalf("children count / progress = %+v", got)
 	}
 }

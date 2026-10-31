@@ -7,6 +7,7 @@ package native
 
 import (
 	"context"
+	"slices"
 
 	"github.com/askuksov/yalkos/internal/domain/project"
 )
@@ -204,6 +205,19 @@ func (r *projectResolver) Members(ctx context.Context, obj *Project) ([]User, er
 		out = append(out, *userOut(u))
 	}
 	return out, nil
+}
+
+// IsMember is the resolver for the isMember field.
+func (r *projectResolver) IsMember(ctx context.Context, obj *Project) (bool, error) {
+	a, err := actor(ctx)
+	if err != nil {
+		return false, err
+	}
+	ids, err := loadersFrom(ctx).projectMembers.Load(ctx, obj.uid)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(ids, a.User.ID), nil
 }
 
 // Projects is the resolver for the projects field.

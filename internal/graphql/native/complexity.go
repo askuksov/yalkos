@@ -27,6 +27,9 @@ const (
 	// backEdgeCost multiplies State.project: it leads back to Project.states,
 	// so states → project → states may nest two levels but not three.
 	backEdgeCost = 10
+	// countCost weighs IssueConnection.totalCount: each count is its own
+	// aggregate query, unlike scalars read from loaded rows.
+	countCost = 10
 )
 
 // pageSize is the number of items a connection may return.
@@ -66,6 +69,7 @@ func complexity() ComplexityRoot {
 	c.Issue.History = func(child int, first *int, _ *string, last *int, _ *string) int {
 		return connCost(child, first, last)
 	}
+	c.IssueConnection.TotalCount = func(int) int { return countCost }
 	c.Project.States = func(child int) int { return listCost(child, stateWeight) }
 	c.Project.Members = func(child int) int { return listCost(child, memberWeight) }
 	c.State.Project = func(child int) int { return listCost(child, backEdgeCost) }

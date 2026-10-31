@@ -52,3 +52,29 @@ func TestMembers(t *testing.T) {
 		t.Fatalf("history len = %d, want 3", n)
 	}
 }
+
+func TestSelfJoinLeave(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	p := e.create(t, "YLK")
+	if err := e.svc.AddMember(ctx, e.users.Member, p.ID, e.users.Member.ID); err != nil {
+		t.Fatalf("member joins: %v", err)
+	}
+	if err := e.svc.AddMember(ctx, e.users.Member, p.ID, e.users.Owner.ID); !errors.Is(err, kit.ErrForbidden) {
+		t.Fatalf("member adds someone else: %v", err)
+	}
+	if err := e.svc.RemoveMember(ctx, e.users.Member, p.ID, e.users.Admin.ID); !errors.Is(err, kit.ErrForbidden) {
+		t.Fatalf("member removes someone else: %v", err)
+	}
+	if err := e.svc.RemoveMember(ctx, e.users.Member, p.ID, e.users.Member.ID); err != nil {
+		t.Fatalf("member leaves: %v", err)
+	}
+	ids, err := e.svc.MemberIDs(ctx, p.ID)
+	if err != nil || len(ids) != 1 || ids[0] != e.users.Admin.ID {
+		t.Fatalf("members = %v, %v", ids, err)
+	}
+	h := e.history(t, p.ID)
+	if len(h) != 3 || h[1].ActorID == nil || *h[1].ActorID != e.users.Member.ID {
+		t.Fatalf("history = %+v (want create, join, leave by the member)", h)
+	}
+}

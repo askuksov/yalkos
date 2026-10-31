@@ -30,6 +30,7 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 type ResolverRoot interface {
 	HistoryEntry() HistoryEntryResolver
 	Issue() IssueResolver
+	IssueConnection() IssueConnectionResolver
 	Mutation() MutationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
@@ -91,31 +92,33 @@ type ComplexityRoot struct {
 	}
 
 	Issue struct {
-		Assignee    func(childComplexity int) int
-		CanceledAt  func(childComplexity int) int
-		Children    func(childComplexity int, first *int, after *string, last *int, before *string, orderBy *IssueOrder) int
-		CompletedAt func(childComplexity int) int
-		CreatedAt   func(childComplexity int) int
-		Creator     func(childComplexity int) int
-		Description func(childComplexity int) int
-		DueDate     func(childComplexity int) int
-		History     func(childComplexity int, first *int, after *string, last *int, before *string) int
-		ID          func(childComplexity int) int
-		Identifier  func(childComplexity int) int
-		Number      func(childComplexity int) int
-		Parent      func(childComplexity int) int
-		Priority    func(childComplexity int) int
-		Project     func(childComplexity int) int
-		SortOrder   func(childComplexity int) int
-		State       func(childComplexity int) int
-		Title       func(childComplexity int) int
-		UpdatedAt   func(childComplexity int) int
+		Assignee         func(childComplexity int) int
+		CanceledAt       func(childComplexity int) int
+		Children         func(childComplexity int, first *int, after *string, last *int, before *string, orderBy *IssueOrder) int
+		CompletedAt      func(childComplexity int) int
+		CreatedAt        func(childComplexity int) int
+		Creator          func(childComplexity int) int
+		Description      func(childComplexity int) int
+		DueDate          func(childComplexity int) int
+		History          func(childComplexity int, first *int, after *string, last *int, before *string) int
+		ID               func(childComplexity int) int
+		Identifier       func(childComplexity int) int
+		Number           func(childComplexity int) int
+		Parent           func(childComplexity int) int
+		Priority         func(childComplexity int) int
+		Project          func(childComplexity int) int
+		SortOrder        func(childComplexity int) int
+		State            func(childComplexity int) int
+		SubIssueProgress func(childComplexity int) int
+		Title            func(childComplexity int) int
+		UpdatedAt        func(childComplexity int) int
 	}
 
 	IssueConnection struct {
-		Edges    func(childComplexity int) int
-		Nodes    func(childComplexity int) int
-		PageInfo func(childComplexity int) int
+		Edges      func(childComplexity int) int
+		Nodes      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
 	}
 
 	IssueEdge struct {
@@ -159,6 +162,11 @@ type ComplexityRoot struct {
 		StartCursor     func(childComplexity int) int
 	}
 
+	Progress struct {
+		Completed func(childComplexity int) int
+		Total     func(childComplexity int) int
+	}
+
 	Project struct {
 		ArchivedAt  func(childComplexity int) int
 		Color       func(childComplexity int) int
@@ -166,6 +174,7 @@ type ComplexityRoot struct {
 		Description func(childComplexity int) int
 		ID          func(childComplexity int) int
 		Icon        func(childComplexity int) int
+		IsMember    func(childComplexity int) int
 		Key         func(childComplexity int) int
 		Members     func(childComplexity int) int
 		Name        func(childComplexity int) int
@@ -235,8 +244,12 @@ type IssueResolver interface {
 	Creator(ctx context.Context, obj *Issue) (*User, error)
 	Parent(ctx context.Context, obj *Issue) (*Issue, error)
 	Children(ctx context.Context, obj *Issue, first *int, after *string, last *int, before *string, orderBy *IssueOrder) (*IssueConnection, error)
+	SubIssueProgress(ctx context.Context, obj *Issue) (*Progress, error)
 
 	History(ctx context.Context, obj *Issue, first *int, after *string, last *int, before *string) (*HistoryConnection, error)
+}
+type IssueConnectionResolver interface {
+	TotalCount(ctx context.Context, obj *IssueConnection) (int, error)
 }
 type MutationResolver interface {
 	Setup(ctx context.Context, input SetupInput) (*User, error)
@@ -269,6 +282,7 @@ type MutationResolver interface {
 type ProjectResolver interface {
 	States(ctx context.Context, obj *Project) ([]State, error)
 	Members(ctx context.Context, obj *Project) ([]User, error)
+	IsMember(ctx context.Context, obj *Project) (bool, error)
 }
 type QueryResolver interface {
 	Viewer(ctx context.Context) (*User, error)
@@ -579,6 +593,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.State(childComplexity), true
+	case "Issue.subIssueProgress":
+		if e.ComplexityRoot.Issue.SubIssueProgress == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.SubIssueProgress(childComplexity), true
 	case "Issue.title":
 		if e.ComplexityRoot.Issue.Title == nil {
 			break
@@ -610,6 +630,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.IssueConnection.PageInfo(childComplexity), true
+	case "IssueConnection.totalCount":
+		if e.ComplexityRoot.IssueConnection.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueConnection.TotalCount(childComplexity), true
 
 	case "IssueEdge.cursor":
 		if e.ComplexityRoot.IssueEdge.Cursor == nil {
@@ -931,6 +957,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.PageInfo.StartCursor(childComplexity), true
 
+	case "Progress.completed":
+		if e.ComplexityRoot.Progress.Completed == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Progress.Completed(childComplexity), true
+	case "Progress.total":
+		if e.ComplexityRoot.Progress.Total == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Progress.Total(childComplexity), true
+
 	case "Project.archivedAt":
 		if e.ComplexityRoot.Project.ArchivedAt == nil {
 			break
@@ -967,6 +1006,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Project.Icon(childComplexity), true
+	case "Project.isMember":
+		if e.ComplexityRoot.Project.IsMember == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Project.IsMember(childComplexity), true
 	case "Project.key":
 		if e.ComplexityRoot.Project.Key == nil {
 			break
@@ -1319,6 +1364,8 @@ type Issue {
   creator: User!
   parent: Issue
   children(first: Int, after: String, last: Int, before: String, orderBy: IssueOrder): IssueConnection!
+  "Live direct children; total excludes canceled ones."
+  subIssueProgress: Progress!
   dueDate: Date
   sortOrder: Float!
   createdAt: Time!
@@ -1338,6 +1385,13 @@ type IssueConnection {
   nodes: [Issue!]!
   edges: [IssueEdge!]!
   pageInfo: PageInfo!
+  "Issues matching the connection's filter, all pages."
+  totalCount: Int!
+}
+
+type Progress {
+  completed: Int!
+  total: Int!
 }
 
 "from/to are JSON-encoded values (null when absent)."
@@ -1423,6 +1477,8 @@ input IssueFilter {
   hasChildren: Boolean
   dueDate: DateComparator
   includeArchived: Boolean
+  "Words of the title and description, each matched as a prefix; an identifier (KEY-N) also matches that issue."
+  search: String
 }
 
 input IssueOrder {
@@ -1510,6 +1566,8 @@ type Project {
   states: [State!]!
   "In the order they joined."
   members: [User!]!
+  "Whether the viewer is a member."
+  isMember: Boolean!
 }
 
 type ProjectEdge {
@@ -1574,7 +1632,9 @@ extend type Mutation {
   archiveProject(id: ID!): Project!
   unarchiveProject(id: ID!): Project!
   deleteProject(id: ID!, confirmKey: String!): Boolean!
+  "Owners and admins add anyone; every user may add themselves (join)."
   addProjectMember(projectId: ID!, userId: ID!): Project!
+  "Owners and admins remove anyone; every user may remove themselves (leave)."
   removeProjectMember(projectId: ID!, userId: ID!): Project!
   createState(projectId: ID!, input: CreateStateInput!): State!
   updateState(id: ID!, input: UpdateStateInput!): State!
@@ -1803,6 +1863,8 @@ func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql
 		return ec.fieldContext_Issue_parent(ctx, field)
 	case "children":
 		return ec.fieldContext_Issue_children(ctx, field)
+	case "subIssueProgress":
+		return ec.fieldContext_Issue_subIssueProgress(ctx, field)
 	case "dueDate":
 		return ec.fieldContext_Issue_dueDate(ctx, field)
 	case "sortOrder":
@@ -1829,6 +1891,8 @@ func (ec *executionContext) childFields_IssueConnection(ctx context.Context, fie
 		return ec.fieldContext_IssueConnection_edges(ctx, field)
 	case "pageInfo":
 		return ec.fieldContext_IssueConnection_pageInfo(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_IssueConnection_totalCount(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type IssueConnection", field.Name)
 }
@@ -1857,6 +1921,16 @@ func (ec *executionContext) childFields_PageInfo(ctx context.Context, field grap
 	return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
 }
 
+func (ec *executionContext) childFields_Progress(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "completed":
+		return ec.fieldContext_Progress_completed(ctx, field)
+	case "total":
+		return ec.fieldContext_Progress_total(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Progress", field.Name)
+}
+
 func (ec *executionContext) childFields_Project(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -1881,6 +1955,8 @@ func (ec *executionContext) childFields_Project(ctx context.Context, field graph
 		return ec.fieldContext_Project_states(ctx, field)
 	case "members":
 		return ec.fieldContext_Project_members(ctx, field)
+	case "isMember":
+		return ec.fieldContext_Project_isMember(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Project", field.Name)
 }
@@ -3859,6 +3935,38 @@ func (ec *executionContext) fieldContext_Issue_children(ctx context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _Issue_subIssueProgress(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_subIssueProgress(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Issue().SubIssueProgress(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Progress) graphql.Marshaler {
+			return ec.marshalNProgress2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐProgress(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_subIssueProgress(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Issue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Progress(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Issue_dueDate(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4135,6 +4243,29 @@ func (ec *executionContext) fieldContext_IssueConnection_pageInfo(_ context.Cont
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _IssueConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *IssueConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueConnection_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IssueConnection().TotalCount(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueConnection_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueConnection", field, true, true, "Int")
 }
 
 func (ec *executionContext) _IssueEdge_node(ctx context.Context, field graphql.CollectedField, obj *IssueEdge) (ret graphql.Marshaler) {
@@ -5407,6 +5538,52 @@ func (ec *executionContext) fieldContext_PageInfo_endCursor(_ context.Context, f
 	return graphql.NewScalarFieldContext("PageInfo", field, false, false, "String")
 }
 
+func (ec *executionContext) _Progress_completed(ctx context.Context, field graphql.CollectedField, obj *Progress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Progress_completed(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Completed, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Progress_completed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Progress", field, false, false, "Int")
+}
+
+func (ec *executionContext) _Progress_total(ctx context.Context, field graphql.CollectedField, obj *Progress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Progress_total(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Total, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Progress_total(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Progress", field, false, false, "Int")
+}
+
 func (ec *executionContext) _Project_id(ctx context.Context, field graphql.CollectedField, obj *Project) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5676,6 +5853,29 @@ func (ec *executionContext) fieldContext_Project_members(_ context.Context, fiel
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Project_isMember(ctx context.Context, field graphql.CollectedField, obj *Project) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Project_isMember(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Project().IsMember(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Project_isMember(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Project", field, true, true, "Boolean")
 }
 
 func (ec *executionContext) _ProjectConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *ProjectConnection) (ret graphql.Marshaler) {
@@ -8181,7 +8381,7 @@ func (ec *executionContext) unmarshalInputIssueFilter(ctx context.Context, obj a
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"project", "state", "stateType", "assignee", "priority", "parent", "hasChildren", "dueDate", "includeArchived"}
+	fieldsInOrder := [...]string{"project", "state", "stateType", "assignee", "priority", "parent", "hasChildren", "dueDate", "includeArchived", "search"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -8251,6 +8451,13 @@ func (ec *executionContext) unmarshalInputIssueFilter(ctx context.Context, obj a
 				return it, err
 			}
 			it.IncludeArchived = graphql.OmittableOf(data)
+		case "search":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("search"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Search = graphql.OmittableOf(data)
 		}
 	}
 	return it, nil
@@ -9181,6 +9388,12 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Issue_children(ctx, field, obj)
 				})
+		case "subIssueProgress":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Issue_subIssueProgress(ctx, field, obj)
+				})
 		case "dueDate":
 			out.Values[i] = ec._Issue_dueDate(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -9248,18 +9461,24 @@ func (ec *executionContext) _IssueConnection(ctx context.Context, sel ast.Select
 		case "nodes":
 			out.Values[i] = ec._IssueConnection_nodes(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "edges":
 			out.Values[i] = ec._IssueConnection_edges(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "pageInfo":
 			out.Values[i] = ec._IssueConnection_pageInfo(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "totalCount":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IssueConnection_totalCount(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9581,6 +9800,44 @@ func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet,
 	return out
 }
 
+var progressImplementors = []string{"Progress"}
+
+func (ec *executionContext) _Progress(ctx context.Context, sel ast.SelectionSet, obj *Progress) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, progressImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Progress")
+		case "completed":
+			out.Values[i] = ec._Progress_completed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "total":
+			out.Values[i] = ec._Progress_total(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var projectImplementors = []string{"Project"}
 
 func (ec *executionContext) _Project(ctx context.Context, sel ast.SelectionSet, obj *Project) graphql.Marshaler {
@@ -9648,6 +9905,12 @@ func (ec *executionContext) _Project(ctx context.Context, sel ast.SelectionSet, 
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Project_members(ctx, field, obj)
+				})
+		case "isMember":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Project_isMember(ctx, field, obj)
 				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -10693,6 +10956,14 @@ func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkos
 		return graphql.Null
 	}
 	return ec._PageInfo(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNProgress2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐProgress(ctx context.Context, sel ast.SelectionSet, v *Progress) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Progress!")
+		return graphql.Null
+	}
+	return ec._Progress(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNProject2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐProject(ctx context.Context, sel ast.SelectionSet, v Project) graphql.Marshaler {

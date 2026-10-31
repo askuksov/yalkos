@@ -59,7 +59,7 @@ Send the key as `Authorization: <key>` or `Authorization: Bearer <key>`. Keys ac
 
 ### Projects and issues
 
-Projects, workflow states and issues (with sub-issues) are available through the Yalkos API at `POST /api/graphql`; the schema is in `api/graphql/native/` and introspection is on. Owners and Admins manage projects and states; every user works with issues. API keys can do both.
+Projects, workflow states and issues (with sub-issues) are available through the Yalkos API at `POST /api/graphql`; the schema is in `api/graphql/native/` and introspection is on. Owners and Admins manage projects and states; every user works with issues and can join or leave a project (`addProjectMember` / `removeProjectMember` with their own id). API keys can do both.
 
 ```sh
 API=http://localhost:8080/api/graphql
@@ -80,7 +80,8 @@ curl -s $API -H "Authorization: $KEY" -H 'Content-Type: application/json' \
 ```
 
 - `issue(id:)` accepts a UUID or an identifier such as `YLK-1`. Identifiers keep working after the issue moves to another project or the project key changes.
-- Lists are Relay connections: `first`/`after` or `last`/`before` (default 50, max 250).
+- Lists are Relay connections: `first`/`after` or `last`/`before` (default 50, max 250). `issues { totalCount }` counts all matches.
+- `filter: {search: "fix log"}` finds issues whose title or description has words starting with each term; an identifier such as `YLK-12` also finds that issue.
 - Every change to a project, state or issue is recorded; read it with `issue { history { nodes { action actor { name } changes { field from to } } } }`.
 - Validation errors carry `extensions.code: "INVALID_INPUT"`, `extensions.field`, `extensions.reason` (for example `required`, `too_long`, `taken`, `archived`) and optional `extensions.params`.
 

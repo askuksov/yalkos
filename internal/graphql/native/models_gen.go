@@ -120,12 +120,6 @@ type Invite struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
-type IssueConnection struct {
-	Nodes    []Issue     `json:"nodes"`
-	Edges    []IssueEdge `json:"edges"`
-	PageInfo *PageInfo   `json:"pageInfo"`
-}
-
 type IssueEdge struct {
 	Node   *Issue `json:"node"`
 	Cursor string `json:"cursor"`
@@ -142,6 +136,8 @@ type IssueFilter struct {
 	HasChildren     graphql.Omittable[*bool]                `json:"hasChildren,omitempty"`
 	DueDate         graphql.Omittable[*DateComparator]      `json:"dueDate,omitempty"`
 	IncludeArchived graphql.Omittable[*bool]                `json:"includeArchived,omitempty"`
+	// Words of the title and description, each matched as a prefix; an identifier (KEY-N) also matches that issue.
+	Search graphql.Omittable[*string] `json:"search,omitempty"`
 }
 
 type IssueOrder struct {
@@ -157,6 +153,11 @@ type PageInfo struct {
 	HasPreviousPage bool    `json:"hasPreviousPage"`
 	StartCursor     *string `json:"startCursor,omitempty"`
 	EndCursor       *string `json:"endCursor,omitempty"`
+}
+
+type Progress struct {
+	Completed int `json:"completed"`
+	Total     int `json:"total"`
 }
 
 type ProjectConnection struct {

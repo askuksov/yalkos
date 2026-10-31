@@ -136,6 +136,7 @@ func issueFilterIn(f *IssueFilter, me uuid.UUID) (issue.Filter, error) {
 	out.Priority = intCondIn(f.Priority.Value())
 	out.DueDate = dateCondIn(f.DueDate.Value())
 	out.HasChildren = f.HasChildren.Value()
+	out.Search = f.Search.Value()
 	if v := f.IncludeArchived.Value(); v != nil {
 		out.IncludeArchived = *v
 	}

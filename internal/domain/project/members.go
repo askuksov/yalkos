@@ -24,9 +24,10 @@ func (s *Service) MemberIDs(ctx context.Context, projectID uuid.UUID) ([]uuid.UU
 	return ids, nil
 }
 
-// AddMember adds an active user to the project (idempotent).
+// AddMember adds an active user to the project (idempotent). Admins add
+// anyone; every user may add themselves (join).
 func (s *Service) AddMember(ctx context.Context, actor account.User, projectID, userID uuid.UUID) error {
-	return s.changeMembers(ctx, actor, projectID, func(tx *q.Queries) error {
+	return s.changeMembers(ctx, actor, projectID, userID, func(tx *q.Queries) error {
 		u, err := tx.GetUserByID(ctx, userID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return kit.Input("userId", kit.ReasonNotFound, "no such user")
@@ -41,16 +42,17 @@ func (s *Service) AddMember(ctx context.Context, actor account.User, projectID, 
 	})
 }
 
-// RemoveMember removes a user from the project (idempotent).
+// RemoveMember removes a user from the project (idempotent). Admins remove
+// anyone; every user may remove themselves (leave).
 func (s *Service) RemoveMember(ctx context.Context, actor account.User, projectID, userID uuid.UUID) error {
-	return s.changeMembers(ctx, actor, projectID, func(tx *q.Queries) error {
+	return s.changeMembers(ctx, actor, projectID, userID, func(tx *q.Queries) error {
 		return tx.RemoveProjectMember(ctx, q.RemoveProjectMemberParams{ProjectID: projectID, UserID: userID})
 	})
 }
 
 // changeMembers runs change under the project lock and audits the member list.
-func (s *Service) changeMembers(ctx context.Context, actor account.User, projectID uuid.UUID, change func(*q.Queries) error) error {
-	if !actor.IsAdmin() {
+func (s *Service) changeMembers(ctx context.Context, actor account.User, projectID, userID uuid.UUID, change func(*q.Queries) error) error {
+	if !actor.IsAdmin() && userID != actor.ID {
 		return kit.ErrForbidden
 	}
 	return s.inTx(ctx, func(tx *q.Queries) error {
