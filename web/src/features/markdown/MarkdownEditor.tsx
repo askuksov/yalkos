@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { type ClipboardEvent, type DragEvent, type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react'
+import { type ClipboardEvent, type DragEvent, type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { errorMessage, GraphQLRequestError, request } from '../../api/client'
@@ -22,6 +22,8 @@ type Props = {
   issueId?: string
   /** Ids of the pending uploads made here, for attachmentIds on save. */
   onAttachmentsChange?: (ids: string[]) => void
+  /** True while uploads run: saving then would keep a placeholder instead of the file. */
+  onBusyChange?: (busy: boolean) => void
   placeholder?: string
   autoFocus?: boolean
   rows?: number
@@ -44,7 +46,7 @@ function linkFor(r: UploadResult): string {
  * upload at once and their Markdown replaces a placeholder at the cursor;
  * typing @ at the start of a word picks a member and inserts a mention.
  */
-export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsChange, placeholder, autoFocus, rows = 8, id, onKeyDown }: Props) {
+export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsChange, onBusyChange, placeholder, autoFocus, rows = 8, id, onKeyDown }: Props) {
   const { t } = useTranslation('issue')
   const [tab, setTab] = useState<'write' | 'preview'>('write')
   const [error, setError] = useState<string | null>(null)
@@ -60,6 +62,15 @@ export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsC
   const users = useMembers().data ?? []
   const maxMb = useQuery({ queryKey: ['limits'], queryFn: () => request(LimitsQuery), select: (d) => d.limits.maxUploadMb, staleTime: Infinity }).data
   const upload = useMutation({ mutationFn: (file: File) => uploadFile(file, issueId) })
+  // Uploads outlive a save or a remount: their results must not reach a later editor.
+  const alive = useRef(true)
+  const inFlight = useRef(0)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
 
   useLayoutEffect(() => {
     latest.current = value
@@ -92,10 +103,18 @@ export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsC
     const at = area.current?.selectionStart ?? text.length
     const insert = placeholders.join('\n')
     change(text.slice(0, at) + insert + text.slice(at), at + insert.length)
+    inFlight.current += ok.length
+    onBusyChange?.(true)
+    const settle = () => {
+      inFlight.current -= 1
+      if (inFlight.current === 0) onBusyChange?.(false)
+    }
     ok.forEach((file, n) => {
       const ph = placeholders[n]
       upload.mutateAsync(file).then(
         (res) => {
+          if (!alive.current) return
+          settle()
           change(latest.current.replace(ph, linkFor(res)))
           if (!issueId) {
             uploaded.current = [...uploaded.current, res.id]
@@ -103,6 +122,8 @@ export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsC
           }
         },
         (err: unknown) => {
+          if (!alive.current) return
+          settle()
           change(latest.current.replace(ph, ''))
           // A lost session sends the user to sign in (SessionWatcher).
           if (!(err instanceof GraphQLRequestError && err.code === 'AUTHENTICATION_ERROR')) setError(errorMessage(err))

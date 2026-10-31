@@ -144,4 +144,22 @@ describe('create issue dialog', () => {
     await waitFor(() => expect(callsOf('CreateIssue')).toHaveLength(1))
     expect(callsOf('CreateIssue')[0].input).toMatchObject({ description: '![shot.png](/api/attachments/a1/shot.png)', attachmentIds: ['a1'] })
   })
+
+  it('waits for uploads before creating', async () => {
+    let finish!: (r: Awaited<ReturnType<typeof uploadFile>>) => void
+    vi.mocked(uploadFile).mockReturnValue(new Promise((r) => { finish = r }))
+    serve(handlers())
+    renderAt('/p/YLK')
+    await screen.findByText('Issue 1')
+    pressC()
+    const dialog = await screen.findByRole('dialog', { name: 'New issue' })
+    await userEvent.type(within(dialog).getByLabelText('Title'), 'Busy')
+    const desc = within(dialog).getByRole('textbox', { name: 'Description' })
+    fireEvent.paste(desc, { clipboardData: { files: [new File(['x'], 'a.png', { type: 'image/png' })], types: ['Files'], getData: () => '' } })
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Create issue' })).toBeDisabled())
+    fireEvent.keyDown(desc, { key: 'Enter', ctrlKey: true })
+    expect(callsOf('CreateIssue')).toHaveLength(0)
+    finish({ id: 'a1', url: '/api/attachments/a1/a.png', name: 'a.png', size: 1, contentType: 'image/png', inline: true })
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Create issue' })).toBeEnabled())
+  })
 })

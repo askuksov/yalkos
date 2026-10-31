@@ -27,6 +27,7 @@ export function CommentItem({ issueId, comment: c, readOnly }: { issueId: string
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(c.body)
   const [deleting, setDeleting] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['history', issueId] }), qc.invalidateQueries({ queryKey: ['attachments', issueId] })])
   const save = useMutation({
     mutationFn: () => request(UpdateCommentMutation, { id: c.id, body: draft }),
@@ -82,10 +83,11 @@ export function CommentItem({ issueId, comment: c, readOnly }: { issueId: string
             value={draft}
             onChange={setDraft}
             issueId={issueId}
+            onBusyChange={setUploading}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault()
-                if (draft.trim()) save.mutate()
+                if (draft.trim() && !uploading) save.mutate()
               } else if (e.key === 'Escape') {
                 e.preventDefault()
                 setEditing(false)
@@ -96,7 +98,7 @@ export function CommentItem({ issueId, comment: c, readOnly }: { issueId: string
             <Button size="sm" onClick={() => setEditing(false)}>
               {t('comments.cancel')}
             </Button>
-            <Button size="sm" variant="primary" disabled={!draft.trim() || save.isPending} onClick={() => save.mutate()}>
+            <Button size="sm" variant="primary" disabled={!draft.trim() || save.isPending || uploading} onClick={() => save.mutate()}>
               {t('comments.save')}
             </Button>
           </div>

@@ -61,6 +61,7 @@ function MilestoneView({ milestone: m }: { milestone: View }) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
   const [menu, setMenu] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [uploading, setUploading] = useState(false)
   useCreateDefaults(readOnly ? null : { projectId: project.id, milestoneId: m.id })
 
   const update = useMutation({
@@ -166,12 +167,12 @@ function MilestoneView({ milestone: m }: { milestone: View }) {
         </div>
         {editing ? (
           <div className={s.form}>
-            <MarkdownEditor label={t('milestones.description')} autoFocus rows={6} value={draft} onChange={setDraft} />
+            <MarkdownEditor label={t('milestones.description')} autoFocus rows={6} value={draft} onChange={setDraft} onBusyChange={setUploading} />
             <div className={s.actions}>
               <Button size="sm" onClick={() => setEditing(false)}>
                 {t('common:actions.cancel')}
               </Button>
-              <Button size="sm" variant="primary" disabled={update.isPending} onClick={() => update.mutate({ description: draft })}>
+              <Button size="sm" variant="primary" disabled={update.isPending || uploading} onClick={() => update.mutate({ description: draft })}>
                 {t('common:actions.save')}
               </Button>
             </div>
