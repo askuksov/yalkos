@@ -2,7 +2,7 @@
 
 Lightweight, self-hosted issue tracker with a Linear-compatible API.
 
-> Status: early development. Accounts, invites, API keys, projects and issues work; projects and issues are API-only until the issue UI lands.
+> Status: early development. Accounts, invites, API keys, projects and issues work in the browser and through the API; comments, labels and milestones are next.
 
 ## Run with Docker
 
@@ -84,6 +84,33 @@ curl -s $API -H "Authorization: $KEY" -H 'Content-Type: application/json' \
 - `filter: {search: "fix log"}` finds issues whose title or description has words starting with each term; an identifier such as `YLK-12` also finds that issue.
 - Every change to a project, state or issue is recorded; read it with `issue { history { nodes { action actor { name } changes { field from to } } } }`.
 - Validation errors carry `extensions.code: "INVALID_INPUT"`, `extensions.field`, `extensions.reason` (for example `required`, `too_long`, `taken`, `archived`) and optional `extensions.params`.
+
+## Using Yalkos
+
+- **My issues** lists everything assigned to you, grouped by state type. Each project has a **list** (grouped by state, sub-issues nested under their parent) and a **board** (one column per state; drag cards between columns or within one).
+- Filters and display options live in the URL, so a filtered view can be bookmarked or shared.
+- The issue page edits the title and the Markdown description in place; properties (state, priority, assignee, due date, parent, project) open a picker. Moving an issue to another project gives it a new identifier; old identifiers and old project keys keep working as links.
+- `Cmd+K` (`Ctrl+K` on Windows and Linux) opens the command palette: search issues by text, type an identifier such as `YLK-12` to open it, jump to a project, or change the open issue.
+- **Browse projects** lists every project; join or leave them there. Owners and Admins create projects and manage states, members and archiving under the project's **Settings**.
+- Theme: System, Light or Dark from the user menu at the bottom of the sidebar.
+
+Keyboard shortcuts (shortcuts follow the physical key, so they work with any keyboard layout; `?` shows them in the app):
+
+| Key | Where | Action |
+| :--- | :--- | :--- |
+| `Cmd/Ctrl+K` | anywhere | Command palette |
+| `/` | anywhere | Search issues |
+| `C` | anywhere | Create issue (in the current project, or as a sub-issue on an issue page) |
+| `J` / `K` | list, board | Next / previous issue |
+| `H` / `L` | board | Previous / next column |
+| `Enter` | list, board | Open the selected issue |
+| `X` | list, board | Select for bulk changes (state, assignee, priority, delete) |
+| `S` / `A` / `P` | selected or open issue | Change state / assignee / priority |
+| `E` | issue page | Edit the description |
+| `F` | list, board | Focus the text filter |
+| `[` | anywhere | Collapse the sidebar |
+| `?` | anywhere | Shortcuts help |
+| `Esc` | anywhere | Close the dialog, clear the selection, go back from an issue |
 
 ## Development
 
