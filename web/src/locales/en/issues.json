@@ -1,1 +1,44 @@
-{}
+{
+  "filter": {
+    "button": "Filter",
+    "text": "Filter by text…",
+    "clear": "Clear filters",
+    "remove": "Remove filter: {{name}}",
+    "chip": "{{name}}: {{values}}",
+    "categories": {
+      "state": "State",
+      "type": "State type",
+      "assignee": "Assignee",
+      "priority": "Priority",
+      "due": "Due date",
+      "children": "Has sub-issues",
+      "parent": "Top-level only"
+    },
+    "due": {
+      "overdue": "Overdue",
+      "week": "Due this week",
+      "none": "No due date",
+      "before": "Before…",
+      "beforeDate": "Before {{date}}"
+    },
+    "yes": "Yes"
+  },
+  "display": {
+    "button": "Display",
+    "view": "View",
+    "list": "List",
+    "board": "Board",
+    "nested": "Sub-issues under their parent",
+    "order": "Order",
+    "direction": "Direction",
+    "asc": "Ascending",
+    "desc": "Descending",
+    "orders": {
+      "SORT_ORDER": "Manual",
+      "PRIORITY": "Priority",
+      "UPDATED_AT": "Updated",
+      "CREATED_AT": "Created",
+      "DUE_DATE": "Due date"
+    }
+  }
+}

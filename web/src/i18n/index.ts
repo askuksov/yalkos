@@ -42,6 +42,11 @@ export function formatNumber(n: number): string {
   return new Intl.NumberFormat(intlLocale()).format(n)
 }
 
+/** "A, B or C" in the UI locale (values of one filter are alternatives). */
+export function formatOr(items: string[]): string {
+  return new Intl.ListFormat(intlLocale(), { type: 'disjunction' }).format(items)
+}
+
 let collator: Intl.Collator | undefined
 
 /** Compares names for sorting in the UI locale. */
