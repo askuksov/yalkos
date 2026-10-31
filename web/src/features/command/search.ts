@@ -10,6 +10,12 @@ export const PaletteSearchQuery = graphql(`
   }
 `)
 
+export const PaletteChildCountQuery = graphql(`
+  query PaletteChildCount($id: String!) {
+    issue(id: $id) { id children(first: 1) { totalCount } }
+  }
+`)
+
 /** Debounced value (as-you-type search). */
 export function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value)

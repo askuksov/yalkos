@@ -18,7 +18,7 @@ import { MoveIssueMutation } from '../issue-page/operations'
 import { DeleteIssueMutation } from '../issues/fragments'
 import s from './command.module.css'
 import type { IssueTarget } from './recent'
-import { PaletteSearchQuery, useDebounced } from './search'
+import { PaletteChildCountQuery, PaletteSearchQuery, useDebounced } from './search'
 
 type PageProps = { q: string; targets: IssueTarget[]; done: () => void }
 
@@ -186,6 +186,13 @@ export function MovePage({ q, targets, done }: PageProps) {
   const projects = useProjects().data ?? []
   const [target, setTarget] = useState<{ id: string; key: string } | null>(null)
   const issue = targets[0]
+  // Sub-issues move too; the confirm says so.
+  const childCount = useQuery({
+    queryKey: ['paletteChildCount', issue?.id],
+    queryFn: () => request(PaletteChildCountQuery, { id: issue?.id ?? '' }),
+    enabled: !!issue,
+    select: (d) => d.issue.children.totalCount,
+  })
   const move = useMutation({
     mutationFn: (projectId: string) => request(MoveIssueMutation, { id: issue.id, projectId }),
     onSuccess: (d) => {
@@ -199,7 +206,9 @@ export function MovePage({ q, targets, done }: PageProps) {
   if (target) {
     return (
       <Command.Item value="confirm" onSelect={() => move.mutate(target.id)}>
-        <span className={s.label}>{t('issue:move.confirm', { identifier: issue.identifier, key: target.key })}</span>
+        <span className={s.label}>
+          {t(childCount.data ? 'issue:move.confirmWithChildren' : 'issue:move.confirm', { identifier: issue.identifier, key: target.key })}
+        </span>
       </Command.Item>
     )
   }
