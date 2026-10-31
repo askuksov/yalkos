@@ -421,3 +421,34 @@ func TestIssueListQueryCount(t *testing.T) {
 		t.Fatalf("issue list with project states/members ran %d SQL statements, want ≤ 8", n)
 	}
 }
+
+// Connections cost their page size times their selection, so nested lists
+// cannot multiply into thousands of SQL statements (CodeRabbit on PR #1).
+func TestQueryCostByPageSize(t *testing.T) {
+	s := newServer(t)
+	owner := ownerBrowser(t, s)
+	rejected := map[string]string{
+		"nested children":  `{ issues(first: 250) { nodes { children(first: 250) { nodes { id } } } } }`,
+		"history per item": `{ issues(first: 250) { nodes { history { nodes { id action } } } } }`,
+		"deep nesting":     "{ issues { nodes { " + strings.Repeat("children { nodes { ", 8) + "id" + strings.Repeat(" } }", 8) + " } } }",
+		"projects states":  `{ projects(first: 250) { nodes { states { id } members { id } } } issues(first: 250) { nodes { children(first: 50) { nodes { id title } } } } }`,
+	}
+	for name, q := range rejected {
+		if r := owner.do(q, nil); r.code() != "COMPLEXITY_LIMIT_EXCEEDED" {
+			t.Errorf("%s: %s", name, r.raw[:min(len(r.raw), 300)])
+		}
+	}
+	allowed := map[string]string{
+		"board page": `{ issues(first: 250) { nodes { id identifier number title priority dueDate sortOrder createdAt updatedAt
+			project { id key } state { id name type } assignee { id name } creator { id name } parent { id identifier } }
+			pageInfo { hasNextPage endCursor } } }`,
+		"issue page": `{ issue(id: "YLK-1") { id title description children { nodes { id identifier title state { name } } }
+			history { nodes { id action createdAt actor { name } changes { field from to } } } } }`,
+		"projects": `{ projects { nodes { id key name states { id name type color position isDefault } members { id name } } } }`,
+	}
+	for name, q := range allowed {
+		if r := owner.do(q, nil); r.code() == "COMPLEXITY_LIMIT_EXCEEDED" {
+			t.Errorf("%s rejected: %s", name, r.raw[:min(len(r.raw), 300)])
+		}
+	}
+}

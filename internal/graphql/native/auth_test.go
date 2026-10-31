@@ -266,12 +266,14 @@ func TestInternalErrorHidden(t *testing.T) {
 	}
 }
 
+// Credential mutations are expensive in the cost model, so one request cannot
+// batch many password guesses.
 func TestComplexityLimit(t *testing.T) {
 	s := newServer(t)
 	var sb strings.Builder
-	sb.WriteString("{")
-	for i := range 250 {
-		fmt.Fprintf(&sb, " a%d: setupStatus { needed }", i)
+	sb.WriteString("mutation {")
+	for i := range 25 {
+		fmt.Fprintf(&sb, ` a%d: login(email: "owner@example.com", password: "guess-%d") { id }`, i, i)
 	}
 	sb.WriteString(" }")
 	r := s.browser(t).do(sb.String(), nil)
