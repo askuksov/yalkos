@@ -16,9 +16,14 @@ const deleteProjectAudit = `-- name: DeleteProjectAudit :exec
 DELETE FROM audit_events
 WHERE entity_id IN (SELECT i.id FROM issues i WHERE i.project_id = $1::uuid)
    OR (entity_type IN ('project', 'state', 'milestone') AND audit_events.project_id = $1::uuid)
+   OR (entity_type = 'comment' AND (
+        entity_id IN (SELECT c.id FROM comments c JOIN issues i ON i.id = c.issue_id WHERE i.project_id = $1::uuid)
+     OR (audit_events.project_id = $1::uuid AND NOT EXISTS (SELECT 1 FROM comments c WHERE c.id = audit_events.entity_id))))
 `
 
-// Events of the project, its states and milestones, and the issues currently in it.
+// Events of the project, its states and milestones, the issues currently in
+// it and their comments; events of comments already deleted while in this
+// project go too.
 func (q *Queries) DeleteProjectAudit(ctx context.Context, projectID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteProjectAudit, projectID)
 	return err

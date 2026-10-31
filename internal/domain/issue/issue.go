@@ -115,6 +115,12 @@ func (s *Service) lockIssue(ctx context.Context, tx *q.Queries, id uuid.UUID) (I
 	return Issue{}, errors.New("issue: moved concurrently, try again")
 }
 
+// LockForWrite locks a live issue and its writable project inside tx, for
+// services that change what belongs to an issue (comments, attachments).
+func (s *Service) LockForWrite(ctx context.Context, tx *q.Queries, id uuid.UUID) (Issue, error) {
+	return s.lockIssue(ctx, tx, id)
+}
+
 // liveIssue reads a live issue referenced by an input field.
 func liveIssue(ctx context.Context, tx *q.Queries, id uuid.UUID, field string) (q.Issue, error) {
 	row, err := tx.GetIssue(ctx, id)
