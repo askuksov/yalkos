@@ -38,6 +38,7 @@ type StateTypeCond struct {
 // Filter selects issues; all set conditions are AND-ed.
 type Filter struct {
 	Project, State, Assignee, Parent *IDCond
+	Milestone                        *IDCond
 	StateType                        *StateTypeCond
 	Priority                         *IntCond
 	DueDate                          *DateCond
@@ -177,6 +178,7 @@ func (f Filter) build(w *where) {
 	w.id("i.state_id", f.State)
 	w.id("i.assignee_id", f.Assignee)
 	w.id("i.parent_id", f.Parent)
+	w.id("i.milestone_id", f.Milestone)
 	w.stateType("st.type", f.StateType)
 	w.intCond("i.priority", f.Priority)
 	w.dateCond("i.due_date", f.DueDate)

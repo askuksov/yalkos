@@ -103,7 +103,7 @@ func dueKey(desc bool) string {
 
 const issueColumns = `i.id, i.project_id, i.number, i.title, i.description, i.state_id, i.priority,
 	i.assignee_id, i.creator_id, i.parent_id, i.due_date, i.sort_order, i.created_at, i.updated_at,
-	i.completed_at, i.canceled_at, i.deleted_at, p.key`
+	i.completed_at, i.canceled_at, i.deleted_at, i.milestone_id, p.key`
 
 // Count returns the number of live issues matching f.
 func (s *Service) Count(ctx context.Context, f Filter) (int, error) {
@@ -183,7 +183,7 @@ LIMIT %s`, issueColumns, spec.out(o.Desc), wh.sql(), key, sqlDir, sqlDir, wh.arg
 		var k any
 		err := r.Scan(&i.ID, &i.ProjectID, &i.Number, &i.Title, &i.Description, &i.StateID, &i.Priority,
 			&i.AssigneeID, &i.CreatorID, &i.ParentID, &i.DueDate, &i.SortOrder, &i.CreatedAt, &i.UpdatedAt,
-			&i.CompletedAt, &i.CanceledAt, &i.DeletedAt, &projectKey, &k)
+			&i.CompletedAt, &i.CanceledAt, &i.DeletedAt, &i.MilestoneID, &projectKey, &k)
 		return listedIssue{issue: toIssue(i, projectKey), key: k}, err
 	})
 	if err != nil {

@@ -8,8 +8,9 @@ WITH RECURSIVE d (id, depth) AS (
 SELECT d.id FROM d ORDER BY d.depth, d.id;
 
 -- name: MoveIssue :one
+-- Milestones belong to one project: a moved issue leaves its milestone.
 UPDATE issues SET
     project_id = @project_id, number = @number, state_id = @state_id, parent_id = @parent_id,
-    completed_at = @completed_at, canceled_at = @canceled_at, updated_at = @now
+    completed_at = @completed_at, canceled_at = @canceled_at, milestone_id = NULL, updated_at = @now
 WHERE id = @id
 RETURNING *;

@@ -1,8 +1,8 @@
 -- name: CreateIssue :one
 INSERT INTO issues (project_id, number, title, description, state_id, priority, assignee_id, creator_id,
-    parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at)
+    parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, milestone_id)
 VALUES (@project_id, @number, @title, @description, @state_id, @priority, @assignee_id, @creator_id,
-    @parent_id, @due_date, @sort_order, @now, @now, @completed_at, @canceled_at)
+    @parent_id, @due_date, @sort_order, @now, @now, @completed_at, @canceled_at, @milestone_id)
 RETURNING *;
 
 -- name: InsertIssueNumber :exec
@@ -38,7 +38,7 @@ WHERE issues.id = ANY(@ids::uuid[]) AND issues.deleted_at IS NULL;
 UPDATE issues SET
     title = @title, description = @description, state_id = @state_id, priority = @priority,
     assignee_id = @assignee_id, parent_id = @parent_id, due_date = @due_date, sort_order = @sort_order,
-    completed_at = @completed_at, canceled_at = @canceled_at, updated_at = @now
+    completed_at = @completed_at, canceled_at = @canceled_at, milestone_id = @milestone_id, updated_at = @now
 WHERE id = @id
 RETURNING *;
 
