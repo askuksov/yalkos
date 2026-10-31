@@ -122,6 +122,19 @@ describe('issue page', () => {
     expect(await screen.findByPlaceholderText('Change state')).toHaveFocus()
   })
 
+  it('saves the due date once, when the field is left', async () => {
+    serve(withIssue(pageIssue(1), { UpdateIssue: () => ({ updateIssue: pageIssue(1) }) }))
+    renderAt('/issue/YLK-1')
+    const props = await screen.findByRole('complementary', { name: 'Properties' })
+    const due = within(props).getByLabelText('Due date')
+    due.focus()
+    // Typing a year fires an input event per digit.
+    for (const v of ['0002-11-04', '0020-11-04', '0202-11-04', '2026-11-04']) fireEvent.change(due, { target: { value: v } })
+    expect(callsOf('UpdateIssue')).toEqual([])
+    fireEvent.blur(due)
+    await waitFor(() => expect(callsOf('UpdateIssue')).toEqual([{ id: 'i1', input: { dueDate: '2026-11-04' } }]))
+  })
+
   it('moves the issue after confirmation', async () => {
     serve(
       withIssue(pageIssue(1, { children: { totalCount: 2 } }), {

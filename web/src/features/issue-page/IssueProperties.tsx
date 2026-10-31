@@ -16,6 +16,7 @@ import { AssigneePicker } from '../pickers/AssigneePicker'
 import { IssuePicker } from '../pickers/IssuePicker'
 import { PriorityPicker } from '../pickers/PriorityPicker'
 import { StatePicker } from '../pickers/StatePicker'
+import { isDate } from '../issues/filters'
 import s from './issue-page.module.css'
 import type { PageIssue, PropName } from './types'
 
@@ -89,15 +90,12 @@ export function IssueProperties({ issue, readOnly, open, setOpen, onMove }: Prop
         </dd>
         <dt>{t('props.dueDate')}</dt>
         <dd className={s.propRow}>
-          <input
-            type="date"
-            aria-label={t('props.dueDate')}
+          <DueDateInput
+            key={issue.dueDate ?? ''}
+            value={issue.dueDate}
+            label={t('props.dueDate')}
             disabled={readOnly}
-            value={issue.dueDate ?? ''}
-            onChange={(e) => {
-              const dueDate = e.target.value || null
-              update.mutate({ id: issue.id, input: { dueDate }, optimistic: { dueDate } })
-            }}
+            onCommit={(dueDate) => update.mutate({ id: issue.id, input: { dueDate }, optimistic: { dueDate } })}
           />
           {issue.dueDate && !readOnly && (
             <Button size="sm" variant="ghost" onClick={() => update.mutate({ id: issue.id, input: { dueDate: null }, optimistic: { dueDate: null } })}>
@@ -195,5 +193,31 @@ export function IssueProperties({ issue, readOnly, open, setOpen, onMove }: Prop
         )}
       </Popover>
     </aside>
+  )
+}
+
+/**
+ * Native date field that saves when left (blur or Enter), not on every input
+ * event: typing a year fires one event per digit (0002, 0020, 0202, 2026).
+ */
+function DueDateInput({ value, label, disabled, onCommit }: { value: string | null; label: string; disabled: boolean; onCommit: (d: string | null) => void }) {
+  const [draft, setDraft] = useState(value ?? '')
+  const commit = () => {
+    const next = draft || null
+    if (next === value || (next !== null && !isDate(next))) return
+    onCommit(next)
+  }
+  return (
+    <input
+      type="date"
+      aria-label={label}
+      disabled={disabled}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+      }}
+    />
   )
 }
