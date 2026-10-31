@@ -21,23 +21,35 @@ func (q *Queries) CountWorkspaces(ctx context.Context) (int64, error) {
 }
 
 const createWorkspace = `-- name: CreateWorkspace :one
-INSERT INTO workspaces (name) VALUES ($1) RETURNING id, name, created_at
+INSERT INTO workspaces (name) VALUES ($1) RETURNING id, name, created_at, type_group_id, default_type_label_id
 `
 
 func (q *Queries) CreateWorkspace(ctx context.Context, name string) (Workspace, error) {
 	row := q.db.QueryRow(ctx, createWorkspace, name)
 	var i Workspace
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.TypeGroupID,
+		&i.DefaultTypeLabelID,
+	)
 	return i, err
 }
 
 const getWorkspace = `-- name: GetWorkspace :one
-SELECT id, name, created_at FROM workspaces LIMIT 1
+SELECT id, name, created_at, type_group_id, default_type_label_id FROM workspaces LIMIT 1
 `
 
 func (q *Queries) GetWorkspace(ctx context.Context) (Workspace, error) {
 	row := q.db.QueryRow(ctx, getWorkspace)
 	var i Workspace
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.TypeGroupID,
+		&i.DefaultTypeLabelID,
+	)
 	return i, err
 }

@@ -21,6 +21,15 @@ type ApiKey struct {
 	RevokedAt     *time.Time
 }
 
+type Attachment struct {
+	ID         uuid.UUID
+	IssueID    *uuid.UUID
+	UploaderID uuid.UUID
+	BlobSha256 []byte
+	Name       string
+	CreatedAt  time.Time
+}
+
 type AuditEvent struct {
 	ID         uuid.UUID
 	EntityType string
@@ -30,6 +39,23 @@ type AuditEvent struct {
 	Action     string
 	Changes    []byte
 	CreatedAt  time.Time
+}
+
+type Blob struct {
+	Sha256      []byte
+	Size        int64
+	ContentType string
+	CreatedAt   time.Time
+}
+
+type Comment struct {
+	ID        uuid.UUID
+	IssueID   uuid.UUID
+	AuthorID  uuid.UUID
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	EditedAt  *time.Time
 }
 
 type Invite struct {
@@ -62,12 +88,48 @@ type Issue struct {
 	CompletedAt *time.Time
 	CanceledAt  *time.Time
 	DeletedAt   *time.Time
+	MilestoneID *uuid.UUID
+}
+
+type IssueLabel struct {
+	IssueID          uuid.UUID
+	LabelID          uuid.UUID
+	ExclusiveGroupID *uuid.UUID
 }
 
 type IssueNumber struct {
 	ProjectID uuid.UUID
 	Number    int32
 	IssueID   uuid.UUID
+}
+
+type Label struct {
+	ID          uuid.UUID
+	WorkspaceID uuid.UUID
+	ParentID    *uuid.UUID
+	IsGroup     bool
+	Exclusive   bool
+	Name        string
+	Description string
+	Color       string
+	Position    float64
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type Milestone struct {
+	ID           uuid.UUID
+	ProjectID    uuid.UUID
+	Name         string
+	Description  string
+	TargetDate   *time.Time
+	LeadID       *uuid.UUID
+	SortOrder    float64
+	StatusManual *string
+	CreatedBy    *uuid.UUID
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 type Project struct {
@@ -128,7 +190,9 @@ type User struct {
 }
 
 type Workspace struct {
-	ID        uuid.UUID
-	Name      string
-	CreatedAt time.Time
+	ID                 uuid.UUID
+	Name               string
+	CreatedAt          time.Time
+	TypeGroupID        *uuid.UUID
+	DefaultTypeLabelID *uuid.UUID
 }

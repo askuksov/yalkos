@@ -17,7 +17,7 @@ INSERT INTO issues (project_id, number, title, description, state_id, priority, 
     parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $12, $13, $14)
-RETURNING id, project_id, number, title, description, state_id, priority, assignee_id, creator_id, parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, deleted_at
+RETURNING id, project_id, number, title, description, state_id, priority, assignee_id, creator_id, parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, deleted_at, milestone_id
 `
 
 type CreateIssueParams struct {
@@ -73,6 +73,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (Issue
 		&i.CompletedAt,
 		&i.CanceledAt,
 		&i.DeletedAt,
+		&i.MilestoneID,
 	)
 	return i, err
 }
@@ -130,7 +131,7 @@ func (q *Queries) GetDefaultState(ctx context.Context, projectID uuid.UUID) (Sta
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.state_id, issues.priority, issues.assignee_id, issues.creator_id, issues.parent_id, issues.due_date, issues.sort_order, issues.created_at, issues.updated_at, issues.completed_at, issues.canceled_at, issues.deleted_at, p.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.state_id, issues.priority, issues.assignee_id, issues.creator_id, issues.parent_id, issues.due_date, issues.sort_order, issues.created_at, issues.updated_at, issues.completed_at, issues.canceled_at, issues.deleted_at, issues.milestone_id, p.key AS project_key
 FROM issues JOIN projects p ON p.id = issues.project_id
 WHERE issues.id = $1 AND issues.deleted_at IS NULL
 `
@@ -162,13 +163,14 @@ func (q *Queries) GetIssue(ctx context.Context, id uuid.UUID) (GetIssueRow, erro
 		&i.Issue.CompletedAt,
 		&i.Issue.CanceledAt,
 		&i.Issue.DeletedAt,
+		&i.Issue.MilestoneID,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueByIdentifier = `-- name: GetIssueByIdentifier :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.state_id, issues.priority, issues.assignee_id, issues.creator_id, issues.parent_id, issues.due_date, issues.sort_order, issues.created_at, issues.updated_at, issues.completed_at, issues.canceled_at, issues.deleted_at, p.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.state_id, issues.priority, issues.assignee_id, issues.creator_id, issues.parent_id, issues.due_date, issues.sort_order, issues.created_at, issues.updated_at, issues.completed_at, issues.canceled_at, issues.deleted_at, issues.milestone_id, p.key AS project_key
 FROM project_keys k
 JOIN issue_numbers n ON n.project_id = k.project_id AND n.number = $1
 JOIN issues ON issues.id = n.issue_id
@@ -208,13 +210,14 @@ func (q *Queries) GetIssueByIdentifier(ctx context.Context, arg GetIssueByIdenti
 		&i.Issue.CompletedAt,
 		&i.Issue.CanceledAt,
 		&i.Issue.DeletedAt,
+		&i.Issue.MilestoneID,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueForUpdate = `-- name: GetIssueForUpdate :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.state_id, issues.priority, issues.assignee_id, issues.creator_id, issues.parent_id, issues.due_date, issues.sort_order, issues.created_at, issues.updated_at, issues.completed_at, issues.canceled_at, issues.deleted_at, p.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.state_id, issues.priority, issues.assignee_id, issues.creator_id, issues.parent_id, issues.due_date, issues.sort_order, issues.created_at, issues.updated_at, issues.completed_at, issues.canceled_at, issues.deleted_at, issues.milestone_id, p.key AS project_key
 FROM issues JOIN projects p ON p.id = issues.project_id
 WHERE issues.id = $1 AND issues.deleted_at IS NULL
 FOR UPDATE OF issues
@@ -246,6 +249,7 @@ func (q *Queries) GetIssueForUpdate(ctx context.Context, id uuid.UUID) (GetIssue
 		&i.Issue.CompletedAt,
 		&i.Issue.CanceledAt,
 		&i.Issue.DeletedAt,
+		&i.Issue.MilestoneID,
 		&i.ProjectKey,
 	)
 	return i, err
@@ -297,7 +301,7 @@ func (q *Queries) IssueAncestorIDs(ctx context.Context, id uuid.UUID) ([]uuid.UU
 }
 
 const listIssuesByIDs = `-- name: ListIssuesByIDs :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.state_id, issues.priority, issues.assignee_id, issues.creator_id, issues.parent_id, issues.due_date, issues.sort_order, issues.created_at, issues.updated_at, issues.completed_at, issues.canceled_at, issues.deleted_at, p.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.state_id, issues.priority, issues.assignee_id, issues.creator_id, issues.parent_id, issues.due_date, issues.sort_order, issues.created_at, issues.updated_at, issues.completed_at, issues.canceled_at, issues.deleted_at, issues.milestone_id, p.key AS project_key
 FROM issues JOIN projects p ON p.id = issues.project_id
 WHERE issues.id = ANY($1::uuid[]) AND issues.deleted_at IS NULL
 `
@@ -334,6 +338,7 @@ func (q *Queries) ListIssuesByIDs(ctx context.Context, ids []uuid.UUID) ([]ListI
 			&i.Issue.CompletedAt,
 			&i.Issue.CanceledAt,
 			&i.Issue.DeletedAt,
+			&i.Issue.MilestoneID,
 			&i.ProjectKey,
 		); err != nil {
 			return nil, err
@@ -413,7 +418,7 @@ UPDATE issues SET
     assignee_id = $5, parent_id = $6, due_date = $7, sort_order = $8,
     completed_at = $9, canceled_at = $10, updated_at = $11
 WHERE id = $12
-RETURNING id, project_id, number, title, description, state_id, priority, assignee_id, creator_id, parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, deleted_at
+RETURNING id, project_id, number, title, description, state_id, priority, assignee_id, creator_id, parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, deleted_at, milestone_id
 `
 
 type UpdateIssueParams struct {
@@ -465,6 +470,7 @@ func (q *Queries) UpdateIssue(ctx context.Context, arg UpdateIssueParams) (Issue
 		&i.CompletedAt,
 		&i.CanceledAt,
 		&i.DeletedAt,
+		&i.MilestoneID,
 	)
 	return i, err
 }

@@ -114,6 +114,9 @@ func (s *Service) Setup(ctx context.Context, in SetupInput, ip string) (User, st
 		if err != nil {
 			return err
 		}
+		if err := tx.SeedTypeLabels(ctx, q.SeedTypeLabelsParams{WorkspaceID: ws.ID, Now: s.now()}); err != nil {
+			return fmt.Errorf("seed type labels: %w", err)
+		}
 		u, err := tx.CreateUser(ctx, q.CreateUserParams{
 			WorkspaceID: ws.ID, Email: email, Name: name, PasswordHash: hash, Role: string(RoleOwner),
 		})
