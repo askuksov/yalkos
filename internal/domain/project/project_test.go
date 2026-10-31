@@ -356,7 +356,7 @@ func TestUpdateProjectClearsOptional(t *testing.T) {
 }
 
 // A key change and a project create racing for the same key must end in one
-// success and one "key taken", never a deadlock (review of M3 tasks 1–8).
+// success and one "key taken", never a deadlock.
 func TestKeyChangeRacesCreate(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

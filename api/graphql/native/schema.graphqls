@@ -1,4 +1,4 @@
-# Yalkos native API (used by the web UI). Yalkos entity names only — see ADR-006.
+# Yalkos native API (used by the web UI). Uses Yalkos entity names (Project, State, Issue), not Linear ones.
 
 scalar Time
 

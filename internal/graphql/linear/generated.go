@@ -186,7 +186,7 @@ func newExecutionContext(
 }
 
 var sources = []*ast.Source{
-	{Name: "../../../api/graphql/linear/schema.graphqls", Input: `# Linear-compatible API: a hand-written subset of Linear's schema (ADR-003, ADR-006).
+	{Name: "../../../api/graphql/linear/schema.graphqls", Input: `# Linear-compatible API: a hand-written subset of Linear's schema.
 # Names must match Linear exactly.
 
 type Query {

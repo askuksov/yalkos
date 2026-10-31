@@ -1,5 +1,5 @@
 -- +goose Up
--- One workspace per instance (spec §2.1).
+-- One workspace per instance.
 CREATE UNIQUE INDEX workspaces_singleton ON workspaces ((true));
 ALTER TABLE workspaces ALTER COLUMN id SET DEFAULT uuidv7();
 

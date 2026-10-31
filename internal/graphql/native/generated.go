@@ -1469,7 +1469,7 @@ extend type Mutation {
   deleteIssue(id: ID!): Boolean!
 }
 `, BuiltIn: false},
-	{Name: "../../../api/graphql/native/pagination.graphqls", Input: `# Relay pagination shared by all connections (spec §2.7).
+	{Name: "../../../api/graphql/native/pagination.graphqls", Input: `# Relay pagination shared by all connections.
 
 "Calendar date, YYYY-MM-DD."
 scalar Date
@@ -1582,7 +1582,7 @@ extend type Mutation {
   deleteState(id: ID!, moveIssuesTo: ID): Boolean!
 }
 `, BuiltIn: false},
-	{Name: "../../../api/graphql/native/schema.graphqls", Input: `# Yalkos native API (used by the web UI). Yalkos entity names only — see ADR-006.
+	{Name: "../../../api/graphql/native/schema.graphqls", Input: `# Yalkos native API (used by the web UI). Uses Yalkos entity names (Project, State, Issue), not Linear ones.
 
 scalar Time
 

@@ -18,7 +18,7 @@ type Deps struct {
 	Ready func(context.Context) error
 	// UI is the built web app (index.html + assets/).
 	UI fs.FS
-	// NativeGraphQL serves /api/graphql, LinearGraphQL serves /graphql (ADR-006).
+	// NativeGraphQL serves /api/graphql, LinearGraphQL serves /graphql.
 	NativeGraphQL http.Handler
 	LinearGraphQL http.Handler
 	Logger        *slog.Logger

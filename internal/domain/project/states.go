@@ -16,7 +16,7 @@ import (
 	"github.com/askuksov/yalkos/internal/store/q"
 )
 
-// StateType is one of the five Linear workflow types (ADR-003).
+// StateType is one of the five Linear workflow types.
 type StateType string
 
 // State types.

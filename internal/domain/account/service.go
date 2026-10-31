@@ -24,7 +24,7 @@ import (
 // Role is a workspace role.
 type Role string
 
-// Roles (spec §2.1).
+// Roles.
 const (
 	RoleOwner  Role = "owner"
 	RoleAdmin  Role = "admin"

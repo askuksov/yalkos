@@ -1,5 +1,5 @@
 // Package audit records and reads the change log of projects, states and
-// issues (spec §2.4). Events are written inside the caller's transaction.
+// issues. Events are written inside the caller's transaction.
 package audit
 
 import (

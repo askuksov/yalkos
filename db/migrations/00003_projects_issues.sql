@@ -14,7 +14,7 @@ CREATE TABLE projects (
     updated_at       timestamptz NOT NULL
 );
 
--- Every key a project has had: former KEY-N identifiers keep resolving (spec §2.2).
+-- Every key a project has had: former KEY-N identifiers keep resolving.
 CREATE TABLE project_keys (
     key        text PRIMARY KEY,
     project_id uuid NOT NULL REFERENCES projects (id) ON DELETE CASCADE

@@ -327,8 +327,7 @@ func TestCursorOfOtherOrderRejected(t *testing.T) {
 	wantInput(t, err, "first", kit.ReasonOutOfRange)
 }
 
-// Values outside the column type must not reach PostgreSQL as encode errors
-// (review of M3 tasks 1–8).
+// Values outside the column type must not reach PostgreSQL as encode errors.
 func TestFilterPriorityOutOfRange(t *testing.T) {
 	f := newListFixture(t)
 	f.check(t, "priority eq 40000", issue.Filter{Priority: &issue.IntCond{Eq: ptr(40000)}},

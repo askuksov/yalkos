@@ -1,4 +1,4 @@
-# Relay pagination shared by all connections (spec §2.7).
+# Relay pagination shared by all connections.
 
 "Calendar date, YYYY-MM-DD."
 scalar Date

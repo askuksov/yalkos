@@ -283,7 +283,7 @@ func TestComplexityLimit(t *testing.T) {
 }
 
 // API keys cannot manage credentials: a leaked key must not mint new keys,
-// change the password or invite people (owner decision 2026-10-30).
+// change the password or invite people.
 func TestCredentialManagementNeedsSession(t *testing.T) {
 	s := newServer(t)
 	owner := ownerBrowser(t, s)

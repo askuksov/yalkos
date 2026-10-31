@@ -416,14 +416,14 @@ func TestIssueListQueryCount(t *testing.T) {
 	if n := countList(t, owner, queries, `id project { key } state { name } assignee { id } creator { id } parent { id }`); n > 8 {
 		t.Fatalf("issue list ran %d SQL statements, want ≤ 8", n)
 	}
-	// Project states and members batch by project too (final review of tasks 9–11).
+	// Project states and members batch by project too.
 	if n := countList(t, owner, queries, `id project { key states { id } members { id } }`); n > 8 {
 		t.Fatalf("issue list with project states/members ran %d SQL statements, want ≤ 8", n)
 	}
 }
 
 // Connections cost their page size times their selection, so nested lists
-// cannot multiply into thousands of SQL statements (CodeRabbit on PR #1).
+// cannot multiply into thousands of SQL statements.
 func TestQueryCostByPageSize(t *testing.T) {
 	s := newServer(t)
 	owner := ownerBrowser(t, s)
