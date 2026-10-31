@@ -1,8 +1,9 @@
 import { PanelLeft } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet } from 'react-router'
 
+import { useHotkey } from '../lib/hotkeys'
 import { Button } from '../ui/Button'
 import s from './app.module.css'
 import { Sidebar } from './Sidebar'
@@ -15,11 +16,6 @@ function readCollapsed(): boolean {
   } catch {
     return false
   }
-}
-
-function isEditable(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false
-  return t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)
 }
 
 /** Sidebar + routed main area; [ collapses the sidebar. */
@@ -37,16 +33,7 @@ export function AppShell() {
       return !c
     })
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== 'BracketLeft' || e.metaKey || e.ctrlKey || e.altKey || isEditable(e.target)) return
-      if (document.querySelector('dialog[open]')) return
-      e.preventDefault()
-      toggle()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  useHotkey('[', toggle)
 
   return (
     <div className={[s.shell, collapsed ? s.collapsed : ''].join(' ')}>
