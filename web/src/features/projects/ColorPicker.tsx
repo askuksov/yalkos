@@ -49,6 +49,8 @@ export function ColorPicker({ value, onChange, label, disabled }: Props) {
           className={s.hex}
           onSubmit={(e) => {
             e.preventDefault()
+            // React bubbles submit through the portal into an enclosing form (General settings).
+            e.stopPropagation()
             if (hexRe.test(hex)) pick(hex.toLowerCase())
           }}
         >
