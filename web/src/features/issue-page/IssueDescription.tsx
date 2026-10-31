@@ -31,6 +31,7 @@ export function IssueDescription({ issue, readOnly, editing, setEditing }: Props
   const toast = useToast()
   const [draft, setDraft] = useState(issue.description)
   const [asking, setAsking] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const dirty = editing && draft !== issue.description
 
   const save = useMutation({
@@ -87,10 +88,11 @@ export function IssueDescription({ issue, readOnly, editing, setEditing }: Props
             value={draft}
             onChange={setDraft}
             issueId={issue.id}
+            onBusyChange={setUploading}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault()
-                save.mutate()
+                if (!uploading) save.mutate()
               } else if (e.key === 'Escape') {
                 e.preventDefault()
                 cancel()
@@ -101,7 +103,7 @@ export function IssueDescription({ issue, readOnly, editing, setEditing }: Props
             <Button size="sm" onClick={cancel}>
               {t('description.cancel')}
             </Button>
-            <Button size="sm" variant="primary" disabled={save.isPending} onClick={() => save.mutate()}>
+            <Button size="sm" variant="primary" disabled={save.isPending || uploading} onClick={() => save.mutate()}>
               {t('description.save')}
             </Button>
           </div>

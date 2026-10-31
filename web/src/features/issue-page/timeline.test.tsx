@@ -173,4 +173,22 @@ describe('issue timeline', () => {
     await openIssue()
     expect(document.querySelectorAll('main')).toHaveLength(1)
   })
+
+  it('waits for a pasted file before posting', async () => {
+    let finish!: (r: Awaited<ReturnType<typeof uploadFile>>) => void
+    vi.mocked(uploadFile).mockReturnValue(new Promise((r) => { finish = r }))
+    serve(handlers({ CreateComment: (v: Vars) => ({ createComment: { id: 'c9', body: v?.body } }) }))
+    const activity = await openIssue()
+    const box = within(activity).getByRole('textbox', { name: 'Comment' })
+    await userEvent.type(box, 'See ')
+    fireEvent.paste(box, { clipboardData: { files: [new File(['x'], 'a.png', { type: 'image/png' })], types: ['Files'], getData: () => '' } })
+    await waitFor(() => expect(box).toHaveValue('See ![Uploading a.png…]()'))
+    expect(within(activity).getByRole('button', { name: 'Comment' })).toBeDisabled()
+    fireEvent.keyDown(box, { key: 'Enter', metaKey: true })
+    expect(callsOf('CreateComment')).toHaveLength(0)
+    finish({ id: 'a1', url: '/api/attachments/a1/a.png', name: 'a.png', size: 1, contentType: 'image/png', inline: true })
+    await waitFor(() => expect(within(activity).getByRole('button', { name: 'Comment' })).toBeEnabled())
+    fireEvent.keyDown(within(activity).getByRole('textbox', { name: 'Comment' }), { key: 'Enter', metaKey: true })
+    await waitFor(() => expect(callsOf('CreateComment')).toEqual([{ issueId: 'i1', body: 'See ![a.png](/api/attachments/a1/a.png)', attachmentIds: ['a1'] }]))
+  })
 })

@@ -35,6 +35,7 @@ export function CommentComposer({ issueId }: { issueId: string }) {
   const toast = useToast()
   const [body, setBody] = useState(() => readDraft(issueId))
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
   // A fresh editor (and upload list) after each post.
   const [round, setRound] = useState(0)
   const change = (text: string) => {
@@ -52,7 +53,7 @@ export function CommentComposer({ issueId }: { issueId: string }) {
     onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
   })
   const submit = () => {
-    if (body.trim() && !post.isPending) post.mutate()
+    if (body.trim() && !post.isPending && !uploading) post.mutate()
   }
   return (
     <div className={s.composer}>
@@ -64,6 +65,7 @@ export function CommentComposer({ issueId }: { issueId: string }) {
         value={body}
         onChange={change}
         onAttachmentsChange={setAttachmentIds}
+        onBusyChange={setUploading}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
             e.preventDefault()
@@ -72,7 +74,7 @@ export function CommentComposer({ issueId }: { issueId: string }) {
         }}
       />
       <div className={s.editorActions}>
-        <Button size="sm" variant="primary" disabled={!body.trim() || post.isPending} onClick={submit}>
+        <Button size="sm" variant="primary" disabled={!body.trim() || post.isPending || uploading} onClick={submit}>
           {t('comments.post')}
         </Button>
       </div>

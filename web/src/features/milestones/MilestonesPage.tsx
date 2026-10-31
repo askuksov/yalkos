@@ -103,6 +103,7 @@ export function NewMilestone({ projectId, projectKey, onClose }: { projectId: st
   const [date, setDate] = useState('')
   const [lead, setLead] = useState('')
   const [description, setDescription] = useState('')
+  const [uploading, setUploading] = useState(false)
   const create = useMutation({
     mutationFn: () =>
       request(CreateMilestoneMutation, {
@@ -117,7 +118,7 @@ export function NewMilestone({ projectId, projectKey, onClose }: { projectId: st
   })
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (name.trim()) create.mutate()
+    if (name.trim() && !uploading) create.mutate()
   }
   return (
     <form className={s.form} onSubmit={submit}>
@@ -142,11 +143,11 @@ export function NewMilestone({ projectId, projectKey, onClose }: { projectId: st
           </select>
         </label>
       </div>
-      <MarkdownEditor label={t('milestones.description')} rows={5} value={description} onChange={setDescription} />
+      <MarkdownEditor label={t('milestones.description')} rows={5} value={description} onChange={setDescription} onBusyChange={setUploading} />
       {create.error && <p role="alert">{errorMessage(create.error)}</p>}
       <div className={s.actions}>
         <Button onClick={onClose}>{t('common:actions.cancel')}</Button>
-        <Button type="submit" variant="primary" disabled={!name.trim() || create.isPending}>
+        <Button type="submit" variant="primary" disabled={!name.trim() || create.isPending || uploading}>
           {t('milestones.create')}
         </Button>
       </div>

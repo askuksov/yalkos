@@ -99,6 +99,7 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [attachmentIds, setAttachmentIds] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
   // A new editor (and its upload list) after "create more".
   const [round, setRound] = useState(0)
   const [createMore, setCreateMore] = useState(false)
@@ -143,7 +144,7 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault()
-    if (create.isPending) return
+    if (create.isPending || uploading) return
     if (!projectId && !parent) {
       setErrors({ form: t('create.chooseProject') })
       return
@@ -208,6 +209,7 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
         value={description}
         onChange={setDescription}
         onAttachmentsChange={setAttachmentIds}
+        onBusyChange={setUploading}
       />
       {errors.description && (
         <p role="alert" className={s.fieldError}>
@@ -345,7 +347,7 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
           <input type="checkbox" checked={createMore} onChange={(e) => setCreateMore(e.target.checked)} />
           {t('create.createMore')}
         </label>
-        <Button type="submit" variant="primary" disabled={create.isPending}>
+        <Button type="submit" variant="primary" disabled={create.isPending || uploading}>
           {t('create.submit')}
         </Button>
       </div>

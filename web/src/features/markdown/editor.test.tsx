@@ -29,6 +29,7 @@ beforeEach(() => {
 
 let lastValue = ''
 let reported: string[] = []
+let busy: boolean[] = []
 
 function Harness({ issueId, initial = '' }: { issueId?: string; initial?: string }) {
   const [value, setValue] = useState(initial)
@@ -44,6 +45,9 @@ function Harness({ issueId, initial = '' }: { issueId?: string; initial?: string
       onAttachmentsChange={(ids) => {
         reported = ids
       }}
+      onBusyChange={(b) => {
+        busy.push(b)
+      }}
       placeholder="Write something"
     />
   )
@@ -52,6 +56,7 @@ function Harness({ issueId, initial = '' }: { issueId?: string; initial?: string
 function mount(props: { issueId?: string; initial?: string } = {}) {
   lastValue = props.initial ?? ''
   reported = []
+  busy = []
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -145,5 +150,30 @@ describe('MarkdownEditor', () => {
     expect(screen.getByText('bold').tagName).toBe('STRONG')
     await userEvent.click(screen.getByRole('tab', { name: 'Write' }))
     expect(screen.getByRole('textbox', { name: 'Description' })).toHaveValue('**bold**')
+  })
+
+  it('reports uploads in flight', async () => {
+    const pending = deferred<UploadResult>()
+    upload.mockReturnValue(pending.promise)
+    mount({ issueId: 'i1' })
+    const area = await screen.findByRole('textbox', { name: 'Description' })
+    paste(area, [png()])
+    await waitFor(() => expect(busy).toEqual([true]))
+    pending.resolve(result())
+    await waitFor(() => expect(busy).toEqual([true, false]))
+  })
+
+  it('ignores an upload that finishes after the editor is gone', async () => {
+    const pending = deferred<UploadResult>()
+    upload.mockReturnValue(pending.promise)
+    const view = mount({ issueId: 'i1', initial: 'x' })
+    const area = await screen.findByRole('textbox', { name: 'Description' })
+    paste(area, [png()])
+    await waitFor(() => expect(lastValue).toContain('Uploading'))
+    view.unmount()
+    lastValue = 'after'
+    pending.resolve(result())
+    await new Promise((r) => setTimeout(r, 10))
+    expect(lastValue).toBe('after')
   })
 })
