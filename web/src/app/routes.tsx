@@ -9,6 +9,7 @@ import { MembersPage } from '../pages/MembersPage'
 import { MyIssuesPage } from '../pages/MyIssuesPage'
 import { ProjectBoardPage } from '../pages/ProjectBoardPage'
 import { ProjectIssuesPage } from '../pages/ProjectIssuesPage'
+import { ProjectsPage } from '../pages/ProjectsPage'
 import { ProjectSettingsPage } from '../pages/ProjectSettingsPage'
 import { SetupPage } from '../pages/SetupPage'
 import { AppShell } from './AppShell'
@@ -40,6 +41,7 @@ export const routes: RouteObject[] = [
               { path: 'settings', element: <ProjectSettingsPage /> },
             ],
           },
+          { path: 'projects', element: <ProjectsPage /> },
           { path: 'issue/:identifier', element: <IssuePage /> },
           { path: 'settings/members', element: <MembersPage /> },
           { path: 'settings/api-keys', element: <ApiKeysPage /> },
