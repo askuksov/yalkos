@@ -29,5 +29,7 @@ models:
     model: github.com/askuksov/yalkos/internal/graphql/native.State
   Issue:
     model: github.com/askuksov/yalkos/internal/graphql/native.Issue
+  IssueConnection:
+    model: github.com/askuksov/yalkos/internal/graphql/native.IssueConnection
   HistoryEntry:
     model: github.com/askuksov/yalkos/internal/graphql/native.HistoryEntry

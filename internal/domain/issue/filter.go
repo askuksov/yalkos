@@ -42,6 +42,9 @@ type Filter struct {
 	Priority                         *IntCond
 	DueDate                          *DateCond
 	HasChildren                      *bool
+	// Search matches words of the title and description by prefix; an
+	// identifier also matches that issue. Input without words matches all.
+	Search *string
 	// IncludeArchived lists issues of archived projects; they are also listed
 	// when Project.Eq or Project.In is set.
 	IncludeArchived bool
@@ -183,6 +186,9 @@ func (f Filter) build(w *where) {
 			exists = "NOT " + exists
 		}
 		w.conds = append(w.conds, exists)
+	}
+	if f.Search != nil {
+		w.search(*f.Search)
 	}
 	explicitProject := f.Project != nil && (f.Project.Eq != nil || f.Project.In != nil)
 	if !f.IncludeArchived && !explicitProject {

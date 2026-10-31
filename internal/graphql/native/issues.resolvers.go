@@ -65,7 +65,16 @@ func (r *issueResolver) Children(ctx context.Context, obj *Issue, first *int, af
 	if err != nil {
 		return nil, err
 	}
-	return issueConnOut(res), nil
+	return issueConnOut(res, f), nil
+}
+
+// SubIssueProgress is the resolver for the subIssueProgress field.
+func (r *issueResolver) SubIssueProgress(ctx context.Context, obj *Issue) (*Progress, error) {
+	p, err := loadersFrom(ctx).subIssueProgress.Load(ctx, obj.uid)
+	if err != nil {
+		return nil, err
+	}
+	return &Progress{Completed: p.Completed, Total: p.Total}, nil
 }
 
 // History is the resolver for the history field.
@@ -75,6 +84,11 @@ func (r *issueResolver) History(ctx context.Context, obj *Issue, first *int, aft
 		return nil, err
 	}
 	return historyOut(res), nil
+}
+
+// TotalCount is the resolver for the totalCount field.
+func (r *issueConnectionResolver) TotalCount(ctx context.Context, obj *IssueConnection) (int, error) {
+	return r.Issues.Count(ctx, obj.filter)
 }
 
 // CreateIssue is the resolver for the createIssue field.
@@ -227,7 +241,7 @@ func (r *queryResolver) Issues(ctx context.Context, filter *IssueFilter, orderBy
 	if err != nil {
 		return nil, err
 	}
-	return issueConnOut(res), nil
+	return issueConnOut(res, f), nil
 }
 
 // HistoryEntry returns HistoryEntryResolver implementation.
@@ -236,7 +250,11 @@ func (r *Resolver) HistoryEntry() HistoryEntryResolver { return &historyEntryRes
 // Issue returns IssueResolver implementation.
 func (r *Resolver) Issue() IssueResolver { return &issueResolver{r} }
 
+// IssueConnection returns IssueConnectionResolver implementation.
+func (r *Resolver) IssueConnection() IssueConnectionResolver { return &issueConnectionResolver{r} }
+
 type (
-	historyEntryResolver struct{ *Resolver }
-	issueResolver        struct{ *Resolver }
+	historyEntryResolver    struct{ *Resolver }
+	issueResolver           struct{ *Resolver }
+	issueConnectionResolver struct{ *Resolver }
 )

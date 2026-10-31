@@ -22,6 +22,8 @@ type Project {
   states: [State!]!
   "In the order they joined."
   members: [User!]!
+  "Whether the viewer is a member."
+  isMember: Boolean!
 }
 
 type ProjectEdge {
@@ -86,7 +88,9 @@ extend type Mutation {
   archiveProject(id: ID!): Project!
   unarchiveProject(id: ID!): Project!
   deleteProject(id: ID!, confirmKey: String!): Boolean!
+  "Owners and admins add anyone; every user may add themselves (join)."
   addProjectMember(projectId: ID!, userId: ID!): Project!
+  "Owners and admins remove anyone; every user may remove themselves (leave)."
   removeProjectMember(projectId: ID!, userId: ID!): Project!
   createState(projectId: ID!, input: CreateStateInput!): State!
   updateState(id: ID!, input: UpdateStateInput!): State!

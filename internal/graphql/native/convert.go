@@ -155,11 +155,21 @@ func issueOut(i issue.Issue) *Issue {
 	return out
 }
 
-func issueConnOut(res page.Result[issue.Issue]) *IssueConnection {
+// IssueConnection is a page of issues; totalCount counts with filter lazily.
+type IssueConnection struct {
+	Nodes    []Issue
+	Edges    []IssueEdge
+	PageInfo *PageInfo
+
+	filter issue.Filter
+}
+
+func issueConnOut(res page.Result[issue.Issue], f issue.Filter) *IssueConnection {
 	conn := &IssueConnection{
 		Nodes:    make([]Issue, 0, len(res.Items)),
 		Edges:    make([]IssueEdge, 0, len(res.Items)),
 		PageInfo: pageInfoOut(res.Info),
+		filter:   f,
 	}
 	for n, i := range res.Items {
 		node := issueOut(i)

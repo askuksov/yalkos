@@ -24,6 +24,8 @@ type Issue {
   creator: User!
   parent: Issue
   children(first: Int, after: String, last: Int, before: String, orderBy: IssueOrder): IssueConnection!
+  "Live direct children; total excludes canceled ones."
+  subIssueProgress: Progress!
   dueDate: Date
   sortOrder: Float!
   createdAt: Time!
@@ -43,6 +45,13 @@ type IssueConnection {
   nodes: [Issue!]!
   edges: [IssueEdge!]!
   pageInfo: PageInfo!
+  "Issues matching the connection's filter, all pages."
+  totalCount: Int!
+}
+
+type Progress {
+  completed: Int!
+  total: Int!
 }
 
 "from/to are JSON-encoded values (null when absent)."
@@ -128,6 +137,8 @@ input IssueFilter {
   hasChildren: Boolean
   dueDate: DateComparator
   includeArchived: Boolean
+  "Words of the title and description, each matched as a prefix; an identifier (KEY-N) also matches that issue."
+  search: String
 }
 
 input IssueOrder {

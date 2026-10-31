@@ -141,18 +141,15 @@ func TestProjectsForbiddenForMember(t *testing.T) {
 	owner := ownerBrowser(t, s)
 	p := createProject(t, owner, "YLK", "Yalkos")
 	member := userBrowser(t, s, owner, "MEMBER")
-	var viewer struct {
-		ID string `json:"id"`
-	}
-	member.do(`{ viewer { id } }`, nil).decode(t, "viewer", &viewer)
 
 	cases := map[string]struct {
 		q    string
 		vars map[string]any
 	}{
-		"createProject":    {`mutation { createProject(input: {key: "WEB", name: "Web"}) { id } }`, nil},
-		"createState":      {`mutation($p: ID!) { createState(projectId: $p, input: {name: "Review", type: STARTED, color: "#123456"}) { id } }`, map[string]any{"p": p.ID}},
-		"addProjectMember": {`mutation($p: ID!, $u: ID!) { addProjectMember(projectId: $p, userId: $u) { id } }`, map[string]any{"p": p.ID, "u": viewer.ID}},
+		"createProject": {`mutation { createProject(input: {key: "WEB", name: "Web"}) { id } }`, nil},
+		"createState":   {`mutation($p: ID!) { createState(projectId: $p, input: {name: "Review", type: STARTED, color: "#123456"}) { id } }`, map[string]any{"p": p.ID}},
+		// Members may add only themselves (join).
+		"addProjectMember": {`mutation($p: ID!, $u: ID!) { addProjectMember(projectId: $p, userId: $u) { id } }`, map[string]any{"p": p.ID, "u": viewerID(t, owner)}},
 	}
 	for name, c := range cases {
 		if r := member.do(c.q, c.vars); r.code() != "FORBIDDEN" {
@@ -359,5 +356,47 @@ func TestProjectsUnauthenticated(t *testing.T) {
 		if r := anon.do(q, nil); r.code() != "AUTHENTICATION_ERROR" {
 			t.Errorf("%s: %s", name, r.raw)
 		}
+	}
+}
+
+func TestIsMemberAPI(t *testing.T) {
+	s := newServer(t)
+	owner := ownerBrowser(t, s)
+	member := userBrowser(t, s, owner, "MEMBER")
+	p := createProject(t, owner, "YLK", "Yalkos")
+	isMember := func(c *client) bool {
+		t.Helper()
+		var got struct {
+			IsMember bool `json:"isMember"`
+		}
+		c.do(`{ project(id: "YLK") { isMember } }`, nil).decode(t, "project", &got)
+		return got.IsMember
+	}
+	if !isMember(owner) {
+		t.Fatal("creator is not a member")
+	}
+	if isMember(member) {
+		t.Fatal("member is a member before joining")
+	}
+	var me struct {
+		ID string `json:"id"`
+	}
+	member.do(`{ viewer { id } }`, nil).decode(t, "viewer", &me)
+	vars := map[string]any{"p": p.ID, "u": me.ID}
+	var joined struct {
+		IsMember bool `json:"isMember"`
+	}
+	member.do(`mutation($p: ID!, $u: ID!) { addProjectMember(projectId: $p, userId: $u) { isMember } }`, vars).decode(t, "addProjectMember", &joined)
+	if !joined.IsMember || !isMember(member) {
+		t.Fatal("member did not join")
+	}
+	r := member.do(`mutation($p: ID!, $u: ID!) { removeProjectMember(projectId: $p, userId: $u) { id } }`,
+		map[string]any{"p": p.ID, "u": viewerID(t, owner)})
+	if r.code() != "FORBIDDEN" {
+		t.Fatalf("member removes the owner: %s", r.raw)
+	}
+	member.do(`mutation($p: ID!, $u: ID!) { removeProjectMember(projectId: $p, userId: $u) { id } }`, vars).decode(t, "removeProjectMember", &joined)
+	if isMember(member) {
+		t.Fatal("member did not leave")
 	}
 }

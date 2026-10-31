@@ -25,6 +25,9 @@ type loaders struct {
 	// By project id: a project's states and member ids.
 	projectStates  *dataloadgen.Loader[uuid.UUID, []project.State]
 	projectMembers *dataloadgen.Loader[uuid.UUID, []uuid.UUID]
+
+	// By issue id: progress of its live direct children.
+	subIssueProgress *dataloadgen.Loader[uuid.UUID, issue.Progress]
 }
 
 type loadersKey struct{}
@@ -48,6 +51,19 @@ func newLoaders(d Deps) *loaders {
 		}, func(i issue.Issue) uuid.UUID { return i.ID }), opt),
 		projectStates:  dataloadgen.NewLoader(grouped(d.Projects.StatesByProjects), opt),
 		projectMembers: dataloadgen.NewLoader(grouped(d.Projects.MemberIDsByProjects), opt),
+		subIssueProgress: dataloadgen.NewLoader(func(ctx context.Context, ids []uuid.UUID) ([]issue.Progress, []error) {
+			values := make([]issue.Progress, len(ids))
+			errs := make([]error, len(ids))
+			byID, err := d.Issues.SubIssueProgress(ctx, ids)
+			for i, id := range ids {
+				if err != nil {
+					errs[i] = err
+					continue
+				}
+				values[i] = byID[id] // no children: zero progress
+			}
+			return values, errs
+		}, opt),
 	}
 }
 

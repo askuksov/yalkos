@@ -65,3 +65,11 @@ SELECT COALESCE(min(sort_order) - 1000, 0)::float8 FROM issues WHERE project_id 
 
 -- name: GetDefaultState :one
 SELECT * FROM states WHERE project_id = $1 AND is_default;
+
+-- name: SubIssueProgress :many
+SELECT c.parent_id,
+    count(*) FILTER (WHERE st.type = 'completed') AS completed,
+    count(*) FILTER (WHERE st.type <> 'canceled') AS total
+FROM issues c JOIN states st ON st.id = c.state_id
+WHERE c.parent_id = ANY(@parent_ids::uuid[]) AND c.deleted_at IS NULL
+GROUP BY c.parent_id;

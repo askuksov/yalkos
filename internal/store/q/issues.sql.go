@@ -372,6 +372,41 @@ func (q *Queries) SoftDeleteIssue(ctx context.Context, arg SoftDeleteIssueParams
 	return err
 }
 
+const subIssueProgress = `-- name: SubIssueProgress :many
+SELECT c.parent_id,
+    count(*) FILTER (WHERE st.type = 'completed') AS completed,
+    count(*) FILTER (WHERE st.type <> 'canceled') AS total
+FROM issues c JOIN states st ON st.id = c.state_id
+WHERE c.parent_id = ANY($1::uuid[]) AND c.deleted_at IS NULL
+GROUP BY c.parent_id
+`
+
+type SubIssueProgressRow struct {
+	ParentID  *uuid.UUID
+	Completed int64
+	Total     int64
+}
+
+func (q *Queries) SubIssueProgress(ctx context.Context, parentIds []uuid.UUID) ([]SubIssueProgressRow, error) {
+	rows, err := q.db.Query(ctx, subIssueProgress, parentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SubIssueProgressRow
+	for rows.Next() {
+		var i SubIssueProgressRow
+		if err := rows.Scan(&i.ParentID, &i.Completed, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateIssue = `-- name: UpdateIssue :one
 UPDATE issues SET
     title = $1, description = $2, state_id = $3, priority = $4,

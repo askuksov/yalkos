@@ -105,6 +105,18 @@ const issueColumns = `i.id, i.project_id, i.number, i.title, i.description, i.st
 	i.assignee_id, i.creator_id, i.parent_id, i.due_date, i.sort_order, i.created_at, i.updated_at,
 	i.completed_at, i.canceled_at, i.deleted_at, p.key`
 
+// Count returns the number of live issues matching f.
+func (s *Service) Count(ctx context.Context, f Filter) (int, error) {
+	var wh where
+	f.build(&wh)
+	sql := `SELECT count(*) FROM issues i JOIN projects p ON p.id = i.project_id JOIN states st ON st.id = i.state_id WHERE ` + wh.sql()
+	var n int
+	if err := s.pool.QueryRow(ctx, sql, wh.args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count issues: %w", err)
+	}
+	return n, nil
+}
+
 type listedIssue struct {
 	issue Issue
 	key   any
