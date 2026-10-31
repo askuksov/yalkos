@@ -33,6 +33,8 @@ type Documents = {
     "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": typeof types.ProjectDocument,
     "\n  query IssuePage($id: String!) {\n    issue(id: $id) {\n      ...IssueRowFields\n      number description createdAt updatedAt\n      creator { id name }\n      project { id key name archivedAt states { id name type color position isDefault } }\n      children(first: 1) { totalCount }\n    }\n  }\n": typeof types.IssuePageDocument,
     "\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n": typeof types.MoveIssueDocument,
+    "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": typeof types.IssueHistoryDocument,
+    "\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n": typeof types.IssueRefDocument,
     "\n  mutation CreateIssue($input: CreateIssueInput!) {\n    createIssue(input: $input) { id identifier project { id } }\n  }\n": typeof types.CreateIssueDocument,
     "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n  }\n": typeof types.IssueRowFieldsFragmentDoc,
     "\n  query IssueGroup($filter: IssueFilter, $orderBy: IssueOrder, $first: Int, $after: String) {\n    issues(filter: $filter, orderBy: $orderBy, first: $first, after: $after) {\n      totalCount\n      nodes { ...IssueRowFields }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": typeof types.IssueGroupDocument,
@@ -62,6 +64,8 @@ const documents: Documents = {
     "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": types.ProjectDocument,
     "\n  query IssuePage($id: String!) {\n    issue(id: $id) {\n      ...IssueRowFields\n      number description createdAt updatedAt\n      creator { id name }\n      project { id key name archivedAt states { id name type color position isDefault } }\n      children(first: 1) { totalCount }\n    }\n  }\n": types.IssuePageDocument,
     "\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n": types.MoveIssueDocument,
+    "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": types.IssueHistoryDocument,
+    "\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n": types.IssueRefDocument,
     "\n  mutation CreateIssue($input: CreateIssueInput!) {\n    createIssue(input: $input) { id identifier project { id } }\n  }\n": types.CreateIssueDocument,
     "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n  }\n": types.IssueRowFieldsFragmentDoc,
     "\n  query IssueGroup($filter: IssueFilter, $orderBy: IssueOrder, $first: Int, $after: String) {\n    issues(filter: $filter, orderBy: $orderBy, first: $first, after: $after) {\n      totalCount\n      nodes { ...IssueRowFields }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": types.IssueGroupDocument,
@@ -162,6 +166,14 @@ export function graphql(source: "\n  query IssuePage($id: String!) {\n    issue(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n"): (typeof documents)["\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n"): (typeof documents)["\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n"): (typeof documents)["\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

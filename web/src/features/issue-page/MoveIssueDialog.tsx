@@ -32,7 +32,7 @@ function MoveSteps({ issue, onClose }: { issue: PageIssue; onClose: () => void }
     mutationFn: (projectId: string) => request(MoveIssueMutation, { id: issue.id, projectId }),
     onSuccess: (d) => {
       onClose()
-      void Promise.all(['issues', 'children', 'issue'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
+      void Promise.all(['issues', 'children', 'issue', 'history'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
       navigate(`/issue/${d.moveIssue.identifier}`, { replace: true })
     },
     onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),

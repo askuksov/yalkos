@@ -164,4 +164,43 @@ describe('issue page', () => {
     expect(screen.queryByRole('button', { name: 'Issue 1' })).not.toBeInTheDocument()
   })
 
+  it('shows sub-issue progress and adds a sub-issue', async () => {
+    const kids = [1, 2, 3].map((k) => ({ ...pageIssue(10 + k), parent: { id: 'i1', identifier: 'YLK-1' } }))
+    serve(
+      withIssue(pageIssue(1, { subIssueProgress: { completed: 2, total: 3 } }), {
+        IssueChildren: () => ({ issue: { id: 'i1', children: { nodes: kids } } }),
+      }),
+    )
+    renderAt('/issue/YLK-1')
+    const section = await screen.findByRole('region', { name: 'Sub-issues' })
+    expect(within(section).getByText('2/3')).toBeInTheDocument()
+    expect(await within(section).findByText('Issue 12')).toBeInTheDocument()
+    await userEvent.click(within(section).getByRole('button', { name: 'Add sub-issue' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New issue' })
+    expect(within(dialog).getByText('Sub-issue of YLK-1')).toBeInTheDocument()
+  })
+
+  it('loads older activity', async () => {
+    const entry = (id: string, title: string) => ({
+      id, action: 'update', actor: { id: 'u1', name: 'Olga' }, createdAt: '2026-10-30T14:02:00Z',
+      changes: [{ field: 'title', from: '"x"', to: JSON.stringify(title) }],
+    })
+    serve(
+      withIssue(pageIssue(1), {
+        IssueHistory: (v: Vars) =>
+          v?.before === 'c0'
+            ? { issue: { id: 'i1', history: { nodes: [entry('h1', 'Older')], pageInfo: { hasPreviousPage: false, startCursor: 'c-1' } } } }
+            : { issue: { id: 'i1', history: { nodes: [entry('h2', 'Newer')], pageInfo: { hasPreviousPage: true, startCursor: 'c0' } } } },
+      }),
+    )
+    renderAt('/issue/YLK-1')
+    const activity = await screen.findByRole('region', { name: 'Activity' })
+    expect(await within(activity).findByText('Olga renamed the issue to "Newer"')).toBeInTheDocument()
+    await userEvent.click(within(activity).getByRole('button', { name: 'Show older' }))
+    const older = await within(activity).findByText('Olga renamed the issue to "Older"')
+    const items = within(activity).getAllByRole('listitem').map((li) => li.textContent)
+    expect(items[0]).toContain('Older')
+    expect(items[1]).toContain('Newer')
+    expect(older).toBeInTheDocument()
+  })
 })

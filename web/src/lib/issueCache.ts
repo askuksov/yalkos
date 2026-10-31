@@ -76,6 +76,7 @@ export function useIssueMutation() {
         qc.invalidateQueries({ queryKey: ['issues'] }),
         qc.invalidateQueries({ queryKey: ['children'] }),
         qc.invalidateQueries({ queryKey: ['issue'] }),
+        qc.invalidateQueries({ queryKey: ['history'] }),
       ]),
   })
 }
