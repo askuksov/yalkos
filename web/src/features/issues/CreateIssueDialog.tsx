@@ -154,6 +154,7 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
     if (description.trim()) input.description = description
     if (attachmentIds.length) input.attachmentIds = attachmentIds
     if (stateId) input.stateId = stateId
+    if (opts.milestoneId && projectId === opts.projectId) input.milestoneId = opts.milestoneId
     if (chosenType) input.labelIds = [chosenType]
     if (priority) input.priority = priority
     if (assigneeId) input.assigneeId = assigneeId

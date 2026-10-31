@@ -11,6 +11,7 @@ export const IssueRowFields = graphql(`
     project { id key archivedAt }
     type { id name color }
     labels { id name color }
+    milestone { id name }
   }
 `)
 

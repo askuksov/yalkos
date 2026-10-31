@@ -54,6 +54,7 @@ type Row = {
   project: { id: string; key: string; archivedAt: string | null }
   type: { id: string; name: string; color: string } | null
   labels: { id: string; name: string; color: string }[]
+  milestone: { id: string; name: string } | null
 }
 
 /** An issue as the list fragment returns it. */
@@ -64,7 +65,7 @@ export function issueRow(n: number, over: Partial<Row> = {}): Row {
     state: { id: st.id, name: st.name, type: st.type, color: st.color },
     assignee: null, parent: null, subIssueProgress: { completed: 0, total: 0 },
     project: { id: 'p1', key: 'YLK', archivedAt: null },
-    type: null, labels: [],
+    type: null, labels: [], milestone: null,
     ...over,
   }
 }
@@ -123,4 +124,13 @@ export function chip(id: string) {
   const l = all.find((x) => x.id === id)
   if (!l) throw new Error(`no label ${id}`)
   return { id: l.id, name: l.name, color: l.color }
+}
+
+/** A milestone as the milestone fragment returns it. */
+export function milestone(n: number, over: Record<string, unknown> = {}) {
+  return {
+    id: `m${n}`, name: `Milestone ${n}`, targetDate: null as string | null, status: 'PLANNED', statusAutomatic: true, overdue: false,
+    progress: { completed: 0, total: 0 }, lead: null as { id: string; name: string } | null, project: { id: 'p1', key: 'YLK' },
+    ...over,
+  }
 }

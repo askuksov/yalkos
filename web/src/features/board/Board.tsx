@@ -14,7 +14,8 @@ import { BoardColumn } from './BoardColumn'
 import { useBoardDrag } from './useBoardDrag'
 
 type Props = {
-  project: { id: string; key: string; states: PickerState[]; archived: boolean }
+  /** milestoneId: only that milestone's issues. */
+  project: { id: string; key: string; states: PickerState[]; archived: boolean; milestoneId?: string }
   params: ViewParams
   viewerId: string
 }
@@ -26,9 +27,11 @@ export function Board({ project, params, viewerId }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const search = toSearch({ ...params, order: 'SORT_ORDER', dir: 'ASC' })
-  const { onDragEnd } = useBoardDrag(project.key, search)
+  // A milestone's board keeps its own cache next to the project board.
+  const cacheKey = project.milestoneId ? `${project.key}/m/${project.milestoneId}` : project.key
+  const { onDragEnd } = useBoardDrag(cacheKey, search)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
-  const base = toFilter(params, today(), viewerId)
+  const base = { ...toFilter(params, today(), viewerId), ...(project.milestoneId ? { milestone: { eq: project.milestoneId } } : {}) }
   const states = [...project.states]
     .sort((a, b) => a.position - b.position)
     .filter((st) => (!params.state.length || params.state.includes(st.id)) && (!params.type.length || params.type.includes(st.type)))
@@ -66,7 +69,7 @@ export function Board({ project, params, viewerId }: Props) {
   useHotkey('h', () => horizontal(-1))
   const palette = usePalette()
   // L moves between columns here: labels are in the palette.
-  const openPage = (page: 'state' | 'assignee' | 'priority' | 'type') => {
+  const openPage = (page: 'state' | 'assignee' | 'priority' | 'type' | 'milestone') => {
     const t = targetsFrom(position().cols.flat().filter((el) => el.dataset.rowId === selected))
     if (!t.length || project.archived) return false
     palette.open(page, t)
@@ -75,6 +78,7 @@ export function Board({ project, params, viewerId }: Props) {
   useHotkey('a', () => openPage('assignee'))
   useHotkey('p', () => openPage('priority'))
   useHotkey('t', () => openPage('type'))
+  useHotkey('m', () => openPage('milestone'))
   useHotkey('enter', (e) => {
     if (isInteractive(e.target)) return false
     const href = position().cols.flat().find((el) => el.dataset.rowId === selected)?.dataset.href
@@ -88,7 +92,7 @@ export function Board({ project, params, viewerId }: Props) {
         {states.map((st) => (
           <BoardColumn
             key={st.id}
-            projectKey={project.key}
+            projectKey={cacheKey}
             state={st}
             filter={{ ...base, project: { eq: project.id }, state: { eq: st.id } }}
             search={search}

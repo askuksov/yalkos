@@ -15,7 +15,8 @@
       "parent": "Top-level only",
       "kind": "Type",
       "label": "Labels",
-      "nolabel": "No labels"
+      "nolabel": "No labels",
+      "milestone": "Milestone"
     },
     "due": {
       "overdue": "Overdue",
@@ -59,7 +60,8 @@
     "select": "Select {{identifier}}",
     "selected_one": "{{count}} selected",
     "selected_other": "{{count}} selected",
-    "clearSelection": "Clear selection"
+    "clearSelection": "Clear selection",
+    "milestone": "Milestone: {{name}}"
   },
   "bulk": {
     "state": "State",
@@ -127,5 +129,41 @@
     "newGroup": "Put the new label in",
     "addLabel": "Add label",
     "addGroup": "Add group"
+  },
+  "milestones": {
+    "title": "{{name}} milestones",
+    "new": "New milestone",
+    "create": "Create milestone",
+    "empty": "No milestones yet.",
+    "milestone": "Milestone",
+    "none": "No milestone",
+    "name": "Name",
+    "targetDate": "Target date",
+    "lead": "Lead",
+    "noLead": "No lead",
+    "description": "Description",
+    "noDescription": "No description",
+    "editDescription": "Edit description",
+    "statusLabel": "Status",
+    "automatic": "Automatic",
+    "automaticIs": "Automatic ({{status}})",
+    "status": {
+      "planned": "Planned",
+      "in_progress": "In progress",
+      "done": "Done",
+      "canceled": "Canceled"
+    },
+    "progress": "Completed issues",
+    "overdue": "Overdue: target date {{date}}",
+    "target": "Target date {{date}}",
+    "drag": "Drag {{name}} to reorder",
+    "view": "View",
+    "list": "List",
+    "board": "Board",
+    "more": "Milestone actions",
+    "details": "Milestone details",
+    "delete": "Delete milestone",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteBody": "Its issues stay and leave the milestone."
   }
 }

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect } from 'react'
 
 import type { IssueTarget } from './recent'
 
-export type PalettePage = 'root' | 'search' | 'state' | 'assignee' | 'priority' | 'type' | 'labels' | 'parent' | 'move' | 'due' | 'delete'
+export type PalettePage = 'root' | 'search' | 'state' | 'assignee' | 'priority' | 'type' | 'labels' | 'milestone' | 'goMilestone' | 'parent' | 'move' | 'due' | 'delete'
 
 export type PaletteApi = {
   open: (page?: PalettePage, target?: IssueTarget[]) => void

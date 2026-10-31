@@ -32,16 +32,18 @@ type Scope = {
   hideAssignee?: boolean
   /** Workspace labels (types and labels filters; hidden until loaded). */
   labels?: LabelCatalog
+  /** Project scope: its milestones (the Milestone filter is hidden without them). */
+  milestones?: { id: string; name: string }[]
 }
 
-type Category = 'state' | 'type' | 'kind' | 'label' | 'assignee' | 'priority' | 'due'
+type Category = 'state' | 'type' | 'kind' | 'label' | 'milestone' | 'assignee' | 'priority' | 'due'
 
 function toggle<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v]
 }
 
 /** Text filter (F focuses it) and the Filter menu, for the page header. */
-export function FilterBar({ params, onChange, states, users, viewerId, hideAssignee, labels }: Scope) {
+export function FilterBar({ params, onChange, states, users, viewerId, hideAssignee, labels, milestones }: Scope) {
   const { t } = useTranslation(['issues', 'common'])
   const input = useRef<HTMLInputElement>(null)
   const [text, setText] = useState(params.q ?? '')
@@ -85,6 +87,7 @@ export function FilterBar({ params, onChange, states, users, viewerId, hideAssig
           { key: 'nolabel', label: t('filter.categories.nolabel'), run: () => apply({ ...params, nolabel: params.nolabel ? undefined : true, label: [] }) },
         ]
       : []),
+    ...(milestones ? [{ key: 'milestone', label: t('filter.categories.milestone'), run: () => setCategory('milestone') }] : []),
     { key: 'due', label: t('filter.categories.due'), run: () => setCategory('due') },
     { key: 'children', label: t('filter.categories.children'), run: () => apply({ ...params, children: params.children ? undefined : true }) },
     { key: 'parent', label: t('filter.categories.parent'), run: () => apply({ ...params, parent: params.parent ? undefined : 'none' }) },
@@ -190,6 +193,16 @@ export function FilterBar({ params, onChange, states, users, viewerId, hideAssig
             placeholder={t('filter.categories.label')}
           />
         )}
+        {category === 'milestone' && milestones && (
+          <Picker
+            items={[...milestones.map((m) => ({ key: m.id, label: m.name })), { key: 'none', label: t('milestones.none') }]}
+            getKey={(x) => x.key}
+            getLabel={(x) => x.label}
+            onSelect={(x) => apply({ ...params, milestone: params.milestone === x.key ? undefined : x.key })}
+            onClose={close}
+            placeholder={t('filter.categories.milestone')}
+          />
+        )}
         {category === 'assignee' && (
           <Picker
             items={assigneeItems}
@@ -243,7 +256,7 @@ export function FilterBar({ params, onChange, states, users, viewerId, hideAssig
 }
 
 /** Active filters as removable chips (under the header). */
-export function FilterChips({ params, onChange, states, users, viewerId, labels }: Scope) {
+export function FilterChips({ params, onChange, states, users, viewerId, labels, milestones }: Scope) {
   const { t } = useTranslation(['issues', 'common'])
   const labelName = (id: string) => (id === 'none' ? t('labels.noType') : (labels?.byId.get(id)?.name ?? id))
   const userName = (id: string) =>
@@ -267,6 +280,10 @@ export function FilterChips({ params, onChange, states, users, viewerId, labels 
     chips.push({ key: 'kind', name: t('filter.categories.kind'), values: params.kind.map(labelName), without: { ...params, kind: [] } })
   if (params.label.length)
     chips.push({ key: 'label', name: t('filter.categories.label'), values: params.label.map(labelName), without: { ...params, label: [] } })
+  if (params.milestone) {
+    const name = params.milestone === 'none' ? t('milestones.none') : (milestones?.find((m) => m.id === params.milestone)?.name ?? params.milestone)
+    chips.push({ key: 'milestone', name: t('filter.categories.milestone'), values: [name], without: { ...params, milestone: undefined } })
+  }
   if (params.nolabel) chips.push({ key: 'nolabel', name: t('filter.categories.nolabel'), without: { ...params, nolabel: undefined } })
   if (params.due) {
     const label = isDate(params.due) ? t('filter.due.beforeDate', { date: params.due }) : t(`filter.due.${params.due as 'overdue' | 'week' | 'none'}`)
@@ -290,7 +307,7 @@ export function FilterChips({ params, onChange, states, users, viewerId, labels 
       })}
       {chips.length > 1 && (
         <Button size="sm" variant="ghost" onClick={() =>
-            onChange({ ...params, state: [], type: [], assignee: [], priority: [], kind: [], label: [], nolabel: undefined, due: undefined, children: undefined, parent: undefined })
+            onChange({ ...params, state: [], type: [], assignee: [], priority: [], kind: [], label: [], nolabel: undefined, milestone: undefined, due: undefined, children: undefined, parent: undefined })
           }>
           {t('filter.clear')}
         </Button>

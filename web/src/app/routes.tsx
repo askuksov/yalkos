@@ -2,6 +2,8 @@ import { Navigate, type RouteObject } from 'react-router'
 
 import { RequireAuth } from '../auth/RequireAuth'
 import { LabelsSettingsPage } from '../features/labels/LabelsSettingsPage'
+import { MilestonePage } from '../features/milestones/MilestonePage'
+import { MilestonesPage } from '../features/milestones/MilestonesPage'
 import { ApiKeysPage } from '../pages/ApiKeysPage'
 import { InvitePage } from '../pages/InvitePage'
 import { IssuePage } from '../pages/IssuePage'
@@ -39,6 +41,8 @@ export const routes: RouteObject[] = [
             children: [
               { index: true, element: <ProjectIssuesPage /> },
               { path: 'board', element: <ProjectBoardPage /> },
+              { path: 'milestones', element: <MilestonesPage /> },
+              { path: 'milestones/:id', element: <MilestonePage /> },
               { path: 'settings', element: <ProjectSettingsPage /> },
             ],
           },

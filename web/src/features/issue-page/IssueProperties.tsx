@@ -22,6 +22,8 @@ import { LabelPicker } from '../labels/LabelPicker'
 import { TypePicker } from '../labels/TypePicker'
 import { useIssueLabels } from '../labels/useIssueLabels'
 import { useLabels } from '../labels/useLabels'
+import { MilestonePicker } from '../milestones/MilestonePicker'
+import { useMilestones } from '../milestones/useMilestones'
 import s from './issue-page.module.css'
 import type { PageIssue, PropName } from './types'
 
@@ -40,6 +42,9 @@ export function IssueProperties({ issue, readOnly, open, setOpen, onMove }: Prop
   const viewer = useViewer().data
   const users = useMembers().data ?? []
   const labelCat = useLabels().data
+  const milestones = (useMilestones(open === 'milestone' ? issue.project.key : null).data ?? []).filter(
+    (m) => m.id === issue.milestone?.id || (m.status !== 'DONE' && m.status !== 'CANCELED'),
+  )
   const labelActions = useIssueLabels(labelCat, { id: issue.id, type: issue.type ?? null, labels: issue.labels })
   const [anchors, setAnchors] = useState<Partial<Record<PropName, HTMLElement | null>>>({})
   const anchorRef = (p: PropName) => (el: HTMLElement | null) => {
@@ -102,6 +107,14 @@ export function IssueProperties({ issue, readOnly, open, setOpen, onMove }: Prop
               <span className={s.muted}>{t('props.noLabels')}</span>
             )
           })())}
+        </dd>
+        <dt>{t('props.milestone')}</dt>
+        <dd>
+          {value('milestone', t('props.milestone'), issue.milestone ? (
+            <span>{issue.milestone.name}</span>
+          ) : (
+            <span className={s.muted}>{t('issues:milestones.none')}</span>
+          ))}
         </dd>
         <dt>{t('props.assignee')}</dt>
         <dd>
@@ -223,6 +236,19 @@ export function IssueProperties({ issue, readOnly, open, setOpen, onMove }: Prop
             onToggle={labelActions.toggle}
             onCreate={labelActions.createAndAdd}
             onClose={close}
+          />
+        )}
+        {open === 'milestone' && (
+          <MilestonePicker
+            milestones={milestones}
+            value={issue.milestone?.id ?? null}
+            onClose={close}
+            onSelect={(milestoneId) => {
+              close()
+              if (milestoneId === (issue.milestone?.id ?? null)) return
+              const m = milestones.find((x) => x.id === milestoneId)
+              update.mutate({ id: issue.id, input: { milestoneId }, optimistic: { milestone: m ? { id: m.id, name: m.name } : null } })
+            }}
           />
         )}
         {open === 'parent' && (

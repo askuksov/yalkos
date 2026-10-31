@@ -8,6 +8,7 @@ import { useCreateDefaults } from '../features/issues/createIssue'
 import { DisplayMenu } from '../features/issues/DisplayMenu'
 import { FilterBar, FilterChips } from '../features/issues/FilterBar'
 import { useLabels } from '../features/labels/useLabels'
+import { useMilestones } from '../features/milestones/useMilestones'
 import { toSearch } from '../features/issues/filters'
 import { useViewParams } from '../features/issues/useViewParams'
 import { ArchivedBanner } from './ProjectIssuesPage'
@@ -19,9 +20,10 @@ export function ProjectBoardPage() {
   const viewer = useViewer().data
   const users = useMembers().data ?? []
   const labels = useLabels().data
+  const milestones = useMilestones(project.key).data
   const archived = !!project.archivedAt
   useCreateDefaults(archived ? null : { projectId: project.id })
-  const scope = { params, onChange: setParams, states: project.states, users, viewerId: viewer?.id ?? '', labels }
+  const scope = { params, onChange: setParams, states: project.states, users, viewerId: viewer?.id ?? '', labels, milestones }
   const onView = (view: 'list' | 'board') => {
     const q = toSearch(params)
     navigate(`/p/${project.key}${view === 'board' ? '/board' : ''}${q ? `?${q}` : ''}`)

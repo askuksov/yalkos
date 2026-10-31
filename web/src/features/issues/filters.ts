@@ -6,7 +6,7 @@ export type OrderDirection = 'ASC' | 'DESC'
 
 // Filters and display options of an issue view, kept in the URL query string:
 // ?state=<ids>&type=started,unstarted&assignee=me,none,<ids>&priority=1,2
-// &kind=<type label ids>|none&label=<label ids>&nolabel=1
+// &kind=<type label ids>|none&label=<label ids>&nolabel=1&milestone=<id>|none
 // &due=overdue|week|none|<YYYY-MM-DD>&parent=none&children=1&q=<text>
 // &order=priority&dir=desc&nest=0. Invalid values are dropped silently.
 // "type" is the state type; the issue type (a label) is "kind".
@@ -23,6 +23,8 @@ export type ViewParams = {
   label: string[]
   /** Issues without labels. */
   nolabel?: boolean
+  /** A milestone id, or 'none' for issues outside milestones. */
+  milestone?: string
   /** overdue, week, none, or a date: due before it. */
   due?: string
   parent?: 'none'
@@ -79,6 +81,7 @@ export function parseParams(sp: URLSearchParams, view: 'list' | 'board' = 'list'
     kind,
     label: list(sp, 'label'),
     nolabel: sp.get('nolabel') === '1' ? true : undefined,
+    milestone: sp.get('milestone') || undefined,
     due: due && (['overdue', 'week', 'none'].includes(due) || isDate(due)) ? due : undefined,
     parent: sp.get('parent') === 'none' ? 'none' : undefined,
     children: sp.get('children') === '1' ? true : undefined,
@@ -102,6 +105,7 @@ export function toSearch(p: ViewParams): string {
   if (p.kind.length) parts.push(`kind=${enc(p.kind)}`)
   if (p.label.length) parts.push(`label=${enc(p.label)}`)
   if (p.nolabel) parts.push('nolabel=1')
+  if (p.milestone) parts.push(`milestone=${encodeURIComponent(p.milestone)}`)
   if (p.due) parts.push(`due=${encodeURIComponent(p.due)}`)
   if (p.parent) parts.push('parent=none')
   if (p.children) parts.push('children=1')
@@ -114,7 +118,7 @@ export function toSearch(p: ViewParams): string {
 
 /** Whether any filter (not a display option) is set. */
 export function hasFilters(p: ViewParams): boolean {
-  return !!(p.state.length || p.type.length || p.assignee.length || p.priority.length || p.kind.length || p.label.length || p.nolabel ||
+  return !!(p.state.length || p.type.length || p.assignee.length || p.priority.length || p.kind.length || p.label.length || p.nolabel || p.milestone ||
     p.due || p.parent || p.children || p.q)
 }
 
@@ -151,6 +155,7 @@ export function toFilter(p: ViewParams, todayDate: string, viewerId?: string): I
   if (p.kind.length) f.type = p.kind.includes('none') ? { null: true } : { in: p.kind }
   if (p.nolabel) f.label = { null: true }
   else if (p.label.length) f.label = { in: p.label }
+  if (p.milestone) f.milestone = p.milestone === 'none' ? { null: true } : { eq: p.milestone }
   switch (p.due) {
     case undefined:
       break

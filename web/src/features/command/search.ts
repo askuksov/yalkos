@@ -12,7 +12,13 @@ export const PaletteSearchQuery = graphql(`
 
 export const PaletteChildCountQuery = graphql(`
   query PaletteChildCount($id: String!) {
-    issue(id: $id) { id children(first: 1) { totalCount } }
+    issue(id: $id) { id children(first: 1) { totalCount } milestone { id } }
+  }
+`)
+
+export const PaletteMilestonesQuery = graphql(`
+  query PaletteMilestones {
+    projects(first: 100) { nodes { id key isMember milestones(includeDone: false) { id name } } }
   }
 `)
 
