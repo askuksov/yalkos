@@ -110,16 +110,16 @@ func (w *where) intCond(col string, c *IntCond) {
 		op string
 	}{{c.Eq, "="}, {c.Neq, "<>"}, {c.Lt, "<"}, {c.Lte, "<="}, {c.Gt, ">"}, {c.Gte, ">="}} {
 		if op.v != nil {
-			// bigint: an untyped parameter would take the column's smallint type
-			// and fail to encode large values.
+			// bigint (here and in In/Nin): an untyped or int parameter fails
+			// to encode large values.
 			w.add(col+" "+op.op+" %s::bigint", *op.v)
 		}
 	}
 	if c.In != nil {
-		w.add(col+" = ANY(%s::int[])", c.In)
+		w.add(col+" = ANY(%s::bigint[])", c.In)
 	}
 	if len(c.Nin) > 0 {
-		w.add(col+" <> ALL(%s::int[])", c.Nin)
+		w.add(col+" <> ALL(%s::bigint[])", c.Nin)
 	}
 }
 
