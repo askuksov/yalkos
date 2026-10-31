@@ -1,1 +1,76 @@
-{}
+{
+  "browse": {
+    "title": "Projects",
+    "create": "Create project",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "join": "Join",
+    "leave": "Leave",
+    "archived": "Archived",
+    "unarchive": "Unarchive",
+    "none": "No projects yet",
+    "member": "Member"
+  },
+  "create": {
+    "title": "Create project",
+    "name": "Name",
+    "key": "Key",
+    "keyHint": "Identifiers look like {{key}}-1. Letters and digits, starting with a letter, up to 7.",
+    "keyInvalid": "Use 1–7 letters or digits, starting with a letter",
+    "description": "Description",
+    "submit": "Create project"
+  },
+  "settings": {
+    "title": "{{name}} settings",
+    "readOnly": "Only owners and admins can change project settings.",
+    "general": "General",
+    "name": "Name",
+    "key": "Key",
+    "keyNote": "Old identifiers keep working",
+    "description": "Description",
+    "icon": "Icon",
+    "color": "Color",
+    "noColor": "No color",
+    "save": "Save",
+    "saved": "Saved"
+  },
+  "states": {
+    "title": "States",
+    "name": "Name of {{name}}",
+    "color": "Color of {{name}}",
+    "default": "Default",
+    "defaultOf": "Make {{name}} the default state",
+    "drag": "Drag to reorder {{name}}",
+    "delete": "Delete",
+    "deleteOf": "Delete {{name}}",
+    "deleteTitle": "Delete state",
+    "deleteBody": "Delete {{name}}?",
+    "deleteUsed_one": "{{count}} issue is in {{name}}. Move it to:",
+    "deleteUsed_other": "{{count}} issues are in {{name}}. Move them to:",
+    "moveTo": "Move issues to",
+    "chooseState": "Choose a state",
+    "add": "Add state",
+    "newName": "New state name",
+    "type": "Type"
+  },
+  "members": {
+    "title": "Members",
+    "add": "Add member",
+    "remove": "Remove",
+    "removeOf": "Remove {{name}}"
+  },
+  "danger": {
+    "title": "Danger zone",
+    "archive": "Archive project",
+    "archiveHint": "Archived projects are read-only and hidden from the sidebar.",
+    "unarchive": "Unarchive project",
+    "delete": "Delete project",
+    "deleteHint": "Deletes the project, its states and all its issues. This cannot be undone.",
+    "confirm": "Type {{key}} to confirm",
+    "deleted": "Project deleted"
+  },
+  "colors": {
+    "custom": "Hex color",
+    "preset": "Color {{color}}"
+  }
+}

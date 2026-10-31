@@ -1,0 +1,153 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-inline-size: 760px;
+  padding: var(--space-4);
+}
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.section h2 {
+  font-size: 14px;
+}
+.list {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  list-style: none;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: 44px;
+  padding: var(--space-2) var(--space-3);
+}
+.item + .item {
+  border-block-start: 1px solid var(--border);
+}
+.key {
+  flex: none;
+  min-inline-size: 56px;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.name {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.name a {
+  color: inherit;
+  text-decoration: none;
+}
+.muted {
+  color: var(--fg-muted);
+}
+.form {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.form label {
+  margin: 0;
+}
+.form input,
+.form textarea {
+  inline-size: 100%;
+  margin: 0;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hint,
+.error {
+  margin: 0;
+  font-size: var(--font-size-small);
+}
+.hint {
+  color: var(--fg-muted);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.stateRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 40px;
+  padding: var(--space-1) var(--space-3);
+  background: var(--bg);
+}
+.stateRow + .stateRow {
+  border-block-start: 1px solid var(--border);
+}
+.stateRow input[type='text'] {
+  flex: 1;
+}
+.handle {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: grab;
+  touch-action: none;
+}
+.typeLabel {
+  min-inline-size: 84px;
+  color: var(--fg-muted);
+  font-size: var(--font-size-small);
+}
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 24px);
+  gap: var(--space-1);
+  padding: var(--space-2);
+}
+.swatch {
+  inline-size: 24px;
+  block-size: 24px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.swatch[aria-pressed='true'] {
+  border-color: var(--fg);
+}
+.colorButton {
+  inline-size: 20px;
+  block-size: 20px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.hex {
+  display: flex;
+  gap: var(--space-1);
+  padding: 0 var(--space-2) var(--space-2);
+}
+.hex input {
+  inline-size: 100px;
+}
+.danger {
+  padding: var(--space-3);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+}

@@ -45,6 +45,18 @@ type Documents = {
     "\n  mutation DeleteIssue($id: ID!) {\n    deleteIssue(id: $id)\n  }\n": typeof types.DeleteIssueDocument,
     "\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n": typeof types.UnarchiveProjectDocument,
     "\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n": typeof types.PickIssuesDocument,
+    "\n  query BrowseProjects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 100) {\n      nodes { id key name description color archivedAt isMember members { id } }\n    }\n  }\n": typeof types.BrowseProjectsDocument,
+    "\n  mutation CreateProject($input: CreateProjectInput!) {\n    createProject(input: $input) { id key }\n  }\n": typeof types.CreateProjectDocument,
+    "\n  mutation UpdateProject($id: ID!, $input: UpdateProjectInput!) {\n    updateProject(id: $id, input: $input) { id key name description icon color }\n  }\n": typeof types.UpdateProjectDocument,
+    "\n  mutation ArchiveProject($id: ID!) {\n    archiveProject(id: $id) { id archivedAt }\n  }\n": typeof types.ArchiveProjectDocument,
+    "\n  mutation DeleteProject($id: ID!, $confirmKey: String!) {\n    deleteProject(id: $id, confirmKey: $confirmKey)\n  }\n": typeof types.DeleteProjectDocument,
+    "\n  mutation AddProjectMember($projectId: ID!, $userId: ID!) {\n    addProjectMember(projectId: $projectId, userId: $userId) { id isMember }\n  }\n": typeof types.AddProjectMemberDocument,
+    "\n  mutation RemoveProjectMember($projectId: ID!, $userId: ID!) {\n    removeProjectMember(projectId: $projectId, userId: $userId) { id isMember }\n  }\n": typeof types.RemoveProjectMemberDocument,
+    "\n  mutation CreateState($projectId: ID!, $input: CreateStateInput!) {\n    createState(projectId: $projectId, input: $input) { id }\n  }\n": typeof types.CreateStateDocument,
+    "\n  mutation UpdateState($id: ID!, $input: UpdateStateInput!) {\n    updateState(id: $id, input: $input) { id name color isDefault }\n  }\n": typeof types.UpdateStateDocument,
+    "\n  mutation ReorderStates($projectId: ID!, $stateIds: [ID!]!) {\n    reorderStates(projectId: $projectId, stateIds: $stateIds) { id position }\n  }\n": typeof types.ReorderStatesDocument,
+    "\n  mutation DeleteState($id: ID!, $moveIssuesTo: ID) {\n    deleteState(id: $id, moveIssuesTo: $moveIssuesTo)\n  }\n": typeof types.DeleteStateDocument,
+    "\n  query StateIssueCount($filter: IssueFilter) {\n    issues(filter: $filter, first: 1) { totalCount }\n  }\n": typeof types.StateIssueCountDocument,
 };
 const documents: Documents = {
     "\n  query SetupStatus {\n    setupStatus { needed }\n  }\n": types.SetupStatusDocument,
@@ -78,6 +90,18 @@ const documents: Documents = {
     "\n  mutation DeleteIssue($id: ID!) {\n    deleteIssue(id: $id)\n  }\n": types.DeleteIssueDocument,
     "\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n": types.UnarchiveProjectDocument,
     "\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n": types.PickIssuesDocument,
+    "\n  query BrowseProjects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 100) {\n      nodes { id key name description color archivedAt isMember members { id } }\n    }\n  }\n": types.BrowseProjectsDocument,
+    "\n  mutation CreateProject($input: CreateProjectInput!) {\n    createProject(input: $input) { id key }\n  }\n": types.CreateProjectDocument,
+    "\n  mutation UpdateProject($id: ID!, $input: UpdateProjectInput!) {\n    updateProject(id: $id, input: $input) { id key name description icon color }\n  }\n": types.UpdateProjectDocument,
+    "\n  mutation ArchiveProject($id: ID!) {\n    archiveProject(id: $id) { id archivedAt }\n  }\n": types.ArchiveProjectDocument,
+    "\n  mutation DeleteProject($id: ID!, $confirmKey: String!) {\n    deleteProject(id: $id, confirmKey: $confirmKey)\n  }\n": types.DeleteProjectDocument,
+    "\n  mutation AddProjectMember($projectId: ID!, $userId: ID!) {\n    addProjectMember(projectId: $projectId, userId: $userId) { id isMember }\n  }\n": types.AddProjectMemberDocument,
+    "\n  mutation RemoveProjectMember($projectId: ID!, $userId: ID!) {\n    removeProjectMember(projectId: $projectId, userId: $userId) { id isMember }\n  }\n": types.RemoveProjectMemberDocument,
+    "\n  mutation CreateState($projectId: ID!, $input: CreateStateInput!) {\n    createState(projectId: $projectId, input: $input) { id }\n  }\n": types.CreateStateDocument,
+    "\n  mutation UpdateState($id: ID!, $input: UpdateStateInput!) {\n    updateState(id: $id, input: $input) { id name color isDefault }\n  }\n": types.UpdateStateDocument,
+    "\n  mutation ReorderStates($projectId: ID!, $stateIds: [ID!]!) {\n    reorderStates(projectId: $projectId, stateIds: $stateIds) { id position }\n  }\n": types.ReorderStatesDocument,
+    "\n  mutation DeleteState($id: ID!, $moveIssuesTo: ID) {\n    deleteState(id: $id, moveIssuesTo: $moveIssuesTo)\n  }\n": types.DeleteStateDocument,
+    "\n  query StateIssueCount($filter: IssueFilter) {\n    issues(filter: $filter, first: 1) { totalCount }\n  }\n": types.StateIssueCountDocument,
 };
 
 /**
@@ -218,6 +242,54 @@ export function graphql(source: "\n  mutation UnarchiveProject($id: ID!) {\n    
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n"): (typeof documents)["\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query BrowseProjects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 100) {\n      nodes { id key name description color archivedAt isMember members { id } }\n    }\n  }\n"): (typeof documents)["\n  query BrowseProjects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 100) {\n      nodes { id key name description color archivedAt isMember members { id } }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateProject($input: CreateProjectInput!) {\n    createProject(input: $input) { id key }\n  }\n"): (typeof documents)["\n  mutation CreateProject($input: CreateProjectInput!) {\n    createProject(input: $input) { id key }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation UpdateProject($id: ID!, $input: UpdateProjectInput!) {\n    updateProject(id: $id, input: $input) { id key name description icon color }\n  }\n"): (typeof documents)["\n  mutation UpdateProject($id: ID!, $input: UpdateProjectInput!) {\n    updateProject(id: $id, input: $input) { id key name description icon color }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation ArchiveProject($id: ID!) {\n    archiveProject(id: $id) { id archivedAt }\n  }\n"): (typeof documents)["\n  mutation ArchiveProject($id: ID!) {\n    archiveProject(id: $id) { id archivedAt }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteProject($id: ID!, $confirmKey: String!) {\n    deleteProject(id: $id, confirmKey: $confirmKey)\n  }\n"): (typeof documents)["\n  mutation DeleteProject($id: ID!, $confirmKey: String!) {\n    deleteProject(id: $id, confirmKey: $confirmKey)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation AddProjectMember($projectId: ID!, $userId: ID!) {\n    addProjectMember(projectId: $projectId, userId: $userId) { id isMember }\n  }\n"): (typeof documents)["\n  mutation AddProjectMember($projectId: ID!, $userId: ID!) {\n    addProjectMember(projectId: $projectId, userId: $userId) { id isMember }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RemoveProjectMember($projectId: ID!, $userId: ID!) {\n    removeProjectMember(projectId: $projectId, userId: $userId) { id isMember }\n  }\n"): (typeof documents)["\n  mutation RemoveProjectMember($projectId: ID!, $userId: ID!) {\n    removeProjectMember(projectId: $projectId, userId: $userId) { id isMember }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateState($projectId: ID!, $input: CreateStateInput!) {\n    createState(projectId: $projectId, input: $input) { id }\n  }\n"): (typeof documents)["\n  mutation CreateState($projectId: ID!, $input: CreateStateInput!) {\n    createState(projectId: $projectId, input: $input) { id }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation UpdateState($id: ID!, $input: UpdateStateInput!) {\n    updateState(id: $id, input: $input) { id name color isDefault }\n  }\n"): (typeof documents)["\n  mutation UpdateState($id: ID!, $input: UpdateStateInput!) {\n    updateState(id: $id, input: $input) { id name color isDefault }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation ReorderStates($projectId: ID!, $stateIds: [ID!]!) {\n    reorderStates(projectId: $projectId, stateIds: $stateIds) { id position }\n  }\n"): (typeof documents)["\n  mutation ReorderStates($projectId: ID!, $stateIds: [ID!]!) {\n    reorderStates(projectId: $projectId, stateIds: $stateIds) { id position }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteState($id: ID!, $moveIssuesTo: ID) {\n    deleteState(id: $id, moveIssuesTo: $moveIssuesTo)\n  }\n"): (typeof documents)["\n  mutation DeleteState($id: ID!, $moveIssuesTo: ID) {\n    deleteState(id: $id, moveIssuesTo: $moveIssuesTo)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query StateIssueCount($filter: IssueFilter) {\n    issues(filter: $filter, first: 1) { totalCount }\n  }\n"): (typeof documents)["\n  query StateIssueCount($filter: IssueFilter) {\n    issues(filter: $filter, first: 1) { totalCount }\n  }\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};
