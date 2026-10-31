@@ -60,19 +60,27 @@ export type IssueUpdate = {
   optimistic?: Partial<IssueRowFieldsFragment>
 }
 
+const updateKey = ['updateIssue']
+
 /** updateIssue with an optimistic cache patch, rollback + error toast, refetch on settle. */
 export function useIssueMutation() {
   const qc = useQueryClient()
   const toast = useToast()
   return useMutation({
+    mutationKey: updateKey,
     mutationFn: ({ id, input }: IssueUpdate) => request(UpdateIssueMutation, { id, input }),
-    onMutate: ({ id, optimistic }) => ({ rollback: optimistic ? patchIssue(qc, id, optimistic) : () => {} }),
+    onMutate: async ({ id, optimistic }) => {
+      // A refetch already in flight would land with the old value and undo the patch.
+      await Promise.all(['issues', 'children', 'issue'].map((k) => qc.cancelQueries({ queryKey: [k] })))
+      return { rollback: optimistic ? patchIssue(qc, id, optimistic) : () => {} }
+    },
     onError: (err, _v, ctx) => {
       ctx?.rollback()
       toast.show(errorMessage(err), { kind: 'error' })
     },
+    // Bulk changes run one mutation per issue: refetch once, after the last one.
     onSettled: () =>
-      Promise.all([
+      qc.isMutating({ mutationKey: updateKey }) > 1 ? undefined : Promise.all([
         qc.invalidateQueries({ queryKey: ['issues'] }),
         qc.invalidateQueries({ queryKey: ['children'] }),
         qc.invalidateQueries({ queryKey: ['issue'] }),

@@ -1,14 +1,12 @@
-import { closestCenter, DndContext, type DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { useQuery } from '@tanstack/react-query'
 import { GripVertical, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { request } from '../../api/client'
-import type { IssueChildrenQuery as ChildrenData, IssueRowFieldsFragment } from '../../gql/graphql'
-import { useIssueMutation } from '../../lib/issueCache'
-import { dropOrder } from '../../lib/sortOrder'
+import type { IssueRowFieldsFragment } from '../../gql/graphql'
 import { Avatar } from '../../ui/Avatar'
 import { Button } from '../../ui/Button'
 import { StateIcon } from '../../ui/StateIcon'
@@ -16,29 +14,17 @@ import { useCreateIssue } from '../issues/createIssue'
 import { IssueChildrenQuery } from '../issues/fragments'
 import s from './issue-page.module.css'
 import type { PageIssue } from './types'
-
-const order = { field: 'SORT_ORDER', direction: 'ASC' } as const
+import { childOrder, childrenKey, useChildReorder } from './useChildReorder'
 
 /** Progress, the direct children in manual order (drag to reorder) and "+ Add". */
 export function SubIssues({ issue, readOnly }: { issue: PageIssue; readOnly: boolean }) {
   const { t } = useTranslation('issue')
-  const qc = useQueryClient()
-  const update = useIssueMutation()
   const { openCreateIssue } = useCreateIssue()
-  const key = ['children', issue.id, order.field, order.direction]
-  const children = useQuery({ queryKey: key, queryFn: () => request(IssueChildrenQuery, { id: issue.id, orderBy: order }) })
+  const { onDragEnd } = useChildReorder(issue.id)
+  const children = useQuery({ queryKey: childrenKey(issue.id), queryFn: () => request(IssueChildrenQuery, { id: issue.id, orderBy: childOrder }) })
   const nodes = children.data?.issue.children.nodes ?? []
   const { completed, total } = issue.subIssueProgress
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
-
-  const onDragEnd = (e: DragEndEvent) => {
-    const from = nodes.findIndex((n) => n.id === e.active.id)
-    const to = nodes.findIndex((n) => n.id === e.over?.id)
-    if (from < 0 || to < 0 || from === to) return
-    const sortOrder = dropOrder(nodes.map((n) => n.sortOrder), to, from)
-    qc.setQueryData<ChildrenData>(key, (d) => d && { issue: { ...d.issue, children: { nodes: arrayMove(d.issue.children.nodes, from, to) } } })
-    update.mutate({ id: nodes[from].id, input: { sortOrder }, optimistic: { sortOrder } })
-  }
 
   if (!nodes.length && readOnly) return null
   return (

@@ -1,8 +1,21 @@
-import { QueryClient } from '@tanstack/react-query'
-import { describe, expect, it } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { createElement, type ReactNode } from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { issueRow } from '../test/fixtures'
-import { patchIssue } from './issueCache'
+import { deferred, mocked } from '../test/serve'
+import { ToastProvider } from '../ui/Toast'
+import { patchIssue, useIssueMutation } from './issueCache'
+
+vi.mock('../api/client', async (orig) => {
+  const actual = await orig<typeof import('../api/client')>()
+  return { ...actual, request: vi.fn() }
+})
+
+beforeEach(() => {
+  mocked.mockReset()
+})
 
 describe('issueCache', () => {
   it('patches the node in all caches and rolls back', () => {
@@ -27,5 +40,21 @@ describe('issueCache', () => {
     rollback()
     expect(qc.getQueryData<Pages>(['issues', 'YLK', 's-todo', ''])?.pages[0].issues.nodes[0]).toEqual(a)
     expect(qc.getQueryData<{ issue: { priority: number } }>(['issue', 'YLK-1'])?.issue.priority).toBe(0)
+  })
+
+  it('an optimistic change survives a refetch that was already in flight', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+    const stale = deferred<{ issue: ReturnType<typeof issueRow> }>()
+    qc.setQueryData(['issue', 'YLK-1'], { issue: issueRow(1) })
+    const refetch = qc.fetchQuery({ queryKey: ['issue', 'YLK-1'], queryFn: () => stale.promise, staleTime: 0 }).catch(() => {})
+    mocked.mockImplementation(() => new Promise(() => {}))
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client: qc }, createElement(ToastProvider, null, children))
+    const { result } = renderHook(() => useIssueMutation(), { wrapper })
+    act(() => result.current.mutate({ id: 'i1', input: { priority: 1 }, optimistic: { priority: 1 } }))
+    await waitFor(() => expect(qc.getQueryData<{ issue: { priority: number } }>(['issue', 'YLK-1'])?.issue.priority).toBe(1))
+    // The refetch started before the change answers with the old value.
+    stale.resolve({ issue: issueRow(1) })
+    await refetch
+    expect(qc.getQueryData<{ issue: { priority: number } }>(['issue', 'YLK-1'])?.issue.priority).toBe(1)
   })
 })
