@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate, useParams } from 'react-router'
 
@@ -16,6 +16,8 @@ import { MoveIssueDialog } from '../features/issue-page/MoveIssueDialog'
 import { IssuePageQuery } from '../features/issue-page/operations'
 import { SubIssues } from '../features/issue-page/SubIssues'
 import type { PageIssue, PropName } from '../features/issue-page/types'
+import { usePageTarget, usePalette } from '../features/command/palette'
+import { pushRecent } from '../features/command/recent'
 import { useCreateDefaults, useCreateIssue } from '../features/issues/createIssue'
 import { DeleteIssueMutation } from '../features/issues/fragments'
 import { useEscape, useHotkey } from '../lib/hotkeys'
@@ -59,11 +61,17 @@ function IssueView({ issue }: { issue: PageIssue }) {
   useTitle(t('docTitle', { identifier: issue.identifier, title: issue.title }))
   useCreateDefaults(readOnly ? null : { projectId: issue.project.id, parentId: issue.id, parentIdentifier: issue.identifier })
 
+  const palette = usePalette()
+  const target = { id: issue.id, identifier: issue.identifier, projectId: issue.project.id, projectKey: issue.project.key, title: issue.title }
+  usePageTarget(readOnly ? null : [target])
+  useEffect(() => pushRecent({ id: issue.id, identifier: issue.identifier, projectId: issue.project.id, projectKey: issue.project.key, title: issue.title }), [issue.id, issue.identifier, issue.project.id, issue.project.key, issue.title])
+
   const busy = editing || prop !== null || moving || deleting
   useHotkey('e', () => setEditing(true), { enabled: !readOnly && !busy })
-  useHotkey('s', () => setProp('state'), { enabled: !readOnly && !busy })
-  useHotkey('a', () => setProp('assignee'), { enabled: !readOnly && !busy })
-  useHotkey('p', () => setProp('priority'), { enabled: !readOnly && !busy })
+  // S/A/P open the matching palette page for this issue.
+  useHotkey('s', () => palette.open('state', [target]), { enabled: !readOnly && !busy })
+  useHotkey('a', () => palette.open('assignee', [target]), { enabled: !readOnly && !busy })
+  useHotkey('p', () => palette.open('priority', [target]), { enabled: !readOnly && !busy })
   useEscape(back, !busy)
 
   const remove = useMutation({

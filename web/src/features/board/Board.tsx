@@ -4,6 +4,8 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { isInteractive, useHotkey } from '../../lib/hotkeys'
+import { usePalette } from '../command/palette'
+import { targetsFrom } from '../command/targets'
 import type { PickerState } from '../pickers/StatePicker'
 import { useCreateIssue } from '../issues/createIssue'
 import { toFilter, toSearch, today, type ViewParams } from '../issues/filters'
@@ -62,6 +64,15 @@ export function Board({ project, params, viewerId }: Props) {
   useHotkey('k', () => vertical(-1))
   useHotkey('l', () => horizontal(1))
   useHotkey('h', () => horizontal(-1))
+  const palette = usePalette()
+  const openPage = (page: 'state' | 'assignee' | 'priority') => {
+    const t = targetsFrom(position().cols.flat().filter((el) => el.dataset.rowId === selected))
+    if (!t.length || project.archived) return false
+    palette.open(page, t)
+  }
+  useHotkey('s', () => openPage('state'))
+  useHotkey('a', () => openPage('assignee'))
+  useHotkey('p', () => openPage('priority'))
   useHotkey('enter', (e) => {
     if (isInteractive(e.target)) return false
     const href = position().cols.flat().find((el) => el.dataset.rowId === selected)?.dataset.href

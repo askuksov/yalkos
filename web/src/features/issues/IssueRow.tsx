@@ -39,6 +39,9 @@ export function IssueRow({ issue, depth = 0, nested, orderBy }: Props) {
         aria-selected={sel.selected === issue.id}
         data-row-id={issue.id}
         data-href={href}
+        data-identifier={issue.identifier}
+        data-project-id={issue.project.id}
+        data-project-key={issue.project.key}
         style={{ paddingInlineStart: 12 + depth * 22 }}
         onMouseEnter={() => sel.setSelected(issue.id)}
       >

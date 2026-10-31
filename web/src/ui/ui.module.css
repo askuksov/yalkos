@@ -232,3 +232,20 @@
   padding: var(--space-2);
   color: var(--fg-muted);
 }
+
+.dialogBare {
+  inline-size: min(620px, calc(100vw - 32px));
+  margin-block-start: 12vh;
+}
+.dialogBare .dialogBody {
+  padding: 0;
+  gap: 0;
+}
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

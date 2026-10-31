@@ -1,1 +1,84 @@
-{}
+{
+  "label": "Command palette",
+  "placeholder": "Type a command or search…",
+  "searchPlaceholder": "Search issues…",
+  "empty": "No results",
+  "groups": {
+    "issues": "Issues",
+    "recent": "Recent",
+    "goTo": "Go to",
+    "actions": "Actions",
+    "thisIssue": "This issue",
+    "theseIssues": "{{count}} selected issues"
+  },
+  "open": "Open {{identifier}}",
+  "goTo": {
+    "myIssues": "My issues",
+    "project": "{{name}}",
+    "browseProjects": "Browse projects",
+    "members": "Members",
+    "apiKeys": "API keys"
+  },
+  "actions": {
+    "createIssue": "Create issue",
+    "toggleTheme": "Toggle theme",
+    "logOut": "Log out",
+    "shortcuts": "Keyboard shortcuts"
+  },
+  "issue": {
+    "state": "Change state…",
+    "assignee": "Assign to…",
+    "priority": "Set priority…",
+    "due": "Set due date…",
+    "parent": "Set parent…",
+    "subIssue": "Add sub-issue",
+    "move": "Move to project…",
+    "copy": "Copy identifier",
+    "delete": "Delete"
+  },
+  "pages": {
+    "state": "Change state",
+    "assignee": "Assign to",
+    "priority": "Set priority",
+    "due": "Set due date",
+    "parent": "Set parent",
+    "move": "Move to project",
+    "delete": "Delete"
+  },
+  "due": {
+    "set": "Set due date",
+    "clear": "Remove due date"
+  },
+  "delete": {
+    "confirm_one": "Delete {{count}} issue",
+    "confirm_other": "Delete {{count}} issues"
+  },
+  "noParent": "Remove parent",
+  "deleted_one": "{{count}} issue deleted",
+  "deleted_other": "{{count}} issues deleted",
+  "search": "Search",
+  "help": {
+    "title": "Keyboard shortcuts",
+    "anywhere": "Anywhere",
+    "shell": "App",
+    "lists": "List and board",
+    "issue": "Selected or open issue",
+    "rows": {
+      "palette": "Command palette",
+      "search": "Search issues",
+      "create": "Create issue",
+      "sidebar": "Collapse sidebar",
+      "help": "Shortcuts help",
+      "next": "Next / previous issue",
+      "columns": "Previous / next column (board)",
+      "open": "Open selected issue",
+      "select": "Select for bulk actions",
+      "filter": "Focus text filter",
+      "state": "Change state",
+      "assignee": "Assign",
+      "priority": "Set priority",
+      "edit": "Edit description",
+      "escape": "Close, clear selection, go back"
+    }
+  }
+}

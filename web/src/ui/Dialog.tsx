@@ -11,6 +11,8 @@ type Props = {
   children: ReactNode
   /** Wide layout (create issue, move). */
   wide?: boolean
+  /** No visible header (the title stays for screen readers), e.g. the command palette. */
+  bare?: boolean
 }
 
 /**
@@ -18,7 +20,7 @@ type Props = {
  * focus returns to the element that had it before opening. Children mount only
  * while open, so each opening starts fresh.
  */
-export function Dialog({ open, onClose, title, children, wide }: Props) {
+export function Dialog({ open, onClose, title, children, wide, bare }: Props) {
   const { t } = useTranslation()
   const ref = useRef<HTMLDialogElement>(null)
   const opener = useRef<HTMLElement | null>(null)
@@ -34,6 +36,9 @@ export function Dialog({ open, onClose, title, children, wide }: Props) {
     if (open && !d.open) {
       opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       d.showModal()
+      // showModal focuses the first focusable element (the close button); prefer the first field.
+      const field = d.querySelector<HTMLElement>('[data-autofocus], input:not([type="hidden"]):not([disabled]), textarea, select')
+      field?.focus()
     } else if (!open && d.open) {
       d.close()
     }
@@ -55,7 +60,7 @@ export function Dialog({ open, onClose, title, children, wide }: Props) {
   return (
     <dialog
       ref={ref}
-      className={[s.dialog, wide ? s.dialogWide : ''].join(' ')}
+      className={[s.dialog, wide ? s.dialogWide : '', bare ? s.dialogBare : ''].join(' ')}
       aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault()
@@ -74,7 +79,7 @@ export function Dialog({ open, onClose, title, children, wide }: Props) {
     >
       {open && (
         <div className={s.dialogBody}>
-          <header className={s.dialogHeader}>
+          <header className={bare ? s.srOnly : s.dialogHeader}>
             <h2 id={titleId}>{title}</h2>
             <button type="button" className={s.close} aria-label={t('actions.close')} onClick={() => onCloseRef.current()}>
               <X size={16} aria-hidden />

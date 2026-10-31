@@ -1,0 +1,21 @@
+import { useEffect, useState } from 'react'
+
+import { graphql } from '../../gql'
+
+export const PaletteSearchQuery = graphql(`
+  query PaletteSearch($filter: IssueFilter, $first: Int) {
+    issues(filter: $filter, first: $first, orderBy: { field: UPDATED_AT, direction: DESC }) {
+      nodes { id identifier title project { id key } state { name type color } }
+    }
+  }
+`)
+
+/** Debounced value (as-you-type search). */
+export function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value)
+  useEffect(() => {
+    const id = setTimeout(() => setV(value), ms)
+    return () => clearTimeout(id)
+  }, [value, ms])
+  return v
+}
