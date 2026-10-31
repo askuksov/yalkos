@@ -22,6 +22,8 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
 	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/domain/label"
+	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/store"
@@ -48,13 +50,20 @@ func newServer(t *testing.T) server {
 	if err := svc.RefreshSetupCode(ctx); err != nil {
 		t.Fatal(err)
 	}
-	projects := project.New(pool, time.Now)
-	h := native.NewHandler(native.Deps{
-		Accounts: svc, Projects: projects, Issues: issue.New(pool, projects, time.Now), Audit: audit.New(pool), Logger: quiet,
-	})
+	h := native.NewHandler(testDeps(pool, svc))
 	srv := httptest.NewServer(authn.Middleware(svc, base, quiet)(h))
 	t.Cleanup(srv.Close)
 	return server{url: srv.URL, svc: svc, pool: pool}
+}
+
+// testDeps builds the native API services over pool.
+func testDeps(pool *pgxpool.Pool, accounts *account.Service) native.Deps {
+	projects := project.New(pool, time.Now)
+	issues := issue.New(pool, projects, time.Now)
+	return native.Deps{
+		Accounts: accounts, Projects: projects, Issues: issues, Audit: audit.New(pool),
+		Milestones: milestone.New(pool, projects, time.Now), Labels: label.New(pool, time.Now), Logger: quiet,
+	}
 }
 
 type gqlErr struct {

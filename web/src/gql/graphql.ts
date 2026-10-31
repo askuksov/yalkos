@@ -14,8 +14,14 @@ export type AcceptInviteInput = {
 /** projectId may be omitted when parentId is given. */
 export type CreateIssueInput = {
   assigneeId?: string | number | null | undefined;
+  /** Pending uploads to attach (uploads linked in the description are attached too). */
+  attachmentIds?: Array<string | number> | null | undefined;
   description?: string | null | undefined;
   dueDate?: string | null | undefined;
+  /** Without a type the issue gets the default type. */
+  labelIds?: Array<string | number> | null | undefined;
+  /** A sub-issue without it gets its parent's milestone. */
+  milestoneId?: string | number | null | undefined;
   parentId?: string | number | null | undefined;
   priority?: number | null | undefined;
   projectId?: string | number | null | undefined;
@@ -73,6 +79,8 @@ export type IssueFilter = {
   dueDate?: DateComparator | null | undefined;
   hasChildren?: boolean | null | undefined;
   includeArchived?: boolean | null | undefined;
+  label?: LabelComparator | null | undefined;
+  milestone?: IdComparator | null | undefined;
   parent?: IdComparator | null | undefined;
   priority?: IntComparator | null | undefined;
   project?: IdComparator | null | undefined;
@@ -80,6 +88,7 @@ export type IssueFilter = {
   search?: string | null | undefined;
   state?: IdComparator | null | undefined;
   stateType?: StateTypeComparator | null | undefined;
+  type?: TypeComparator | null | undefined;
 };
 
 export type IssueOrder = {
@@ -93,6 +102,13 @@ export type IssueOrderField =
   | 'PRIORITY'
   | 'SORT_ORDER'
   | 'UPDATED_AT';
+
+/** in: any of; nin: none of; null: true for issues without labels. */
+export type LabelComparator = {
+  in?: Array<string | number> | null | undefined;
+  nin?: Array<string | number> | null | undefined;
+  null?: boolean | null | undefined;
+};
 
 export type OrderDirection =
   | 'ASC'
@@ -124,13 +140,26 @@ export type StateTypeComparator = {
   nin?: Array<StateType> | null | undefined;
 };
 
+/** in: one of these types; null: true for issues without a type. */
+export type TypeComparator = {
+  in?: Array<string | number> | null | undefined;
+  null?: boolean | null | undefined;
+};
+
 /** Omitted fields stay; explicit null clears assigneeId, dueDate, parentId. */
 export type UpdateIssueInput = {
+  /** A label of an exclusive group replaces the issue's other label of that group. */
+  addLabelIds?: Array<string | number> | null | undefined;
   assigneeId?: string | number | null | undefined;
   description?: string | null | undefined;
   dueDate?: string | null | undefined;
+  /** Replaces the labels. */
+  labelIds?: Array<string | number> | null | undefined;
+  /** Explicit null removes the issue from its milestone. */
+  milestoneId?: string | number | null | undefined;
   parentId?: string | number | null | undefined;
   priority?: number | null | undefined;
+  removeLabelIds?: Array<string | number> | null | undefined;
   sortOrder?: number | null | undefined;
   stateId?: string | number | null | undefined;
   title?: string | null | undefined;

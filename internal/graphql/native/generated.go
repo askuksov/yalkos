@@ -31,6 +31,9 @@ type ResolverRoot interface {
 	HistoryEntry() HistoryEntryResolver
 	Issue() IssueResolver
 	IssueConnection() IssueConnectionResolver
+	Label() LabelResolver
+	LabelSettings() LabelSettingsResolver
+	Milestone() MilestoneResolver
 	Mutation() MutationResolver
 	Project() ProjectResolver
 	Query() QueryResolver
@@ -103,6 +106,8 @@ type ComplexityRoot struct {
 		History          func(childComplexity int, first *int, after *string, last *int, before *string) int
 		ID               func(childComplexity int) int
 		Identifier       func(childComplexity int) int
+		Labels           func(childComplexity int) int
+		Milestone        func(childComplexity int) int
 		Number           func(childComplexity int) int
 		Parent           func(childComplexity int) int
 		Priority         func(childComplexity int) int
@@ -111,6 +116,7 @@ type ComplexityRoot struct {
 		State            func(childComplexity int) int
 		SubIssueProgress func(childComplexity int) int
 		Title            func(childComplexity int) int
+		Type             func(childComplexity int) int
 		UpdatedAt        func(childComplexity int) int
 	}
 
@@ -126,6 +132,40 @@ type ComplexityRoot struct {
 		Node   func(childComplexity int) int
 	}
 
+	Label struct {
+		Children    func(childComplexity int) int
+		Color       func(childComplexity int) int
+		Description func(childComplexity int) int
+		Exclusive   func(childComplexity int) int
+		ID          func(childComplexity int) int
+		IsGroup     func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Parent      func(childComplexity int) int
+		Position    func(childComplexity int) int
+	}
+
+	LabelSettings struct {
+		DefaultType func(childComplexity int) int
+		TypeGroup   func(childComplexity int) int
+	}
+
+	Milestone struct {
+		CreatedAt       func(childComplexity int) int
+		CreatedBy       func(childComplexity int) int
+		Description     func(childComplexity int) int
+		ID              func(childComplexity int) int
+		Issues          func(childComplexity int, filter *IssueFilter, orderBy *IssueOrder, first *int, after *string, last *int, before *string) int
+		Lead            func(childComplexity int) int
+		Name            func(childComplexity int) int
+		Overdue         func(childComplexity int) int
+		Progress        func(childComplexity int) int
+		Project         func(childComplexity int) int
+		Status          func(childComplexity int) int
+		StatusAutomatic func(childComplexity int) int
+		TargetDate      func(childComplexity int) int
+		UpdatedAt       func(childComplexity int) int
+	}
+
 	Mutation struct {
 		AcceptInvite        func(childComplexity int, input AcceptInviteInput) int
 		AddProjectMember    func(childComplexity int, projectID string, userID string) int
@@ -134,23 +174,31 @@ type ComplexityRoot struct {
 		CreateAPIKey        func(childComplexity int, name string) int
 		CreateInvite        func(childComplexity int, role Role, expiresInDays *int) int
 		CreateIssue         func(childComplexity int, input CreateIssueInput) int
+		CreateLabel         func(childComplexity int, input CreateLabelInput) int
+		CreateMilestone     func(childComplexity int, projectID string, input CreateMilestoneInput) int
 		CreateProject       func(childComplexity int, input CreateProjectInput) int
 		CreateState         func(childComplexity int, projectID string, input CreateStateInput) int
 		DeleteIssue         func(childComplexity int, id string) int
+		DeleteLabel         func(childComplexity int, id string) int
+		DeleteMilestone     func(childComplexity int, id string) int
 		DeleteProject       func(childComplexity int, id string, confirmKey string) int
 		DeleteState         func(childComplexity int, id string, moveIssuesTo *string) int
 		Login               func(childComplexity int, email string, password string) int
 		Logout              func(childComplexity int) int
 		MoveIssue           func(childComplexity int, id string, projectID string, stateID *string) int
 		RemoveProjectMember func(childComplexity int, projectID string, userID string) int
+		ReorderMilestones   func(childComplexity int, projectID string, milestoneIds []string) int
 		ReorderStates       func(childComplexity int, projectID string, stateIds []string) int
 		RevokeAPIKey        func(childComplexity int, id string) int
 		RevokeInvite        func(childComplexity int, id string) int
+		SetDefaultType      func(childComplexity int, labelID *string) int
 		SetMemberDisabled   func(childComplexity int, userID string, disabled bool) int
 		Setup               func(childComplexity int, input SetupInput) int
 		UnarchiveProject    func(childComplexity int, id string) int
 		UpdateIssue         func(childComplexity int, id string, input UpdateIssueInput) int
+		UpdateLabel         func(childComplexity int, id string, input UpdateLabelInput) int
 		UpdateMemberRole    func(childComplexity int, userID string, role Role) int
+		UpdateMilestone     func(childComplexity int, id string, input UpdateMilestoneInput) int
 		UpdateProject       func(childComplexity int, id string, input UpdateProjectInput) int
 		UpdateState         func(childComplexity int, id string, input UpdateStateInput) int
 	}
@@ -177,6 +225,7 @@ type ComplexityRoot struct {
 		IsMember    func(childComplexity int) int
 		Key         func(childComplexity int) int
 		Members     func(childComplexity int) int
+		Milestones  func(childComplexity int, includeDone *bool) int
 		Name        func(childComplexity int) int
 		States      func(childComplexity int) int
 		UpdatedAt   func(childComplexity int) int
@@ -194,15 +243,18 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		APIKeys     func(childComplexity int) int
-		Invites     func(childComplexity int) int
-		Issue       func(childComplexity int, id string) int
-		Issues      func(childComplexity int, filter *IssueFilter, orderBy *IssueOrder, first *int, after *string, last *int, before *string) int
-		Members     func(childComplexity int) int
-		Project     func(childComplexity int, id string) int
-		Projects    func(childComplexity int, includeArchived *bool, first *int, after *string, last *int, before *string) int
-		SetupStatus func(childComplexity int) int
-		Viewer      func(childComplexity int) int
+		APIKeys       func(childComplexity int) int
+		Invites       func(childComplexity int) int
+		Issue         func(childComplexity int, id string) int
+		Issues        func(childComplexity int, filter *IssueFilter, orderBy *IssueOrder, first *int, after *string, last *int, before *string) int
+		LabelSettings func(childComplexity int) int
+		Labels        func(childComplexity int) int
+		Members       func(childComplexity int) int
+		Milestone     func(childComplexity int, id string) int
+		Project       func(childComplexity int, id string) int
+		Projects      func(childComplexity int, includeArchived *bool, first *int, after *string, last *int, before *string) int
+		SetupStatus   func(childComplexity int) int
+		Viewer        func(childComplexity int) int
 	}
 
 	SetupStatus struct {
@@ -247,9 +299,31 @@ type IssueResolver interface {
 	SubIssueProgress(ctx context.Context, obj *Issue) (*Progress, error)
 
 	History(ctx context.Context, obj *Issue, first *int, after *string, last *int, before *string) (*HistoryConnection, error)
+	Labels(ctx context.Context, obj *Issue) ([]Label, error)
+	Type(ctx context.Context, obj *Issue) (*Label, error)
+	Milestone(ctx context.Context, obj *Issue) (*Milestone, error)
 }
 type IssueConnectionResolver interface {
 	TotalCount(ctx context.Context, obj *IssueConnection) (int, error)
+}
+type LabelResolver interface {
+	Parent(ctx context.Context, obj *Label) (*Label, error)
+	Children(ctx context.Context, obj *Label) ([]Label, error)
+}
+type LabelSettingsResolver interface {
+	TypeGroup(ctx context.Context, obj *LabelSettings) (*Label, error)
+	DefaultType(ctx context.Context, obj *LabelSettings) (*Label, error)
+}
+type MilestoneResolver interface {
+	Lead(ctx context.Context, obj *Milestone) (*User, error)
+	Status(ctx context.Context, obj *Milestone) (MilestoneStatus, error)
+
+	Progress(ctx context.Context, obj *Milestone) (*Progress, error)
+	Overdue(ctx context.Context, obj *Milestone) (bool, error)
+	Project(ctx context.Context, obj *Milestone) (*Project, error)
+	CreatedBy(ctx context.Context, obj *Milestone) (*User, error)
+
+	Issues(ctx context.Context, obj *Milestone, filter *IssueFilter, orderBy *IssueOrder, first *int, after *string, last *int, before *string) (*IssueConnection, error)
 }
 type MutationResolver interface {
 	Setup(ctx context.Context, input SetupInput) (*User, error)
@@ -267,6 +341,14 @@ type MutationResolver interface {
 	UpdateIssue(ctx context.Context, id string, input UpdateIssueInput) (*Issue, error)
 	MoveIssue(ctx context.Context, id string, projectID string, stateID *string) (*Issue, error)
 	DeleteIssue(ctx context.Context, id string) (bool, error)
+	CreateLabel(ctx context.Context, input CreateLabelInput) (*Label, error)
+	UpdateLabel(ctx context.Context, id string, input UpdateLabelInput) (*Label, error)
+	DeleteLabel(ctx context.Context, id string) (bool, error)
+	SetDefaultType(ctx context.Context, labelID *string) (*LabelSettings, error)
+	CreateMilestone(ctx context.Context, projectID string, input CreateMilestoneInput) (*Milestone, error)
+	UpdateMilestone(ctx context.Context, id string, input UpdateMilestoneInput) (*Milestone, error)
+	ReorderMilestones(ctx context.Context, projectID string, milestoneIds []string) ([]Milestone, error)
+	DeleteMilestone(ctx context.Context, id string) (bool, error)
 	CreateProject(ctx context.Context, input CreateProjectInput) (*Project, error)
 	UpdateProject(ctx context.Context, id string, input UpdateProjectInput) (*Project, error)
 	ArchiveProject(ctx context.Context, id string) (*Project, error)
@@ -283,6 +365,7 @@ type ProjectResolver interface {
 	States(ctx context.Context, obj *Project) ([]State, error)
 	Members(ctx context.Context, obj *Project) ([]User, error)
 	IsMember(ctx context.Context, obj *Project) (bool, error)
+	Milestones(ctx context.Context, obj *Project, includeDone *bool) ([]Milestone, error)
 }
 type QueryResolver interface {
 	Viewer(ctx context.Context) (*User, error)
@@ -292,6 +375,9 @@ type QueryResolver interface {
 	APIKeys(ctx context.Context) ([]APIKey, error)
 	Issue(ctx context.Context, id string) (*Issue, error)
 	Issues(ctx context.Context, filter *IssueFilter, orderBy *IssueOrder, first *int, after *string, last *int, before *string) (*IssueConnection, error)
+	Labels(ctx context.Context) ([]Label, error)
+	LabelSettings(ctx context.Context) (*LabelSettings, error)
+	Milestone(ctx context.Context, id string) (*Milestone, error)
 	Projects(ctx context.Context, includeArchived *bool, first *int, after *string, last *int, before *string) (*ProjectConnection, error)
 	Project(ctx context.Context, id string) (*Project, error)
 }
@@ -557,6 +643,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.Identifier(childComplexity), true
+	case "Issue.labels":
+		if e.ComplexityRoot.Issue.Labels == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.Labels(childComplexity), true
+	case "Issue.milestone":
+		if e.ComplexityRoot.Issue.Milestone == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.Milestone(childComplexity), true
 	case "Issue.number":
 		if e.ComplexityRoot.Issue.Number == nil {
 			break
@@ -605,6 +703,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.Title(childComplexity), true
+	case "Issue.type":
+		if e.ComplexityRoot.Issue.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.Type(childComplexity), true
 	case "Issue.updatedAt":
 		if e.ComplexityRoot.Issue.UpdatedAt == nil {
 			break
@@ -649,6 +753,164 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.IssueEdge.Node(childComplexity), true
+
+	case "Label.children":
+		if e.ComplexityRoot.Label.Children == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.Children(childComplexity), true
+	case "Label.color":
+		if e.ComplexityRoot.Label.Color == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.Color(childComplexity), true
+	case "Label.description":
+		if e.ComplexityRoot.Label.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.Description(childComplexity), true
+	case "Label.exclusive":
+		if e.ComplexityRoot.Label.Exclusive == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.Exclusive(childComplexity), true
+	case "Label.id":
+		if e.ComplexityRoot.Label.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.ID(childComplexity), true
+	case "Label.isGroup":
+		if e.ComplexityRoot.Label.IsGroup == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.IsGroup(childComplexity), true
+	case "Label.name":
+		if e.ComplexityRoot.Label.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.Name(childComplexity), true
+	case "Label.parent":
+		if e.ComplexityRoot.Label.Parent == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.Parent(childComplexity), true
+	case "Label.position":
+		if e.ComplexityRoot.Label.Position == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Label.Position(childComplexity), true
+
+	case "LabelSettings.defaultType":
+		if e.ComplexityRoot.LabelSettings.DefaultType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LabelSettings.DefaultType(childComplexity), true
+	case "LabelSettings.typeGroup":
+		if e.ComplexityRoot.LabelSettings.TypeGroup == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LabelSettings.TypeGroup(childComplexity), true
+
+	case "Milestone.createdAt":
+		if e.ComplexityRoot.Milestone.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.CreatedAt(childComplexity), true
+	case "Milestone.createdBy":
+		if e.ComplexityRoot.Milestone.CreatedBy == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.CreatedBy(childComplexity), true
+	case "Milestone.description":
+		if e.ComplexityRoot.Milestone.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.Description(childComplexity), true
+	case "Milestone.id":
+		if e.ComplexityRoot.Milestone.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.ID(childComplexity), true
+	case "Milestone.issues":
+		if e.ComplexityRoot.Milestone.Issues == nil {
+			break
+		}
+
+		args, err := ec.field_Milestone_issues_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Milestone.Issues(childComplexity, args["filter"].(*IssueFilter), args["orderBy"].(*IssueOrder), args["first"].(*int), args["after"].(*string), args["last"].(*int), args["before"].(*string)), true
+	case "Milestone.lead":
+		if e.ComplexityRoot.Milestone.Lead == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.Lead(childComplexity), true
+	case "Milestone.name":
+		if e.ComplexityRoot.Milestone.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.Name(childComplexity), true
+	case "Milestone.overdue":
+		if e.ComplexityRoot.Milestone.Overdue == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.Overdue(childComplexity), true
+	case "Milestone.progress":
+		if e.ComplexityRoot.Milestone.Progress == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.Progress(childComplexity), true
+	case "Milestone.project":
+		if e.ComplexityRoot.Milestone.Project == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.Project(childComplexity), true
+	case "Milestone.status":
+		if e.ComplexityRoot.Milestone.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.Status(childComplexity), true
+	case "Milestone.statusAutomatic":
+		if e.ComplexityRoot.Milestone.StatusAutomatic == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.StatusAutomatic(childComplexity), true
+	case "Milestone.targetDate":
+		if e.ComplexityRoot.Milestone.TargetDate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.TargetDate(childComplexity), true
+	case "Milestone.updatedAt":
+		if e.ComplexityRoot.Milestone.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Milestone.UpdatedAt(childComplexity), true
 
 	case "Mutation.acceptInvite":
 		if e.ComplexityRoot.Mutation.AcceptInvite == nil {
@@ -727,6 +989,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreateIssue(childComplexity, args["input"].(CreateIssueInput)), true
+	case "Mutation.createLabel":
+		if e.ComplexityRoot.Mutation.CreateLabel == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createLabel_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateLabel(childComplexity, args["input"].(CreateLabelInput)), true
+	case "Mutation.createMilestone":
+		if e.ComplexityRoot.Mutation.CreateMilestone == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createMilestone_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateMilestone(childComplexity, args["projectId"].(string), args["input"].(CreateMilestoneInput)), true
 	case "Mutation.createProject":
 		if e.ComplexityRoot.Mutation.CreateProject == nil {
 			break
@@ -760,6 +1044,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeleteIssue(childComplexity, args["id"].(string)), true
+	case "Mutation.deleteLabel":
+		if e.ComplexityRoot.Mutation.DeleteLabel == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteLabel_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteLabel(childComplexity, args["id"].(string)), true
+	case "Mutation.deleteMilestone":
+		if e.ComplexityRoot.Mutation.DeleteMilestone == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteMilestone_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteMilestone(childComplexity, args["id"].(string)), true
 	case "Mutation.deleteProject":
 		if e.ComplexityRoot.Mutation.DeleteProject == nil {
 			break
@@ -821,6 +1127,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RemoveProjectMember(childComplexity, args["projectId"].(string), args["userId"].(string)), true
+	case "Mutation.reorderMilestones":
+		if e.ComplexityRoot.Mutation.ReorderMilestones == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_reorderMilestones_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ReorderMilestones(childComplexity, args["projectId"].(string), args["milestoneIds"].([]string)), true
 	case "Mutation.reorderStates":
 		if e.ComplexityRoot.Mutation.ReorderStates == nil {
 			break
@@ -854,6 +1171,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RevokeInvite(childComplexity, args["id"].(string)), true
+	case "Mutation.setDefaultType":
+		if e.ComplexityRoot.Mutation.SetDefaultType == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setDefaultType_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SetDefaultType(childComplexity, args["labelId"].(*string)), true
 	case "Mutation.setMemberDisabled":
 		if e.ComplexityRoot.Mutation.SetMemberDisabled == nil {
 			break
@@ -898,6 +1226,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UpdateIssue(childComplexity, args["id"].(string), args["input"].(UpdateIssueInput)), true
+	case "Mutation.updateLabel":
+		if e.ComplexityRoot.Mutation.UpdateLabel == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateLabel_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateLabel(childComplexity, args["id"].(string), args["input"].(UpdateLabelInput)), true
 	case "Mutation.updateMemberRole":
 		if e.ComplexityRoot.Mutation.UpdateMemberRole == nil {
 			break
@@ -909,6 +1248,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UpdateMemberRole(childComplexity, args["userId"].(string), args["role"].(Role)), true
+	case "Mutation.updateMilestone":
+		if e.ComplexityRoot.Mutation.UpdateMilestone == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateMilestone_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateMilestone(childComplexity, args["id"].(string), args["input"].(UpdateMilestoneInput)), true
 	case "Mutation.updateProject":
 		if e.ComplexityRoot.Mutation.UpdateProject == nil {
 			break
@@ -1024,6 +1374,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Project.Members(childComplexity), true
+	case "Project.milestones":
+		if e.ComplexityRoot.Project.Milestones == nil {
+			break
+		}
+
+		args, err := ec.field_Project_milestones_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Project.Milestones(childComplexity, args["includeDone"].(*bool)), true
 	case "Project.name":
 		if e.ComplexityRoot.Project.Name == nil {
 			break
@@ -1110,12 +1471,35 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Issues(childComplexity, args["filter"].(*IssueFilter), args["orderBy"].(*IssueOrder), args["first"].(*int), args["after"].(*string), args["last"].(*int), args["before"].(*string)), true
+	case "Query.labelSettings":
+		if e.ComplexityRoot.Query.LabelSettings == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.LabelSettings(childComplexity), true
+	case "Query.labels":
+		if e.ComplexityRoot.Query.Labels == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.Labels(childComplexity), true
 	case "Query.members":
 		if e.ComplexityRoot.Query.Members == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Query.Members(childComplexity), true
+	case "Query.milestone":
+		if e.ComplexityRoot.Query.Milestone == nil {
+			break
+		}
+
+		args, err := ec.field_Query_milestone_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Milestone(childComplexity, args["id"].(string)), true
 	case "Query.project":
 		if e.ComplexityRoot.Query.Project == nil {
 			break
@@ -1249,6 +1633,8 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		return graphql.NewInputUnmarshalerIndex(
 			graphql.NewInputUnmarshaler("AcceptInviteInput", ec.unmarshalInputAcceptInviteInput),
 			graphql.NewInputUnmarshaler("CreateIssueInput", ec.unmarshalInputCreateIssueInput),
+			graphql.NewInputUnmarshaler("CreateLabelInput", ec.unmarshalInputCreateLabelInput),
+			graphql.NewInputUnmarshaler("CreateMilestoneInput", ec.unmarshalInputCreateMilestoneInput),
 			graphql.NewInputUnmarshaler("CreateProjectInput", ec.unmarshalInputCreateProjectInput),
 			graphql.NewInputUnmarshaler("CreateStateInput", ec.unmarshalInputCreateStateInput),
 			graphql.NewInputUnmarshaler("DateComparator", ec.unmarshalInputDateComparator),
@@ -1256,9 +1642,13 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("IntComparator", ec.unmarshalInputIntComparator),
 			graphql.NewInputUnmarshaler("IssueFilter", ec.unmarshalInputIssueFilter),
 			graphql.NewInputUnmarshaler("IssueOrder", ec.unmarshalInputIssueOrder),
+			graphql.NewInputUnmarshaler("LabelComparator", ec.unmarshalInputLabelComparator),
 			graphql.NewInputUnmarshaler("SetupInput", ec.unmarshalInputSetupInput),
 			graphql.NewInputUnmarshaler("StateTypeComparator", ec.unmarshalInputStateTypeComparator),
+			graphql.NewInputUnmarshaler("TypeComparator", ec.unmarshalInputTypeComparator),
 			graphql.NewInputUnmarshaler("UpdateIssueInput", ec.unmarshalInputUpdateIssueInput),
+			graphql.NewInputUnmarshaler("UpdateLabelInput", ec.unmarshalInputUpdateLabelInput),
+			graphql.NewInputUnmarshaler("UpdateMilestoneInput", ec.unmarshalInputUpdateMilestoneInput),
 			graphql.NewInputUnmarshaler("UpdateProjectInput", ec.unmarshalInputUpdateProjectInput),
 			graphql.NewInputUnmarshaler("UpdateStateInput", ec.unmarshalInputUpdateStateInput),
 			graphql.NewInputUnmarshaler("UserComparator", ec.unmarshalInputUserComparator),
@@ -1523,6 +1913,188 @@ extend type Mutation {
   "Moves the issue and its sub-issues; each gets a new number in the target project."
   moveIssue(id: ID!, projectId: ID!, stateId: ID): Issue!
   deleteIssue(id: ID!): Boolean!
+}
+`, BuiltIn: false},
+	{Name: "../../../api/graphql/native/labels.graphqls", Input: `# Workspace labels, label groups and the issue type (labels of the Type group).
+
+"A label, or with isGroup a group of labels (one level deep). An issue holds at most one label of an exclusive group."
+type Label {
+  id: ID!
+  name: String!
+  color: String!
+  description: String!
+  isGroup: Boolean!
+  exclusive: Boolean!
+  parent: Label
+  "A group's labels by position."
+  children: [Label!]!
+  position: Float!
+}
+
+type LabelSettings {
+  typeGroup: Label!
+  "The type new issues get; null when none is chosen."
+  defaultType: Label
+}
+
+input CreateLabelInput {
+  name: String!
+  color: String!
+  description: String
+  parentId: ID
+  isGroup: Boolean
+  "Groups only; default true."
+  exclusive: Boolean
+}
+
+"Explicit parentId: null moves a label out of its group."
+input UpdateLabelInput {
+  name: String
+  color: String
+  description: String
+  parentId: ID
+  exclusive: Boolean
+  position: Float
+}
+
+"in: any of; nin: none of; null: true for issues without labels."
+input LabelComparator {
+  in: [ID!]
+  nin: [ID!]
+  null: Boolean
+}
+
+"in: one of these types; null: true for issues without a type."
+input TypeComparator {
+  in: [ID!]
+  null: Boolean
+}
+
+extend type Issue {
+  "Type first, then by name."
+  labels: [Label!]!
+  "The issue's label from the type group."
+  type: Label
+}
+
+extend input IssueFilter {
+  label: LabelComparator
+  type: TypeComparator
+}
+
+extend input CreateIssueInput {
+  "Without a type the issue gets the default type."
+  labelIds: [ID!]
+  "Pending uploads to attach (uploads linked in the description are attached too)."
+  attachmentIds: [ID!]
+}
+
+extend input UpdateIssueInput {
+  "Replaces the labels."
+  labelIds: [ID!]
+  "A label of an exclusive group replaces the issue's other label of that group."
+  addLabelIds: [ID!]
+  removeLabelIds: [ID!]
+}
+
+extend type Query {
+  "Top-level labels and groups (with their children) by position."
+  labels: [Label!]!
+  labelSettings: LabelSettings!
+}
+
+extend type Mutation {
+  createLabel(input: CreateLabelInput!): Label!
+  "Owner or Admin."
+  updateLabel(id: ID!, input: UpdateLabelInput!): Label!
+  "Owner or Admin; a group must be empty; removes the label from issues."
+  deleteLabel(id: ID!): Boolean!
+  "Owner or Admin; null: new issues get no type."
+  setDefaultType(labelId: ID): LabelSettings!
+}
+`, BuiltIn: false},
+	{Name: "../../../api/graphql/native/milestones.graphqls", Input: `# Milestones: goals of one project with automatic or manual status.
+
+enum MilestoneStatus {
+  PLANNED
+  IN_PROGRESS
+  DONE
+  CANCELED
+}
+
+type Milestone {
+  id: ID!
+  name: String!
+  "Markdown."
+  description: String!
+  targetDate: Date
+  lead: User
+  "The manual status, or the one computed from the milestone's issues."
+  status: MilestoneStatus!
+  statusAutomatic: Boolean!
+  "Live issues: completed vs not canceled."
+  progress: Progress!
+  "Target date before today and not done or canceled."
+  overdue: Boolean!
+  project: Project!
+  createdBy: User
+  createdAt: Time!
+  updatedAt: Time!
+  "Issues of this milestone; the filter adds to milestone eq."
+  issues(filter: IssueFilter, orderBy: IssueOrder, first: Int, after: String, last: Int, before: String): IssueConnection!
+}
+
+input CreateMilestoneInput {
+  name: String!
+  description: String
+  targetDate: Date
+  leadId: ID
+}
+
+"Explicit null clears targetDate/leadId; statusAutomatic: true drops a manual status."
+input UpdateMilestoneInput {
+  name: String
+  description: String
+  targetDate: Date
+  leadId: ID
+  status: MilestoneStatus
+  statusAutomatic: Boolean
+}
+
+extend type Project {
+  "In manual order; includeDone: false leaves out done and canceled ones."
+  milestones(includeDone: Boolean = true): [Milestone!]!
+}
+
+extend type Issue {
+  milestone: Milestone
+}
+
+extend input IssueFilter {
+  milestone: IDComparator
+}
+
+extend input CreateIssueInput {
+  "A sub-issue without it gets its parent's milestone."
+  milestoneId: ID
+}
+
+extend input UpdateIssueInput {
+  "Explicit null removes the issue from its milestone."
+  milestoneId: ID
+}
+
+extend type Query {
+  milestone(id: ID!): Milestone!
+}
+
+extend type Mutation {
+  createMilestone(projectId: ID!, input: CreateMilestoneInput!): Milestone!
+  updateMilestone(id: ID!, input: UpdateMilestoneInput!): Milestone!
+  "milestoneIds: every milestone of the project, in the new order."
+  reorderMilestones(projectId: ID!, milestoneIds: [ID!]!): [Milestone!]!
+  "Creator, Owner or Admin; its issues lose the milestone."
+  deleteMilestone(id: ID!): Boolean!
 }
 `, BuiltIn: false},
 	{Name: "../../../api/graphql/native/pagination.graphqls", Input: `# Relay pagination shared by all connections.
@@ -1879,6 +2451,12 @@ func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql
 		return ec.fieldContext_Issue_canceledAt(ctx, field)
 	case "history":
 		return ec.fieldContext_Issue_history(ctx, field)
+	case "labels":
+		return ec.fieldContext_Issue_labels(ctx, field)
+	case "type":
+		return ec.fieldContext_Issue_type(ctx, field)
+	case "milestone":
+		return ec.fieldContext_Issue_milestone(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Issue", field.Name)
 }
@@ -1905,6 +2483,74 @@ func (ec *executionContext) childFields_IssueEdge(ctx context.Context, field gra
 		return ec.fieldContext_IssueEdge_cursor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type IssueEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_Label(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Label_id(ctx, field)
+	case "name":
+		return ec.fieldContext_Label_name(ctx, field)
+	case "color":
+		return ec.fieldContext_Label_color(ctx, field)
+	case "description":
+		return ec.fieldContext_Label_description(ctx, field)
+	case "isGroup":
+		return ec.fieldContext_Label_isGroup(ctx, field)
+	case "exclusive":
+		return ec.fieldContext_Label_exclusive(ctx, field)
+	case "parent":
+		return ec.fieldContext_Label_parent(ctx, field)
+	case "children":
+		return ec.fieldContext_Label_children(ctx, field)
+	case "position":
+		return ec.fieldContext_Label_position(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Label", field.Name)
+}
+
+func (ec *executionContext) childFields_LabelSettings(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "typeGroup":
+		return ec.fieldContext_LabelSettings_typeGroup(ctx, field)
+	case "defaultType":
+		return ec.fieldContext_LabelSettings_defaultType(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type LabelSettings", field.Name)
+}
+
+func (ec *executionContext) childFields_Milestone(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Milestone_id(ctx, field)
+	case "name":
+		return ec.fieldContext_Milestone_name(ctx, field)
+	case "description":
+		return ec.fieldContext_Milestone_description(ctx, field)
+	case "targetDate":
+		return ec.fieldContext_Milestone_targetDate(ctx, field)
+	case "lead":
+		return ec.fieldContext_Milestone_lead(ctx, field)
+	case "status":
+		return ec.fieldContext_Milestone_status(ctx, field)
+	case "statusAutomatic":
+		return ec.fieldContext_Milestone_statusAutomatic(ctx, field)
+	case "progress":
+		return ec.fieldContext_Milestone_progress(ctx, field)
+	case "overdue":
+		return ec.fieldContext_Milestone_overdue(ctx, field)
+	case "project":
+		return ec.fieldContext_Milestone_project(ctx, field)
+	case "createdBy":
+		return ec.fieldContext_Milestone_createdBy(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Milestone_createdAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Milestone_updatedAt(ctx, field)
+	case "issues":
+		return ec.fieldContext_Milestone_issues(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Milestone", field.Name)
 }
 
 func (ec *executionContext) childFields_PageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1957,6 +2603,8 @@ func (ec *executionContext) childFields_Project(ctx context.Context, field graph
 		return ec.fieldContext_Project_members(ctx, field)
 	case "isMember":
 		return ec.fieldContext_Project_isMember(ctx, field)
+	case "milestones":
+		return ec.fieldContext_Project_milestones(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Project", field.Name)
 }
@@ -2229,6 +2877,60 @@ func (ec *executionContext) field_Issue_history_args(ctx context.Context, rawArg
 	return args, nil
 }
 
+func (ec *executionContext) field_Milestone_issues_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*IssueFilter, error) {
+			return ec.unmarshalOIssueFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐIssueFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*IssueOrder, error) {
+			return ec.unmarshalOIssueOrder2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐIssueOrder(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg5
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_acceptInvite_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2351,6 +3053,42 @@ func (ec *executionContext) field_Mutation_createIssue_args(ctx context.Context,
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createLabel_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (CreateLabelInput, error) {
+			return ec.unmarshalNCreateLabelInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCreateLabelInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_createMilestone_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "projectId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["projectId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (CreateMilestoneInput, error) {
+			return ec.unmarshalNCreateMilestoneInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCreateMilestoneInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createProject_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2388,6 +3126,34 @@ func (ec *executionContext) field_Mutation_createState_args(ctx context.Context,
 }
 
 func (ec *executionContext) field_Mutation_deleteIssue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteLabel_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteMilestone_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
@@ -2519,6 +3285,28 @@ func (ec *executionContext) field_Mutation_removeProjectMember_args(ctx context.
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_reorderMilestones_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "projectId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["projectId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "milestoneIds",
+		func(ctx context.Context, v any) ([]string, error) {
+			return ec.unmarshalNID2ᚕstringᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["milestoneIds"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_reorderStates_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2566,6 +3354,20 @@ func (ec *executionContext) field_Mutation_revokeInvite_args(ctx context.Context
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_setDefaultType_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "labelId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["labelId"] = arg0
 	return args, nil
 }
 
@@ -2641,6 +3443,28 @@ func (ec *executionContext) field_Mutation_updateIssue_args(ctx context.Context,
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_updateLabel_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (UpdateLabelInput, error) {
+			return ec.unmarshalNUpdateLabelInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUpdateLabelInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_updateMemberRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2660,6 +3484,28 @@ func (ec *executionContext) field_Mutation_updateMemberRole_args(ctx context.Con
 		return nil, err
 	}
 	args["role"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateMilestone_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (UpdateMilestoneInput, error) {
+			return ec.unmarshalNUpdateMilestoneInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUpdateMilestoneInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -2704,6 +3550,20 @@ func (ec *executionContext) field_Mutation_updateState_args(ctx context.Context,
 		return nil, err
 	}
 	args["input"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Project_milestones_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "includeDone",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeDone"] = arg0
 	return args, nil
 }
 
@@ -2786,6 +3646,20 @@ func (ec *executionContext) field_Query_issues_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["before"] = arg5
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_milestone_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -4149,6 +5023,102 @@ func (ec *executionContext) fieldContext_Issue_history(ctx context.Context, fiel
 	return fc, nil
 }
 
+func (ec *executionContext) _Issue_labels(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_labels(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Issue().Labels(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Label) graphql.Marshaler {
+			return ec.marshalNLabel2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabelᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_labels(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Issue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Issue_type(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_type(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Issue().Type(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Label) graphql.Marshaler {
+			return ec.marshalOLabel2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Issue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Issue_milestone(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_milestone(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Issue().Milestone(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Milestone) graphql.Marshaler {
+			return ec.marshalOMilestone2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestone(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_milestone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Issue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Milestone(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _IssueConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *IssueConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4321,6 +5291,674 @@ func (ec *executionContext) _IssueEdge_cursor(ctx context.Context, field graphql
 }
 func (ec *executionContext) fieldContext_IssueEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("IssueEdge", field, false, false, "String")
+}
+
+func (ec *executionContext) _Label_id(ctx context.Context, field graphql.CollectedField, obj *Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, "ID")
+}
+
+func (ec *executionContext) _Label_name(ctx context.Context, field graphql.CollectedField, obj *Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, "String")
+}
+
+func (ec *executionContext) _Label_color(ctx context.Context, field graphql.CollectedField, obj *Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_color(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Color, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_color(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, "String")
+}
+
+func (ec *executionContext) _Label_description(ctx context.Context, field graphql.CollectedField, obj *Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, "String")
+}
+
+func (ec *executionContext) _Label_isGroup(ctx context.Context, field graphql.CollectedField, obj *Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_isGroup(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsGroup, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_isGroup(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Label_exclusive(ctx context.Context, field graphql.CollectedField, obj *Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_exclusive(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Exclusive, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_exclusive(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Label_parent(ctx context.Context, field graphql.CollectedField, obj *Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_parent(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Label().Parent(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Label) graphql.Marshaler {
+			return ec.marshalOLabel2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Label_parent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Label",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Label_children(ctx context.Context, field graphql.CollectedField, obj *Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_children(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Label().Children(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Label) graphql.Marshaler {
+			return ec.marshalNLabel2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabelᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_children(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Label",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Label_position(ctx context.Context, field graphql.CollectedField, obj *Label) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Label_position(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Position, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Label_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Label", field, false, false, "Float")
+}
+
+func (ec *executionContext) _LabelSettings_typeGroup(ctx context.Context, field graphql.CollectedField, obj *LabelSettings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LabelSettings_typeGroup(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.LabelSettings().TypeGroup(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Label) graphql.Marshaler {
+			return ec.marshalNLabel2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LabelSettings_typeGroup(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LabelSettings",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LabelSettings_defaultType(ctx context.Context, field graphql.CollectedField, obj *LabelSettings) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LabelSettings_defaultType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.LabelSettings().DefaultType(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Label) graphql.Marshaler {
+			return ec.marshalOLabel2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_LabelSettings_defaultType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LabelSettings",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Milestone_id(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, false, false, "ID")
+}
+
+func (ec *executionContext) _Milestone_name(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, false, false, "String")
+}
+
+func (ec *executionContext) _Milestone_description(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, false, false, "String")
+}
+
+func (ec *executionContext) _Milestone_targetDate(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_targetDate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TargetDate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Date) graphql.Marshaler {
+			return ec.marshalODate2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐDate(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_targetDate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, false, false, "Date")
+}
+
+func (ec *executionContext) _Milestone_lead(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_lead(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Milestone().Lead(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_lead(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Milestone",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Milestone_status(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Milestone().Status(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v MilestoneStatus) graphql.Marshaler {
+			return ec.marshalNMilestoneStatus2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestoneStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, true, true, "MilestoneStatus")
+}
+
+func (ec *executionContext) _Milestone_statusAutomatic(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_statusAutomatic(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StatusAutomatic, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_statusAutomatic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Milestone_progress(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_progress(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Milestone().Progress(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Progress) graphql.Marshaler {
+			return ec.marshalNProgress2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐProgress(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_progress(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Milestone",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Progress(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Milestone_overdue(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_overdue(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Milestone().Overdue(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_overdue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, true, true, "Boolean")
+}
+
+func (ec *executionContext) _Milestone_project(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_project(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Milestone().Project(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Project) graphql.Marshaler {
+			return ec.marshalNProject2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐProject(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_project(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Milestone",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Project(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Milestone_createdBy(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_createdBy(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Milestone().CreatedBy(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_createdBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Milestone",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Milestone_createdAt(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Milestone_updatedAt(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Milestone", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Milestone_issues(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Milestone_issues(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Milestone().Issues(ctx, obj, fc.Args["filter"].(*IssueFilter), fc.Args["orderBy"].(*IssueOrder), fc.Args["first"].(*int), fc.Args["after"].(*string), fc.Args["last"].(*int), fc.Args["before"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *IssueConnection) graphql.Marshaler {
+			return ec.marshalNIssueConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐIssueConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Milestone_issues(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Milestone",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IssueConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Milestone_issues_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Mutation_setup(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -4956,6 +6594,358 @@ func (ec *executionContext) fieldContext_Mutation_deleteIssue(ctx context.Contex
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteIssue_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createLabel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateLabel(ctx, fc.Args["input"].(CreateLabelInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Label) graphql.Marshaler {
+			return ec.marshalNLabel2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createLabel(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createLabel_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateLabel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateLabel(ctx, fc.Args["id"].(string), fc.Args["input"].(UpdateLabelInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Label) graphql.Marshaler {
+			return ec.marshalNLabel2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateLabel(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateLabel_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteLabel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteLabel(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteLabel(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteLabel_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_setDefaultType(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_setDefaultType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SetDefaultType(ctx, fc.Args["labelId"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *LabelSettings) graphql.Marshaler {
+			return ec.marshalNLabelSettings2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabelSettings(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_setDefaultType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_LabelSettings(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_setDefaultType_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createMilestone(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createMilestone(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateMilestone(ctx, fc.Args["projectId"].(string), fc.Args["input"].(CreateMilestoneInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Milestone) graphql.Marshaler {
+			return ec.marshalNMilestone2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestone(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createMilestone(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Milestone(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createMilestone_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateMilestone(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateMilestone(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateMilestone(ctx, fc.Args["id"].(string), fc.Args["input"].(UpdateMilestoneInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Milestone) graphql.Marshaler {
+			return ec.marshalNMilestone2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestone(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateMilestone(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Milestone(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateMilestone_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_reorderMilestones(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_reorderMilestones(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ReorderMilestones(ctx, fc.Args["projectId"].(string), fc.Args["milestoneIds"].([]string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Milestone) graphql.Marshaler {
+			return ec.marshalNMilestone2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestoneᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_reorderMilestones(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Milestone(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_reorderMilestones_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteMilestone(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteMilestone(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteMilestone(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteMilestone(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteMilestone_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -5878,6 +7868,50 @@ func (ec *executionContext) fieldContext_Project_isMember(_ context.Context, fie
 	return graphql.NewScalarFieldContext("Project", field, true, true, "Boolean")
 }
 
+func (ec *executionContext) _Project_milestones(ctx context.Context, field graphql.CollectedField, obj *Project) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Project_milestones(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Project().Milestones(ctx, obj, fc.Args["includeDone"].(*bool))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Milestone) graphql.Marshaler {
+			return ec.marshalNMilestone2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestoneᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Project_milestones(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Project",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Milestone(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Project_milestones_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ProjectConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *ProjectConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6271,6 +8305,114 @@ func (ec *executionContext) fieldContext_Query_issues(ctx context.Context, field
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_issues_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_labels(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_labels(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().Labels(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Label) graphql.Marshaler {
+			return ec.marshalNLabel2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabelᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_labels(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Label(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_labelSettings(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_labelSettings(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().LabelSettings(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *LabelSettings) graphql.Marshaler {
+			return ec.marshalNLabelSettings2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabelSettings(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_labelSettings(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_LabelSettings(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_milestone(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_milestone(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Milestone(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Milestone) graphql.Marshaler {
+			return ec.marshalNMilestone2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestone(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_milestone(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Milestone(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_milestone_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -7919,7 +10061,7 @@ func (ec *executionContext) unmarshalInputCreateIssueInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"projectId", "parentId", "title", "description", "stateId", "priority", "assigneeId", "dueDate", "sortOrder"}
+	fieldsInOrder := [...]string{"projectId", "parentId", "title", "description", "stateId", "priority", "assigneeId", "dueDate", "sortOrder", "labelIds", "attachmentIds", "milestoneId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -7989,6 +10131,27 @@ func (ec *executionContext) unmarshalInputCreateIssueInput(ctx context.Context, 
 				return it, err
 			}
 			it.SortOrder = graphql.OmittableOf(data)
+		case "labelIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labelIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LabelIds = graphql.OmittableOf(data)
+		case "attachmentIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("attachmentIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AttachmentIds = graphql.OmittableOf(data)
+		case "milestoneId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("milestoneId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MilestoneID = graphql.OmittableOf(data)
 		}
 	}
 	return it, nil
@@ -8003,6 +10166,146 @@ func (ec *executionContext) unmarshalInputCreateIssueInput(ctx context.Context, 
 func UnmarshalCreateIssueInput(ctx context.Context, raw any) (CreateIssueInput, error) {
 	var out CreateIssueInput
 	err := graphql.UnmarshalNamedInputFromContext(ctx, "CreateIssueInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputCreateLabelInput(ctx context.Context, obj any) (CreateLabelInput, error) {
+	var it CreateLabelInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "color", "description", "parentId", "isGroup", "exclusive"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "color":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("color"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Color = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = graphql.OmittableOf(data)
+		case "parentId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("parentId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ParentID = graphql.OmittableOf(data)
+		case "isGroup":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("isGroup"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.IsGroup = graphql.OmittableOf(data)
+		case "exclusive":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("exclusive"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Exclusive = graphql.OmittableOf(data)
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalCreateLabelInput unmarshals raw into the CreateLabelInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalCreateLabelInput(ctx context.Context, raw any) (CreateLabelInput, error) {
+	var out CreateLabelInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "CreateLabelInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputCreateMilestoneInput(ctx context.Context, obj any) (CreateMilestoneInput, error) {
+	var it CreateMilestoneInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "description", "targetDate", "leadId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = graphql.OmittableOf(data)
+		case "targetDate":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("targetDate"))
+			data, err := ec.unmarshalODate2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐDate(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TargetDate = graphql.OmittableOf(data)
+		case "leadId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leadId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LeadID = graphql.OmittableOf(data)
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalCreateMilestoneInput unmarshals raw into the CreateMilestoneInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalCreateMilestoneInput(ctx context.Context, raw any) (CreateMilestoneInput, error) {
+	var out CreateMilestoneInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "CreateMilestoneInput", raw, &out)
 	return out, err
 }
 
@@ -8381,7 +10684,7 @@ func (ec *executionContext) unmarshalInputIssueFilter(ctx context.Context, obj a
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"project", "state", "stateType", "assignee", "priority", "parent", "hasChildren", "dueDate", "includeArchived", "search"}
+	fieldsInOrder := [...]string{"project", "state", "stateType", "assignee", "priority", "parent", "hasChildren", "dueDate", "includeArchived", "search", "label", "type", "milestone"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -8458,6 +10761,27 @@ func (ec *executionContext) unmarshalInputIssueFilter(ctx context.Context, obj a
 				return it, err
 			}
 			it.Search = graphql.OmittableOf(data)
+		case "label":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("label"))
+			data, err := ec.unmarshalOLabelComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabelComparator(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Label = graphql.OmittableOf(data)
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOTypeComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTypeComparator(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = graphql.OmittableOf(data)
+		case "milestone":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("milestone"))
+			data, err := ec.unmarshalOIDComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐIDComparator(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Milestone = graphql.OmittableOf(data)
 		}
 	}
 	return it, nil
@@ -8525,6 +10849,62 @@ func (ec *executionContext) unmarshalInputIssueOrder(ctx context.Context, obj an
 func UnmarshalIssueOrder(ctx context.Context, raw any) (IssueOrder, error) {
 	var out IssueOrder
 	err := graphql.UnmarshalNamedInputFromContext(ctx, "IssueOrder", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputLabelComparator(ctx context.Context, obj any) (LabelComparator, error) {
+	var it LabelComparator
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"in", "nin", "null"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "in":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("in"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.In = graphql.OmittableOf(data)
+		case "nin":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("nin"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Nin = graphql.OmittableOf(data)
+		case "null":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("null"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Null = graphql.OmittableOf(data)
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalLabelComparator unmarshals raw into the LabelComparator input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalLabelComparator(ctx context.Context, raw any) (LabelComparator, error) {
+	var out LabelComparator
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "LabelComparator", raw, &out)
 	return out, err
 }
 
@@ -8654,6 +11034,55 @@ func UnmarshalStateTypeComparator(ctx context.Context, raw any) (StateTypeCompar
 	return out, err
 }
 
+func (ec *executionContext) unmarshalInputTypeComparator(ctx context.Context, obj any) (TypeComparator, error) {
+	var it TypeComparator
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"in", "null"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "in":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("in"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.In = graphql.OmittableOf(data)
+		case "null":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("null"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Null = graphql.OmittableOf(data)
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalTypeComparator unmarshals raw into the TypeComparator input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalTypeComparator(ctx context.Context, raw any) (TypeComparator, error) {
+	var out TypeComparator
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "TypeComparator", raw, &out)
+	return out, err
+}
+
 func (ec *executionContext) unmarshalInputUpdateIssueInput(ctx context.Context, obj any) (UpdateIssueInput, error) {
 	var it UpdateIssueInput
 	if obj == nil {
@@ -8665,7 +11094,7 @@ func (ec *executionContext) unmarshalInputUpdateIssueInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"title", "description", "stateId", "priority", "assigneeId", "dueDate", "parentId", "sortOrder"}
+	fieldsInOrder := [...]string{"title", "description", "stateId", "priority", "assigneeId", "dueDate", "parentId", "sortOrder", "labelIds", "addLabelIds", "removeLabelIds", "milestoneId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -8728,6 +11157,34 @@ func (ec *executionContext) unmarshalInputUpdateIssueInput(ctx context.Context, 
 				return it, err
 			}
 			it.SortOrder = graphql.OmittableOf(data)
+		case "labelIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labelIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LabelIds = graphql.OmittableOf(data)
+		case "addLabelIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("addLabelIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AddLabelIds = graphql.OmittableOf(data)
+		case "removeLabelIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("removeLabelIds"))
+			data, err := ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RemoveLabelIds = graphql.OmittableOf(data)
+		case "milestoneId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("milestoneId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.MilestoneID = graphql.OmittableOf(data)
 		}
 	}
 	return it, nil
@@ -8742,6 +11199,160 @@ func (ec *executionContext) unmarshalInputUpdateIssueInput(ctx context.Context, 
 func UnmarshalUpdateIssueInput(ctx context.Context, raw any) (UpdateIssueInput, error) {
 	var out UpdateIssueInput
 	err := graphql.UnmarshalNamedInputFromContext(ctx, "UpdateIssueInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputUpdateLabelInput(ctx context.Context, obj any) (UpdateLabelInput, error) {
+	var it UpdateLabelInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "color", "description", "parentId", "exclusive", "position"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = graphql.OmittableOf(data)
+		case "color":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("color"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Color = graphql.OmittableOf(data)
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = graphql.OmittableOf(data)
+		case "parentId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("parentId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ParentID = graphql.OmittableOf(data)
+		case "exclusive":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("exclusive"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Exclusive = graphql.OmittableOf(data)
+		case "position":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("position"))
+			data, err := ec.unmarshalOFloat2ᚖfloat64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Position = graphql.OmittableOf(data)
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalUpdateLabelInput unmarshals raw into the UpdateLabelInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalUpdateLabelInput(ctx context.Context, raw any) (UpdateLabelInput, error) {
+	var out UpdateLabelInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "UpdateLabelInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputUpdateMilestoneInput(ctx context.Context, obj any) (UpdateMilestoneInput, error) {
+	var it UpdateMilestoneInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "description", "targetDate", "leadId", "status", "statusAutomatic"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = graphql.OmittableOf(data)
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = graphql.OmittableOf(data)
+		case "targetDate":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("targetDate"))
+			data, err := ec.unmarshalODate2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐDate(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TargetDate = graphql.OmittableOf(data)
+		case "leadId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("leadId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LeadID = graphql.OmittableOf(data)
+		case "status":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
+			data, err := ec.unmarshalOMilestoneStatus2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestoneStatus(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Status = graphql.OmittableOf(data)
+		case "statusAutomatic":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("statusAutomatic"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.StatusAutomatic = graphql.OmittableOf(data)
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalUpdateMilestoneInput unmarshals raw into the UpdateMilestoneInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalUpdateMilestoneInput(ctx context.Context, raw any) (UpdateMilestoneInput, error) {
+	var out UpdateMilestoneInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "UpdateMilestoneInput", raw, &out)
 	return out, err
 }
 
@@ -9430,6 +12041,24 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Issue_history(ctx, field, obj)
 				})
+		case "labels":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Issue_labels(ctx, field, obj)
+				})
+		case "type":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Issue_type(ctx, field, obj)
+				})
+		case "milestone":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Issue_milestone(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9517,6 +12146,226 @@ func (ec *executionContext) _IssueEdge(ctx context.Context, sel ast.SelectionSet
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var labelImplementors = []string{"Label"}
+
+func (ec *executionContext) _Label(ctx context.Context, sel ast.SelectionSet, obj *Label) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, labelImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Label")
+		case "id":
+			out.Values[i] = ec._Label_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "name":
+			out.Values[i] = ec._Label_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "color":
+			out.Values[i] = ec._Label_color(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "description":
+			out.Values[i] = ec._Label_description(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "isGroup":
+			out.Values[i] = ec._Label_isGroup(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "exclusive":
+			out.Values[i] = ec._Label_exclusive(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "parent":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Label_parent(ctx, field, obj)
+				})
+		case "children":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Label_children(ctx, field, obj)
+				})
+		case "position":
+			out.Values[i] = ec._Label_position(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var labelSettingsImplementors = []string{"LabelSettings"}
+
+func (ec *executionContext) _LabelSettings(ctx context.Context, sel ast.SelectionSet, obj *LabelSettings) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, labelSettingsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("LabelSettings")
+		case "typeGroup":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._LabelSettings_typeGroup(ctx, field, obj)
+				})
+		case "defaultType":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._LabelSettings_defaultType(ctx, field, obj)
+				})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var milestoneImplementors = []string{"Milestone"}
+
+func (ec *executionContext) _Milestone(ctx context.Context, sel ast.SelectionSet, obj *Milestone) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, milestoneImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Milestone")
+		case "id":
+			out.Values[i] = ec._Milestone_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "name":
+			out.Values[i] = ec._Milestone_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "description":
+			out.Values[i] = ec._Milestone_description(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "targetDate":
+			out.Values[i] = ec._Milestone_targetDate(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "lead":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Milestone_lead(ctx, field, obj)
+				})
+		case "status":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Milestone_status(ctx, field, obj)
+				})
+		case "statusAutomatic":
+			out.Values[i] = ec._Milestone_statusAutomatic(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "progress":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Milestone_progress(ctx, field, obj)
+				})
+		case "overdue":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Milestone_overdue(ctx, field, obj)
+				})
+		case "project":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Milestone_project(ctx, field, obj)
+				})
+		case "createdBy":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Milestone_createdBy(ctx, field, obj)
+				})
+		case "createdAt":
+			out.Values[i] = ec._Milestone_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Milestone_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "issues":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Milestone_issues(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9654,6 +12503,62 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deleteIssue":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteIssue(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createLabel":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createLabel(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateLabel":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateLabel(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteLabel":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteLabel(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "setDefaultType":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_setDefaultType(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createMilestone":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createMilestone(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateMilestone":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateMilestone(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "reorderMilestones":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_reorderMilestones(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteMilestone":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteMilestone(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -9912,6 +12817,12 @@ func (ec *executionContext) _Project(ctx context.Context, sel ast.SelectionSet, 
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Project_isMember(ctx, field, obj)
 				})
+		case "milestones":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Project_milestones(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10070,6 +12981,24 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_issues(ctx, field)
+				})
+		case "labels":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_labels(ctx, field)
+				})
+		case "labelSettings":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_labelSettings(ctx, field)
+				})
+		case "milestone":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_milestone(ctx, field)
 				})
 		case "projects":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
@@ -10683,6 +13612,16 @@ func (ec *executionContext) unmarshalNCreateIssueInput2githubᚗcomᚋaskuksov�
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNCreateLabelInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCreateLabelInput(ctx context.Context, v any) (CreateLabelInput, error) {
+	res, err := ec.unmarshalInputCreateLabelInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNCreateMilestoneInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCreateMilestoneInput(ctx context.Context, v any) (CreateMilestoneInput, error) {
+	res, err := ec.unmarshalInputCreateMilestoneInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNCreateProjectInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCreateProjectInput(ctx context.Context, v any) (CreateProjectInput, error) {
 	res, err := ec.unmarshalInputCreateProjectInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -10950,6 +13889,80 @@ func (ec *executionContext) marshalNIssueOrderField2githubᚗcomᚋaskuksovᚋya
 	return v
 }
 
+func (ec *executionContext) marshalNLabel2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx context.Context, sel ast.SelectionSet, v Label) graphql.Marshaler {
+	return ec._Label(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNLabel2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabelᚄ(ctx context.Context, sel ast.SelectionSet, v []Label) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNLabel2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNLabel2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx context.Context, sel ast.SelectionSet, v *Label) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Label!")
+		return graphql.Null
+	}
+	return ec._Label(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNLabelSettings2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabelSettings(ctx context.Context, sel ast.SelectionSet, v *LabelSettings) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "LabelSettings!")
+		return graphql.Null
+	}
+	return ec._LabelSettings(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMilestone2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestone(ctx context.Context, sel ast.SelectionSet, v Milestone) graphql.Marshaler {
+	return ec._Milestone(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNMilestone2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestoneᚄ(ctx context.Context, sel ast.SelectionSet, v []Milestone) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNMilestone2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestone(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNMilestone2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestone(ctx context.Context, sel ast.SelectionSet, v *Milestone) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Milestone!")
+		return graphql.Null
+	}
+	return ec._Milestone(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNMilestoneStatus2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestoneStatus(ctx context.Context, v any) (MilestoneStatus, error) {
+	var res MilestoneStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNMilestoneStatus2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestoneStatus(ctx context.Context, sel ast.SelectionSet, v MilestoneStatus) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *PageInfo) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "PageInfo!")
@@ -11113,6 +14126,16 @@ func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel as
 
 func (ec *executionContext) unmarshalNUpdateIssueInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUpdateIssueInput(ctx context.Context, v any) (UpdateIssueInput, error) {
 	res, err := ec.unmarshalInputUpdateIssueInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateLabelInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUpdateLabelInput(ctx context.Context, v any) (UpdateLabelInput, error) {
+	res, err := ec.unmarshalInputUpdateLabelInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateMilestoneInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUpdateMilestoneInput(ctx context.Context, v any) (UpdateMilestoneInput, error) {
+	res, err := ec.unmarshalInputUpdateMilestoneInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -11512,6 +14535,44 @@ func (ec *executionContext) unmarshalOIssueOrder2ᚖgithubᚗcomᚋaskuksovᚋya
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalOLabel2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabel(ctx context.Context, sel ast.SelectionSet, v *Label) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Label(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOLabelComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLabelComparator(ctx context.Context, v any) (*LabelComparator, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputLabelComparator(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOMilestone2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestone(ctx context.Context, sel ast.SelectionSet, v *Milestone) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Milestone(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOMilestoneStatus2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestoneStatus(ctx context.Context, v any) (*MilestoneStatus, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(MilestoneStatus)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOMilestoneStatus2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestoneStatus(ctx context.Context, sel ast.SelectionSet, v *MilestoneStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
 func (ec *executionContext) unmarshalOOrderDirection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐOrderDirection(ctx context.Context, v any) (*OrderDirection, error) {
 	if v == nil {
 		return nil, nil
@@ -11622,6 +14683,14 @@ func (ec *executionContext) marshalOTime2ᚖtimeᚐTime(ctx context.Context, sel
 	_ = ctx
 	res := graphql.MarshalTime(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOTypeComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTypeComparator(ctx context.Context, v any) (*TypeComparator, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputTypeComparator(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUser(ctx context.Context, sel ast.SelectionSet, v *User) graphql.Marshaler {

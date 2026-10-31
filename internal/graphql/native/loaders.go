@@ -11,6 +11,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
+	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
 )
 
@@ -28,6 +29,13 @@ type loaders struct {
 
 	// By issue id: progress of its live direct children.
 	subIssueProgress *dataloadgen.Loader[uuid.UUID, issue.Progress]
+
+	milestones *dataloadgen.Loader[uuid.UUID, milestone.Milestone]
+	// By milestone id: counts of its live issues.
+	milestoneProgress *dataloadgen.Loader[uuid.UUID, milestone.Progress]
+	// By issue id: its sorted label ids.
+	issueLabels *dataloadgen.Loader[uuid.UUID, []uuid.UUID]
+	labels      *lazyLabels
 }
 
 type loadersKey struct{}
@@ -64,6 +72,29 @@ func newLoaders(d Deps) *loaders {
 			}
 			return values, errs
 		}, opt),
+		milestones: dataloadgen.NewLoader(byID("Milestone", func(ctx context.Context, ids []uuid.UUID) ([]milestone.Milestone, error) {
+			return d.Milestones.ByIDs(ctx, ids)
+		}, func(m milestone.Milestone) uuid.UUID { return m.ID }), opt),
+		milestoneProgress: dataloadgen.NewLoader(mapped(d.Milestones.Progress), opt),
+		issueLabels:       dataloadgen.NewLoader(grouped(d.Issues.LabelIDs), opt),
+		labels:            &lazyLabels{load: loadLabelIndex(d.Labels)},
+	}
+}
+
+// mapped adapts a fetch returning one value per key (zero value when absent).
+func mapped[T any](fetch func(context.Context, []uuid.UUID) (map[uuid.UUID]T, error)) func(context.Context, []uuid.UUID) ([]T, []error) {
+	return func(ctx context.Context, keys []uuid.UUID) ([]T, []error) {
+		values := make([]T, len(keys))
+		errs := make([]error, len(keys))
+		byKey, err := fetch(ctx, keys)
+		for i, k := range keys {
+			if err != nil {
+				errs[i] = err
+				continue
+			}
+			values[i] = byKey[k]
+		}
+		return values, errs
 	}
 }
 
