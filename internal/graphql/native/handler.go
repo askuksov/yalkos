@@ -38,6 +38,7 @@ func NewHandler(d Deps) http.Handler {
 	// Caps query cost per request (see complexity.go): nested lists and
 	// batched logins are rejected before any resolver runs.
 	srv.Use(extension.FixedComplexityLimit(maxComplexity))
+	srv.Use(rootFieldLimit{})
 	srv.SetErrorPresenter(gqlerr.Presenter(func(_ context.Context, err error) {
 		logger.Error("graphql internal error", slog.String("api", "native"), slog.String("error", err.Error()))
 	}))

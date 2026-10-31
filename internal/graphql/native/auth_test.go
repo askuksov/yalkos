@@ -312,3 +312,27 @@ func TestCredentialManagementNeedsSession(t *testing.T) {
 		t.Errorf("viewer with API key: %s", res.raw)
 	}
 }
+
+// Cheap root fields cannot be batched by the thousand either: the number of
+// root fields per operation is capped separately from the cost budget.
+func TestRootFieldLimit(t *testing.T) {
+	s := newServer(t)
+	var sb strings.Builder
+	sb.WriteString("{")
+	for i := range 100 {
+		fmt.Fprintf(&sb, " a%d: setupStatus { needed }", i)
+	}
+	sb.WriteString(" }")
+	r := s.browser(t).do(sb.String(), nil)
+	if r.code() != "COMPLEXITY_LIMIT_EXCEEDED" {
+		t.Fatalf("100 root fields: %s", r.raw[:min(len(r.raw), 300)])
+	}
+	// Fragments count too.
+	r = s.browser(t).do(`query { ...F } fragment F on Query { `+strings.Repeat("setupStatus { needed } ", 1)+strings.TrimPrefix(sb.String(), "{"), nil)
+	if r.code() != "COMPLEXITY_LIMIT_EXCEEDED" {
+		t.Fatalf("root fields via fragment: %s", r.raw[:min(len(r.raw), 300)])
+	}
+	if r := s.browser(t).do(`{ a: setupStatus { needed } b: setupStatus { needed } }`, nil); len(r.Errors) > 0 {
+		t.Fatalf("2 root fields: %s", r.raw)
+	}
+}
