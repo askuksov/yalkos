@@ -1,0 +1,41 @@
+/* Design tokens. Light is the default; [data-theme="dark"] overrides. */
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f7f7f8;
+  --bg-hover: #efeff1;
+  --bg-selected: #e6eefa;
+  --fg: #1d1d1f;
+  --fg-muted: #6b6b73;
+  --border: #e2e2e6;
+  --accent: #3a7bd5;
+  --accent-fg: #ffffff;
+  --danger: #c62828;
+  --warning-bg: #fff6e0;
+  --shadow: 0 4px 16px rgb(0 0 0 / 12%);
+  --radius: 6px;
+  --row-h: 32px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --font-size: 14px;
+  --font-size-small: 12px;
+  --sidebar-w: 240px;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #17171a;
+  --bg-subtle: #1e1e22;
+  --bg-hover: #26262b;
+  --bg-selected: #233350;
+  --fg: #e8e8ec;
+  --fg-muted: #9a9aa3;
+  --border: #2e2e34;
+  --accent: #5b93e3;
+  --accent-fg: #0d1626;
+  --danger: #ef5350;
+  --warning-bg: #3a3020;
+  --shadow: 0 4px 16px rgb(0 0 0 / 45%);
+  color-scheme: dark;
+}
