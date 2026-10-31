@@ -68,5 +68,28 @@
     "deleteConfirm_other": "Delete {{count}} issues? Their sub-issues stay as top-level issues.",
     "deleted_one": "{{count}} issue deleted",
     "deleted_other": "{{count}} issues deleted"
+  },
+  "create": {
+    "title": "New issue",
+    "button": "New issue",
+    "emptyButton": "Create issue",
+    "inState": "Create issue in {{state}}",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Issue title",
+    "description": "Description",
+    "descriptionPlaceholder": "Add a description… (Markdown)",
+    "project": "Project",
+    "state": "State",
+    "priority": "Priority",
+    "assignee": "Assignee",
+    "dueDate": "Due date",
+    "parent": "Parent",
+    "noParent": "No parent",
+    "subIssueOf": "Sub-issue of {{identifier}}",
+    "removeParent": "Remove parent",
+    "chooseProject": "Choose a project",
+    "createMore": "Create more",
+    "submit": "Create issue",
+    "created": "{{identifier}} created"
   }
 }

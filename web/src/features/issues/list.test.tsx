@@ -141,7 +141,8 @@ describe('issue list', () => {
     renderAt('/p/YLK')
     expect(await screen.findByText('This project is archived')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Unarchive' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Create issue|New issue/ })).not.toBeInTheDocument()
+    // The sidebar's global "New issue" stays; the project page offers no create.
+    expect(within(screen.getByRole('main')).queryByRole('button', { name: /Create issue/ })).not.toBeInTheDocument()
     await screen.findByText('Issue 1')
     fireEvent.keyDown(document.body, { key: 'j', code: 'KeyJ' })
     fireEvent.keyDown(document.body, { key: 'x', code: 'KeyX' })
