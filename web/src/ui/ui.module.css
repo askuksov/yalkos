@@ -204,3 +204,31 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Picker */
+.picker {
+  display: flex;
+  flex-direction: column;
+  inline-size: 260px;
+  max-inline-size: 100%;
+}
+.pickerInput {
+  margin: var(--space-1);
+  border: 0 !important;
+  border-block-end: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  outline: none;
+  background: transparent !important;
+}
+.pickerList {
+  max-block-size: 280px;
+  padding: var(--space-1);
+  overflow-y: auto;
+}
+.pickerList [aria-selected='true'] {
+  font-weight: 600;
+}
+.pickerEmpty {
+  padding: var(--space-2);
+  color: var(--fg-muted);
+}

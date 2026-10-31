@@ -11,6 +11,50 @@ export type AcceptInviteInput = {
   token: string;
 };
 
+export type DateComparator = {
+  eq?: string | null | undefined;
+  gt?: string | null | undefined;
+  gte?: string | null | undefined;
+  lt?: string | null | undefined;
+  lte?: string | null | undefined;
+  null?: boolean | null | undefined;
+};
+
+/** in: [] matches nothing; neq and nin keep issues where the field is empty. */
+export type IdComparator = {
+  eq?: string | number | null | undefined;
+  in?: Array<string | number> | null | undefined;
+  neq?: string | number | null | undefined;
+  nin?: Array<string | number> | null | undefined;
+  null?: boolean | null | undefined;
+};
+
+export type IntComparator = {
+  eq?: number | null | undefined;
+  gt?: number | null | undefined;
+  gte?: number | null | undefined;
+  in?: Array<number> | null | undefined;
+  lt?: number | null | undefined;
+  lte?: number | null | undefined;
+  neq?: number | null | undefined;
+  nin?: Array<number> | null | undefined;
+};
+
+/** All set conditions must hold. Issues of archived projects are listed only with project eq/in or includeArchived. */
+export type IssueFilter = {
+  assignee?: UserComparator | null | undefined;
+  dueDate?: DateComparator | null | undefined;
+  hasChildren?: boolean | null | undefined;
+  includeArchived?: boolean | null | undefined;
+  parent?: IdComparator | null | undefined;
+  priority?: IntComparator | null | undefined;
+  project?: IdComparator | null | undefined;
+  /** Words of the title and description, each matched as a prefix; an identifier (KEY-N) also matches that issue. */
+  search?: string | null | undefined;
+  state?: IdComparator | null | undefined;
+  stateType?: StateTypeComparator | null | undefined;
+};
+
 export type Role =
   | 'ADMIN'
   | 'MEMBER'
@@ -30,6 +74,22 @@ export type StateType =
   | 'COMPLETED'
   | 'STARTED'
   | 'UNSTARTED';
+
+export type StateTypeComparator = {
+  eq?: StateType | null | undefined;
+  in?: Array<StateType> | null | undefined;
+  nin?: Array<StateType> | null | undefined;
+};
+
+/** isMe: true means assigned to the viewer, false means not assigned to the viewer. */
+export type UserComparator = {
+  eq?: string | number | null | undefined;
+  in?: Array<string | number> | null | undefined;
+  isMe?: boolean | null | undefined;
+  neq?: string | number | null | undefined;
+  nin?: Array<string | number> | null | undefined;
+  null?: boolean | null | undefined;
+};
 
 export type SetupStatusQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -142,6 +202,13 @@ export type ProjectQueryVariables = Exact<{
 
 export type ProjectQuery = { project: { id: string, key: string, name: string, description: string, icon: string | null, color: string | null, archivedAt: string | null, isMember: boolean, states: Array<{ id: string, name: string, type: StateType, color: string, position: number, isDefault: boolean }>, members: Array<{ id: string, name: string }> } };
 
+export type PickIssuesQueryVariables = Exact<{
+  filter?: IssueFilter | null | undefined;
+}>;
+
+
+export type PickIssuesQuery = { issues: { nodes: Array<{ id: string, identifier: string, title: string }> } };
+
 
 export const SetupStatusDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SetupStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"setupStatus"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"needed"}}]}}]}}]} as unknown as DocumentNode<SetupStatusQuery, SetupStatusQueryVariables>;
 export const ViewerDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Viewer"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"viewer"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"role"}}]}}]}}]} as unknown as DocumentNode<ViewerQuery, ViewerQueryVariables>;
@@ -160,3 +227,4 @@ export const CreateApiKeyDocument = {"kind":"Document","definitions":[{"kind":"O
 export const RevokeApiKeyDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RevokeApiKey"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"revokeApiKey"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<RevokeApiKeyMutation, RevokeApiKeyMutationVariables>;
 export const ProjectsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Projects"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"includeArchived"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projects"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"includeArchived"},"value":{"kind":"Variable","name":{"kind":"Name","value":"includeArchived"}}},{"kind":"Argument","name":{"kind":"Name","value":"first"},"value":{"kind":"IntValue","value":"250"}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"nodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"archivedAt"}},{"kind":"Field","name":{"kind":"Name","value":"isMember"}}]}}]}}]}}]} as unknown as DocumentNode<ProjectsQuery, ProjectsQueryVariables>;
 export const ProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Project"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"project"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"icon"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"archivedAt"}},{"kind":"Field","name":{"kind":"Name","value":"isMember"}},{"kind":"Field","name":{"kind":"Name","value":"states"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"type"}},{"kind":"Field","name":{"kind":"Name","value":"color"}},{"kind":"Field","name":{"kind":"Name","value":"position"}},{"kind":"Field","name":{"kind":"Name","value":"isDefault"}}]}},{"kind":"Field","name":{"kind":"Name","value":"members"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]}}]} as unknown as DocumentNode<ProjectQuery, ProjectQueryVariables>;
+export const PickIssuesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PickIssues"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filter"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"IssueFilter"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"issues"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filter"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filter"}}},{"kind":"Argument","name":{"kind":"Name","value":"first"},"value":{"kind":"IntValue","value":"20"}},{"kind":"Argument","name":{"kind":"Name","value":"orderBy"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"field"},"value":{"kind":"EnumValue","value":"UPDATED_AT"}},{"kind":"ObjectField","name":{"kind":"Name","value":"direction"},"value":{"kind":"EnumValue","value":"DESC"}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"nodes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}},{"kind":"Field","name":{"kind":"Name","value":"title"}}]}}]}}]}}]} as unknown as DocumentNode<PickIssuesQuery, PickIssuesQueryVariables>;

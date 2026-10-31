@@ -72,5 +72,15 @@
   },
   "pages": {
     "myIssues": "My issues"
+  },
+  "pickers": {
+    "state": "Change state…",
+    "assignee": "Assign to…",
+    "priority": "Set priority…",
+    "project": "Move to project…",
+    "issue": "Search issues…",
+    "me": "Me",
+    "noAssignee": "No assignee",
+    "noResults": "No results"
   }
 }

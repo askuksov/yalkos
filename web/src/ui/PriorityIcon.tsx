@@ -3,13 +3,20 @@ import { useTranslation } from 'react-i18next'
 import { priorityKey } from './priority'
 
 /** none — a dash; low/medium/high — 1/2/3 bars; urgent — a filled square with "!". */
-export function PriorityIcon({ priority, size = 14 }: { priority: number; size?: number }) {
+export function PriorityIcon({ priority, size = 14, decorative }: { priority: number; size?: number; decorative?: boolean }) {
   const { t } = useTranslation()
   const label = t(`priority.${priorityKey(priority)}`)
   const bars = priority === 2 ? 3 : priority === 3 ? 2 : priority === 4 ? 1 : 0
   return (
-    <svg width={size} height={size} viewBox="0 0 14 14" role="img" aria-label={label} data-priority={priority} style={{ flex: 'none' }}>
-      <title>{label}</title>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 14 14"
+      data-priority={priority}
+      style={{ flex: 'none' }}
+      {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label })}
+    >
+      {!decorative && <title>{label}</title>}
       {priority === 0 && <path d="M3 7 H11" stroke="var(--fg-muted)" strokeWidth="1.5" strokeLinecap="round" />}
       {priority === 1 && (
         <>
