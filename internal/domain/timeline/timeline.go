@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/page"
@@ -75,4 +76,17 @@ func List(ctx context.Context, db *q.Queries, issueID uuid.UUID, a page.Args) (p
 		v, _ := json.Marshal(it.At)
 		return page.Encode(page.Cursor{F: cursorField, D: "asc", V: v, ID: it.ID})
 	}), nil
+}
+
+// Service reads timelines over a pool.
+type Service struct {
+	q *q.Queries
+}
+
+// New builds the service.
+func New(pool *pgxpool.Pool) *Service { return &Service{q: q.New(pool)} }
+
+// List returns one page of the issue's timeline.
+func (s *Service) List(ctx context.Context, issueID uuid.UUID, a page.Args) (page.Result[Item], error) {
+	return List(ctx, s.q, issueID, a)
 }

@@ -190,6 +190,14 @@ func jsonText(raw json.RawMessage) *string {
 	return &s
 }
 
+func historyEntryOut(e audit.Entry) *HistoryEntry {
+	changes := make([]FieldChange, 0, len(e.Changes))
+	for _, c := range e.Changes {
+		changes = append(changes, FieldChange{Field: c.Field, From: jsonText(c.From), To: jsonText(c.To)})
+	}
+	return &HistoryEntry{ID: e.ID.String(), Action: e.Action, Changes: changes, CreatedAt: e.At, actorID: e.ActorID}
+}
+
 func historyOut(res page.Result[audit.Entry]) *HistoryConnection {
 	conn := &HistoryConnection{
 		Nodes:    make([]HistoryEntry, 0, len(res.Items)),
@@ -197,11 +205,7 @@ func historyOut(res page.Result[audit.Entry]) *HistoryConnection {
 		PageInfo: pageInfoOut(res.Info),
 	}
 	for n, e := range res.Items {
-		changes := make([]FieldChange, 0, len(e.Changes))
-		for _, c := range e.Changes {
-			changes = append(changes, FieldChange{Field: c.Field, From: jsonText(c.From), To: jsonText(c.To)})
-		}
-		node := &HistoryEntry{ID: e.ID.String(), Action: e.Action, Changes: changes, CreatedAt: e.At, actorID: e.ActorID}
+		node := historyEntryOut(e)
 		conn.Nodes = append(conn.Nodes, *node)
 		conn.Edges = append(conn.Edges, HistoryEdge{Node: node, Cursor: res.Cursors[n]})
 	}

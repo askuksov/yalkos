@@ -9,6 +9,7 @@ import (
 	"github.com/vikstrous/dataloadgen"
 
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
@@ -36,6 +37,9 @@ type loaders struct {
 	// By issue id: its sorted label ids.
 	issueLabels *dataloadgen.Loader[uuid.UUID, []uuid.UUID]
 	labels      *lazyLabels
+	// By issue id: number of comments and the attachments.
+	commentCounts    *dataloadgen.Loader[uuid.UUID, int]
+	issueAttachments *dataloadgen.Loader[uuid.UUID, []attachment.Attachment]
 }
 
 type loadersKey struct{}
@@ -78,6 +82,8 @@ func newLoaders(d Deps) *loaders {
 		milestoneProgress: dataloadgen.NewLoader(mapped(d.Milestones.Progress), opt),
 		issueLabels:       dataloadgen.NewLoader(grouped(d.Issues.LabelIDs), opt),
 		labels:            &lazyLabels{load: loadLabelIndex(d.Labels)},
+		commentCounts:     dataloadgen.NewLoader(mapped(d.Comments.Counts), opt),
+		issueAttachments:  dataloadgen.NewLoader(grouped(d.Attachments.ByIssues), opt),
 	}
 }
 

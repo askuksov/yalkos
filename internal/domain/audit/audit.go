@@ -181,3 +181,26 @@ func DeleteProject(ctx context.Context, tx *q.Queries, projectID uuid.UUID) erro
 	}
 	return nil
 }
+
+// ByIDs loads events in the order of ids; missing ones are omitted.
+func (s *Service) ByIDs(ctx context.Context, ids []uuid.UUID) ([]Entry, error) {
+	rows, err := s.q.ListAuditEventsByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("audit: by ids: %w", err)
+	}
+	byID := make(map[uuid.UUID]Entry, len(rows))
+	for _, r := range rows {
+		e, err := toEntry(r)
+		if err != nil {
+			return nil, err
+		}
+		byID[r.ID] = e
+	}
+	out := make([]Entry, 0, len(ids))
+	for _, id := range ids {
+		if e, ok := byID[id]; ok {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}

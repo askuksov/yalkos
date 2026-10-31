@@ -366,7 +366,7 @@ func tracedServer(t *testing.T) (server, *counter) {
 	if err := svc.RefreshSetupCode(ctx); err != nil {
 		t.Fatal(err)
 	}
-	h := native.NewHandler(testDeps(pool, svc))
+	h := native.NewHandler(testDeps(t, pool, svc))
 	return server{url: newHTTPServer(t, authn.Middleware(svc, base, quiet)(h)), svc: svc, pool: pool}, queries
 }
 
@@ -424,6 +424,10 @@ func TestIssueListQueryCount(t *testing.T) {
 		milestone { id name status progress { completed total } }`); n > 10 {
 		t.Fatalf("issue list with labels and milestone ran %d SQL statements, want ≤ 10", n)
 	}
+	// Comment counts and attachments batch per page.
+	if n := countList(t, owner, queries, `id commentCount attachments { id name url uploader { id } }`); n > 8 {
+		t.Fatalf("issue list with comment counts and attachments ran %d SQL statements, want ≤ 8", n)
+	}
 }
 
 // Connections cost their page size times their selection, so nested lists
@@ -445,6 +449,8 @@ func TestQueryCostByPageSize(t *testing.T) {
 		"milestone issues per item": `{ issues(first: 250) { nodes { milestone { issues(first: 250) { nodes { id } } } } } }`,
 		"milestones per project":    `{ projects(first: 250) { nodes { milestones { issues(first: 50) { nodes { id } } } } } }`,
 		"labels per label":          `{ labels { children { children { children { id name color description } } } } }`,
+		"timeline per item":         `{ issues(first: 250) { nodes { timeline(first: 250) { nodes { __typename } } } } }`,
+		"comments per item":         `{ issues(first: 100) { nodes { comments(first: 250) { nodes { id body } } } } }`,
 	}
 	for name, q := range rejected {
 		if r := owner.do(q, nil); r.code() != "COMPLEXITY_LIMIT_EXCEEDED" {
@@ -469,6 +475,9 @@ func TestQueryCostByPageSize(t *testing.T) {
 			nodes { id identifier title type { id name color } labels { id name color } state { id name type } } } } }`,
 		"labels settings": `{ labels { id name color description isGroup exclusive position children { id name color description position parent { id } } }
 			labelSettings { typeGroup { id } defaultType { id } } }`,
+		"issue page timeline": `{ issue(id: "YLK-1") { commentCount attachments { id name size contentType url inline createdAt uploader { id name } }
+			timeline(last: 50) { nodes { __typename ... on Comment { id body createdAt editedAt author { id name } }
+			... on HistoryEntry { id action createdAt actor { id name } changes { field from to } } } pageInfo { hasPreviousPage startCursor } } } }`,
 		"board page with labels": `{ issues(first: 250) { nodes { id identifier title type { id name color } labels { id name color }
 			milestone { id name } } } }`,
 	}

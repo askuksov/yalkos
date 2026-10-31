@@ -28,6 +28,8 @@ func NewExecutableSchema(cfg Config) graphql.ExecutableSchema {
 type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
 type ResolverRoot interface {
+	Attachment() AttachmentResolver
+	Comment() CommentResolver
 	HistoryEntry() HistoryEntryResolver
 	Issue() IssueResolver
 	IssueConnection() IssueConnectionResolver
@@ -50,6 +52,38 @@ type ComplexityRoot struct {
 		ID            func(childComplexity int) int
 		LastUsedAt    func(childComplexity int) int
 		Name          func(childComplexity int) int
+	}
+
+	Attachment struct {
+		ContentType func(childComplexity int) int
+		CreatedAt   func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Inline      func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Size        func(childComplexity int) int
+		URL         func(childComplexity int) int
+		Uploader    func(childComplexity int) int
+	}
+
+	Comment struct {
+		Author    func(childComplexity int) int
+		Body      func(childComplexity int) int
+		CreatedAt func(childComplexity int) int
+		EditedAt  func(childComplexity int) int
+		ID        func(childComplexity int) int
+		Issue     func(childComplexity int) int
+		UpdatedAt func(childComplexity int) int
+	}
+
+	CommentConnection struct {
+		Edges    func(childComplexity int) int
+		Nodes    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	CommentEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	CreatedApiKey struct {
@@ -96,8 +130,11 @@ type ComplexityRoot struct {
 
 	Issue struct {
 		Assignee         func(childComplexity int) int
+		Attachments      func(childComplexity int) int
 		CanceledAt       func(childComplexity int) int
 		Children         func(childComplexity int, first *int, after *string, last *int, before *string, orderBy *IssueOrder) int
+		CommentCount     func(childComplexity int) int
+		Comments         func(childComplexity int, first *int, after *string, last *int, before *string) int
 		CompletedAt      func(childComplexity int) int
 		CreatedAt        func(childComplexity int) int
 		Creator          func(childComplexity int) int
@@ -115,6 +152,7 @@ type ComplexityRoot struct {
 		SortOrder        func(childComplexity int) int
 		State            func(childComplexity int) int
 		SubIssueProgress func(childComplexity int) int
+		Timeline         func(childComplexity int, first *int, after *string, last *int, before *string) int
 		Title            func(childComplexity int) int
 		Type             func(childComplexity int) int
 		UpdatedAt        func(childComplexity int) int
@@ -149,6 +187,10 @@ type ComplexityRoot struct {
 		TypeGroup   func(childComplexity int) int
 	}
 
+	Limits struct {
+		MaxUploadMb func(childComplexity int) int
+	}
+
 	Milestone struct {
 		CreatedAt       func(childComplexity int) int
 		CreatedBy       func(childComplexity int) int
@@ -172,12 +214,15 @@ type ComplexityRoot struct {
 		ArchiveProject      func(childComplexity int, id string) int
 		ChangePassword      func(childComplexity int, current string, next string) int
 		CreateAPIKey        func(childComplexity int, name string) int
+		CreateComment       func(childComplexity int, issueID string, body string, attachmentIds []string) int
 		CreateInvite        func(childComplexity int, role Role, expiresInDays *int) int
 		CreateIssue         func(childComplexity int, input CreateIssueInput) int
 		CreateLabel         func(childComplexity int, input CreateLabelInput) int
 		CreateMilestone     func(childComplexity int, projectID string, input CreateMilestoneInput) int
 		CreateProject       func(childComplexity int, input CreateProjectInput) int
 		CreateState         func(childComplexity int, projectID string, input CreateStateInput) int
+		DeleteAttachment    func(childComplexity int, id string) int
+		DeleteComment       func(childComplexity int, id string) int
 		DeleteIssue         func(childComplexity int, id string) int
 		DeleteLabel         func(childComplexity int, id string) int
 		DeleteMilestone     func(childComplexity int, id string) int
@@ -195,6 +240,7 @@ type ComplexityRoot struct {
 		SetMemberDisabled   func(childComplexity int, userID string, disabled bool) int
 		Setup               func(childComplexity int, input SetupInput) int
 		UnarchiveProject    func(childComplexity int, id string) int
+		UpdateComment       func(childComplexity int, id string, body string) int
 		UpdateIssue         func(childComplexity int, id string, input UpdateIssueInput) int
 		UpdateLabel         func(childComplexity int, id string, input UpdateLabelInput) int
 		UpdateMemberRole    func(childComplexity int, userID string, role Role) int
@@ -249,6 +295,7 @@ type ComplexityRoot struct {
 		Issues        func(childComplexity int, filter *IssueFilter, orderBy *IssueOrder, first *int, after *string, last *int, before *string) int
 		LabelSettings func(childComplexity int) int
 		Labels        func(childComplexity int) int
+		Limits        func(childComplexity int) int
 		Members       func(childComplexity int) int
 		Milestone     func(childComplexity int, id string) int
 		Project       func(childComplexity int, id string) int
@@ -271,6 +318,17 @@ type ComplexityRoot struct {
 		Type      func(childComplexity int) int
 	}
 
+	TimelineConnection struct {
+		Edges    func(childComplexity int) int
+		Nodes    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	TimelineEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
 	User struct {
 		CreatedAt func(childComplexity int) int
 		Disabled  func(childComplexity int) int
@@ -285,6 +343,14 @@ type ComplexityRoot struct {
 
 // region    ************************** generated!.gotpl **************************
 
+type AttachmentResolver interface {
+	Uploader(ctx context.Context, obj *Attachment) (*User, error)
+}
+type CommentResolver interface {
+	Author(ctx context.Context, obj *Comment) (*User, error)
+
+	Issue(ctx context.Context, obj *Comment) (*Issue, error)
+}
 type HistoryEntryResolver interface {
 	Actor(ctx context.Context, obj *HistoryEntry) (*User, error)
 }
@@ -299,6 +365,10 @@ type IssueResolver interface {
 	SubIssueProgress(ctx context.Context, obj *Issue) (*Progress, error)
 
 	History(ctx context.Context, obj *Issue, first *int, after *string, last *int, before *string) (*HistoryConnection, error)
+	Attachments(ctx context.Context, obj *Issue) ([]Attachment, error)
+	Comments(ctx context.Context, obj *Issue, first *int, after *string, last *int, before *string) (*CommentConnection, error)
+	CommentCount(ctx context.Context, obj *Issue) (int, error)
+	Timeline(ctx context.Context, obj *Issue, first *int, after *string, last *int, before *string) (*TimelineConnection, error)
 	Labels(ctx context.Context, obj *Issue) ([]Label, error)
 	Type(ctx context.Context, obj *Issue) (*Label, error)
 	Milestone(ctx context.Context, obj *Issue) (*Milestone, error)
@@ -337,6 +407,10 @@ type MutationResolver interface {
 	SetMemberDisabled(ctx context.Context, userID string, disabled bool) (*User, error)
 	CreateAPIKey(ctx context.Context, name string) (*CreatedAPIKey, error)
 	RevokeAPIKey(ctx context.Context, id string) (bool, error)
+	DeleteAttachment(ctx context.Context, id string) (bool, error)
+	CreateComment(ctx context.Context, issueID string, body string, attachmentIds []string) (*Comment, error)
+	UpdateComment(ctx context.Context, id string, body string) (*Comment, error)
+	DeleteComment(ctx context.Context, id string) (bool, error)
 	CreateIssue(ctx context.Context, input CreateIssueInput) (*Issue, error)
 	UpdateIssue(ctx context.Context, id string, input UpdateIssueInput) (*Issue, error)
 	MoveIssue(ctx context.Context, id string, projectID string, stateID *string) (*Issue, error)
@@ -373,6 +447,7 @@ type QueryResolver interface {
 	Members(ctx context.Context) ([]User, error)
 	Invites(ctx context.Context) ([]Invite, error)
 	APIKeys(ctx context.Context) ([]APIKey, error)
+	Limits(ctx context.Context) (*Limits, error)
 	Issue(ctx context.Context, id string) (*Issue, error)
 	Issues(ctx context.Context, filter *IssueFilter, orderBy *IssueOrder, first *int, after *string, last *int, before *string) (*IssueConnection, error)
 	Labels(ctx context.Context) ([]Label, error)
@@ -433,6 +508,130 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ApiKey.Name(childComplexity), true
+
+	case "Attachment.contentType":
+		if e.ComplexityRoot.Attachment.ContentType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Attachment.ContentType(childComplexity), true
+	case "Attachment.createdAt":
+		if e.ComplexityRoot.Attachment.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Attachment.CreatedAt(childComplexity), true
+	case "Attachment.id":
+		if e.ComplexityRoot.Attachment.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Attachment.ID(childComplexity), true
+	case "Attachment.inline":
+		if e.ComplexityRoot.Attachment.Inline == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Attachment.Inline(childComplexity), true
+	case "Attachment.name":
+		if e.ComplexityRoot.Attachment.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Attachment.Name(childComplexity), true
+	case "Attachment.size":
+		if e.ComplexityRoot.Attachment.Size == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Attachment.Size(childComplexity), true
+	case "Attachment.url":
+		if e.ComplexityRoot.Attachment.URL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Attachment.URL(childComplexity), true
+	case "Attachment.uploader":
+		if e.ComplexityRoot.Attachment.Uploader == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Attachment.Uploader(childComplexity), true
+
+	case "Comment.author":
+		if e.ComplexityRoot.Comment.Author == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Comment.Author(childComplexity), true
+	case "Comment.body":
+		if e.ComplexityRoot.Comment.Body == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Comment.Body(childComplexity), true
+	case "Comment.createdAt":
+		if e.ComplexityRoot.Comment.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Comment.CreatedAt(childComplexity), true
+	case "Comment.editedAt":
+		if e.ComplexityRoot.Comment.EditedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Comment.EditedAt(childComplexity), true
+	case "Comment.id":
+		if e.ComplexityRoot.Comment.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Comment.ID(childComplexity), true
+	case "Comment.issue":
+		if e.ComplexityRoot.Comment.Issue == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Comment.Issue(childComplexity), true
+	case "Comment.updatedAt":
+		if e.ComplexityRoot.Comment.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Comment.UpdatedAt(childComplexity), true
+
+	case "CommentConnection.edges":
+		if e.ComplexityRoot.CommentConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CommentConnection.Edges(childComplexity), true
+	case "CommentConnection.nodes":
+		if e.ComplexityRoot.CommentConnection.Nodes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CommentConnection.Nodes(childComplexity), true
+	case "CommentConnection.pageInfo":
+		if e.ComplexityRoot.CommentConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CommentConnection.PageInfo(childComplexity), true
+
+	case "CommentEdge.cursor":
+		if e.ComplexityRoot.CommentEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CommentEdge.Cursor(childComplexity), true
+	case "CommentEdge.node":
+		if e.ComplexityRoot.CommentEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CommentEdge.Node(childComplexity), true
 
 	case "CreatedApiKey.apiKey":
 		if e.ComplexityRoot.CreatedApiKey.APIKey == nil {
@@ -573,6 +772,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.Assignee(childComplexity), true
+	case "Issue.attachments":
+		if e.ComplexityRoot.Issue.Attachments == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.Attachments(childComplexity), true
 	case "Issue.canceledAt":
 		if e.ComplexityRoot.Issue.CanceledAt == nil {
 			break
@@ -590,6 +795,23 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.Children(childComplexity, args["first"].(*int), args["after"].(*string), args["last"].(*int), args["before"].(*string), args["orderBy"].(*IssueOrder)), true
+	case "Issue.commentCount":
+		if e.ComplexityRoot.Issue.CommentCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Issue.CommentCount(childComplexity), true
+	case "Issue.comments":
+		if e.ComplexityRoot.Issue.Comments == nil {
+			break
+		}
+
+		args, err := ec.field_Issue_comments_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Issue.Comments(childComplexity, args["first"].(*int), args["after"].(*string), args["last"].(*int), args["before"].(*string)), true
 	case "Issue.completedAt":
 		if e.ComplexityRoot.Issue.CompletedAt == nil {
 			break
@@ -697,6 +919,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.SubIssueProgress(childComplexity), true
+	case "Issue.timeline":
+		if e.ComplexityRoot.Issue.Timeline == nil {
+			break
+		}
+
+		args, err := ec.field_Issue_timeline_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Issue.Timeline(childComplexity, args["first"].(*int), args["after"].(*string), args["last"].(*int), args["before"].(*string)), true
 	case "Issue.title":
 		if e.ComplexityRoot.Issue.Title == nil {
 			break
@@ -821,6 +1054,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.LabelSettings.TypeGroup(childComplexity), true
+
+	case "Limits.maxUploadMb":
+		if e.ComplexityRoot.Limits.MaxUploadMb == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Limits.MaxUploadMb(childComplexity), true
 
 	case "Milestone.createdAt":
 		if e.ComplexityRoot.Milestone.CreatedAt == nil {
@@ -967,6 +1207,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreateAPIKey(childComplexity, args["name"].(string)), true
+	case "Mutation.createComment":
+		if e.ComplexityRoot.Mutation.CreateComment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createComment_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateComment(childComplexity, args["issueId"].(string), args["body"].(string), args["attachmentIds"].([]string)), true
 	case "Mutation.createInvite":
 		if e.ComplexityRoot.Mutation.CreateInvite == nil {
 			break
@@ -1033,6 +1284,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreateState(childComplexity, args["projectId"].(string), args["input"].(CreateStateInput)), true
+	case "Mutation.deleteAttachment":
+		if e.ComplexityRoot.Mutation.DeleteAttachment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteAttachment_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteAttachment(childComplexity, args["id"].(string)), true
+	case "Mutation.deleteComment":
+		if e.ComplexityRoot.Mutation.DeleteComment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteComment_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteComment(childComplexity, args["id"].(string)), true
 	case "Mutation.deleteIssue":
 		if e.ComplexityRoot.Mutation.DeleteIssue == nil {
 			break
@@ -1215,6 +1488,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UnarchiveProject(childComplexity, args["id"].(string)), true
+	case "Mutation.updateComment":
+		if e.ComplexityRoot.Mutation.UpdateComment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateComment_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateComment(childComplexity, args["id"].(string), args["body"].(string)), true
 	case "Mutation.updateIssue":
 		if e.ComplexityRoot.Mutation.UpdateIssue == nil {
 			break
@@ -1483,6 +1767,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Labels(childComplexity), true
+	case "Query.limits":
+		if e.ComplexityRoot.Query.Limits == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.Limits(childComplexity), true
 	case "Query.members":
 		if e.ComplexityRoot.Query.Members == nil {
 			break
@@ -1584,6 +1874,38 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.State.Type(childComplexity), true
+
+	case "TimelineConnection.edges":
+		if e.ComplexityRoot.TimelineConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TimelineConnection.Edges(childComplexity), true
+	case "TimelineConnection.nodes":
+		if e.ComplexityRoot.TimelineConnection.Nodes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TimelineConnection.Nodes(childComplexity), true
+	case "TimelineConnection.pageInfo":
+		if e.ComplexityRoot.TimelineConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TimelineConnection.PageInfo(childComplexity), true
+
+	case "TimelineEdge.cursor":
+		if e.ComplexityRoot.TimelineEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TimelineEdge.Cursor(childComplexity), true
+	case "TimelineEdge.node":
+		if e.ComplexityRoot.TimelineEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TimelineEdge.Node(childComplexity), true
 
 	case "User.createdAt":
 		if e.ComplexityRoot.User.CreatedAt == nil {
@@ -1728,6 +2050,97 @@ func newExecutionContext(
 }
 
 var sources = []*ast.Source{
+	{Name: "../../../api/graphql/native/attachments.graphqls", Input: `# Files on issues. Upload: POST /api/attachments (multipart: optional issueId, then file);
+# download: GET /api/attachments/{id}/{name}, both with a session or an API key.
+
+type Attachment {
+  id: ID!
+  name: String!
+  "Bytes."
+  size: Int!
+  "Detected from the content."
+  contentType: String!
+  "Relative download URL."
+  url: String!
+  "Shown in the browser (raster images, PDF) rather than downloaded."
+  inline: Boolean!
+  uploader: User!
+  createdAt: Time!
+}
+
+type Limits {
+  maxUploadMb: Int!
+}
+
+extend type Issue {
+  "Oldest first."
+  attachments: [Attachment!]!
+}
+
+extend type Query {
+  limits: Limits!
+}
+
+extend type Mutation {
+  "The uploader, Owner or Admin."
+  deleteAttachment(id: ID!): Boolean!
+}
+`, BuiltIn: false},
+	{Name: "../../../api/graphql/native/comments.graphqls", Input: `# Flat Markdown comments and the issue timeline (comments and changes by time).
+
+type Comment {
+  id: ID!
+  "Markdown."
+  body: String!
+  author: User!
+  createdAt: Time!
+  updatedAt: Time!
+  "Set once the author changes the text."
+  editedAt: Time
+  issue: Issue!
+}
+
+type CommentEdge {
+  node: Comment!
+  cursor: String!
+}
+
+type CommentConnection {
+  nodes: [Comment!]!
+  edges: [CommentEdge!]!
+  pageInfo: PageInfo!
+}
+
+union TimelineItem = Comment | HistoryEntry
+
+type TimelineEdge {
+  node: TimelineItem!
+  cursor: String!
+}
+
+type TimelineConnection {
+  nodes: [TimelineItem!]!
+  edges: [TimelineEdge!]!
+  pageInfo: PageInfo!
+}
+
+extend type Issue {
+  "Oldest first."
+  comments(first: Int, after: String, last: Int, before: String): CommentConnection!
+  commentCount: Int!
+  "Comments and change events, oldest first."
+  timeline(first: Int, after: String, last: Int, before: String): TimelineConnection!
+}
+
+extend type Mutation {
+  "attachmentIds: the author's pending uploads to attach (uploads linked in the body are attached too)."
+  createComment(issueId: ID!, body: String!, attachmentIds: [ID!]): Comment!
+  "The author only."
+  updateComment(id: ID!, body: String!): Comment!
+  "The author, Owner or Admin; the text is gone for good."
+  deleteComment(id: ID!): Boolean!
+}
+`, BuiltIn: false},
 	{Name: "../../../api/graphql/native/issues.graphqls", Input: `# Issues, sub-issues, filters and change history.
 
 enum IssueOrderField {
@@ -2325,6 +2738,70 @@ func (ec *executionContext) childFields_ApiKey(ctx context.Context, field graphq
 	return nil, fmt.Errorf("no field named %q was found under type ApiKey", field.Name)
 }
 
+func (ec *executionContext) childFields_Attachment(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Attachment_id(ctx, field)
+	case "name":
+		return ec.fieldContext_Attachment_name(ctx, field)
+	case "size":
+		return ec.fieldContext_Attachment_size(ctx, field)
+	case "contentType":
+		return ec.fieldContext_Attachment_contentType(ctx, field)
+	case "url":
+		return ec.fieldContext_Attachment_url(ctx, field)
+	case "inline":
+		return ec.fieldContext_Attachment_inline(ctx, field)
+	case "uploader":
+		return ec.fieldContext_Attachment_uploader(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Attachment_createdAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Attachment", field.Name)
+}
+
+func (ec *executionContext) childFields_Comment(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Comment_id(ctx, field)
+	case "body":
+		return ec.fieldContext_Comment_body(ctx, field)
+	case "author":
+		return ec.fieldContext_Comment_author(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Comment_createdAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Comment_updatedAt(ctx, field)
+	case "editedAt":
+		return ec.fieldContext_Comment_editedAt(ctx, field)
+	case "issue":
+		return ec.fieldContext_Comment_issue(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Comment", field.Name)
+}
+
+func (ec *executionContext) childFields_CommentConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "nodes":
+		return ec.fieldContext_CommentConnection_nodes(ctx, field)
+	case "edges":
+		return ec.fieldContext_CommentConnection_edges(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_CommentConnection_pageInfo(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CommentConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_CommentEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "node":
+		return ec.fieldContext_CommentEdge_node(ctx, field)
+	case "cursor":
+		return ec.fieldContext_CommentEdge_cursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CommentEdge", field.Name)
+}
+
 func (ec *executionContext) childFields_CreatedApiKey(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "apiKey":
@@ -2451,6 +2928,14 @@ func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql
 		return ec.fieldContext_Issue_canceledAt(ctx, field)
 	case "history":
 		return ec.fieldContext_Issue_history(ctx, field)
+	case "attachments":
+		return ec.fieldContext_Issue_attachments(ctx, field)
+	case "comments":
+		return ec.fieldContext_Issue_comments(ctx, field)
+	case "commentCount":
+		return ec.fieldContext_Issue_commentCount(ctx, field)
+	case "timeline":
+		return ec.fieldContext_Issue_timeline(ctx, field)
 	case "labels":
 		return ec.fieldContext_Issue_labels(ctx, field)
 	case "type":
@@ -2517,6 +3002,14 @@ func (ec *executionContext) childFields_LabelSettings(ctx context.Context, field
 		return ec.fieldContext_LabelSettings_defaultType(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type LabelSettings", field.Name)
+}
+
+func (ec *executionContext) childFields_Limits(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "maxUploadMb":
+		return ec.fieldContext_Limits_maxUploadMb(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Limits", field.Name)
 }
 
 func (ec *executionContext) childFields_Milestone(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2657,6 +3150,28 @@ func (ec *executionContext) childFields_State(ctx context.Context, field graphql
 		return ec.fieldContext_State_project(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type State", field.Name)
+}
+
+func (ec *executionContext) childFields_TimelineConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "nodes":
+		return ec.fieldContext_TimelineConnection_nodes(ctx, field)
+	case "edges":
+		return ec.fieldContext_TimelineConnection_edges(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_TimelineConnection_pageInfo(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TimelineConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_TimelineEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "node":
+		return ec.fieldContext_TimelineEdge_node(ctx, field)
+	case "cursor":
+		return ec.fieldContext_TimelineEdge_cursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TimelineEdge", field.Name)
 }
 
 func (ec *executionContext) childFields_User(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2839,7 +3354,83 @@ func (ec *executionContext) field_Issue_children_args(ctx context.Context, rawAr
 	return args, nil
 }
 
+func (ec *executionContext) field_Issue_comments_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg3
+	return args, nil
+}
+
 func (ec *executionContext) field_Issue_history_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg3
+	return args, nil
+}
+
+func (ec *executionContext) field_Issue_timeline_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "first",
@@ -3017,6 +3608,36 @@ func (ec *executionContext) field_Mutation_createApiKey_args(ctx context.Context
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createComment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "issueId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["issueId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "body",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["body"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "attachmentIds",
+		func(ctx context.Context, v any) ([]string, error) {
+			return ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["attachmentIds"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createInvite_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -3122,6 +3743,34 @@ func (ec *executionContext) field_Mutation_createState_args(ctx context.Context,
 		return nil, err
 	}
 	args["input"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteAttachment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteComment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -3418,6 +4067,28 @@ func (ec *executionContext) field_Mutation_unarchiveProject_args(ctx context.Con
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateComment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "body",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["body"] = arg1
 	return args, nil
 }
 
@@ -3910,6 +4581,529 @@ func (ec *executionContext) _ApiKey_lastUsedAt(ctx context.Context, field graphq
 }
 func (ec *executionContext) fieldContext_ApiKey_lastUsedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ApiKey", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Attachment_id(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Attachment_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Attachment_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Attachment", field, false, false, "ID")
+}
+
+func (ec *executionContext) _Attachment_name(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Attachment_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Attachment_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Attachment", field, false, false, "String")
+}
+
+func (ec *executionContext) _Attachment_size(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Attachment_size(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Size, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Attachment_size(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Attachment", field, false, false, "Int")
+}
+
+func (ec *executionContext) _Attachment_contentType(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Attachment_contentType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ContentType, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Attachment_contentType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Attachment", field, false, false, "String")
+}
+
+func (ec *executionContext) _Attachment_url(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Attachment_url(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.URL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Attachment_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Attachment", field, false, false, "String")
+}
+
+func (ec *executionContext) _Attachment_inline(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Attachment_inline(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Inline, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Attachment_inline(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Attachment", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Attachment_uploader(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Attachment_uploader(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Attachment().Uploader(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalNUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUser(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Attachment_uploader(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Attachment",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Attachment_createdAt(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Attachment_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Attachment_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Attachment", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Comment_id(ctx context.Context, field graphql.CollectedField, obj *Comment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Comment_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Comment_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Comment", field, false, false, "ID")
+}
+
+func (ec *executionContext) _Comment_body(ctx context.Context, field graphql.CollectedField, obj *Comment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Comment_body(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Body, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Comment_body(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Comment", field, false, false, "String")
+}
+
+func (ec *executionContext) _Comment_author(ctx context.Context, field graphql.CollectedField, obj *Comment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Comment_author(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Comment().Author(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalNUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUser(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Comment_author(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Comment",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Comment_createdAt(ctx context.Context, field graphql.CollectedField, obj *Comment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Comment_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Comment_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Comment", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Comment_updatedAt(ctx context.Context, field graphql.CollectedField, obj *Comment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Comment_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Comment_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Comment", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Comment_editedAt(ctx context.Context, field graphql.CollectedField, obj *Comment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Comment_editedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EditedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Comment_editedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Comment", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Comment_issue(ctx context.Context, field graphql.CollectedField, obj *Comment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Comment_issue(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Comment().Issue(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Issue) graphql.Marshaler {
+			return ec.marshalNIssue2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐIssue(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Comment_issue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Comment",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Issue(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *CommentConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CommentConnection_nodes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Comment) graphql.Marshaler {
+			return ec.marshalNComment2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCommentᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CommentConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Comment(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentConnection_edges(ctx context.Context, field graphql.CollectedField, obj *CommentConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CommentConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []CommentEdge) graphql.Marshaler {
+			return ec.marshalNCommentEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCommentEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CommentConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CommentEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *CommentConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CommentConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CommentConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentEdge_node(ctx context.Context, field graphql.CollectedField, obj *CommentEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CommentEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Comment) graphql.Marshaler {
+			return ec.marshalNComment2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐComment(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CommentEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CommentEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Comment(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CommentEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *CommentEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CommentEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CommentEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CommentEdge", field, false, false, "String")
 }
 
 func (ec *executionContext) _CreatedApiKey_apiKey(ctx context.Context, field graphql.CollectedField, obj *CreatedAPIKey) (ret graphql.Marshaler) {
@@ -5023,6 +6217,149 @@ func (ec *executionContext) fieldContext_Issue_history(ctx context.Context, fiel
 	return fc, nil
 }
 
+func (ec *executionContext) _Issue_attachments(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_attachments(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Issue().Attachments(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Attachment) graphql.Marshaler {
+			return ec.marshalNAttachment2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐAttachmentᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_attachments(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Issue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Attachment(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Issue_comments(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_comments(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Issue().Comments(ctx, obj, fc.Args["first"].(*int), fc.Args["after"].(*string), fc.Args["last"].(*int), fc.Args["before"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *CommentConnection) graphql.Marshaler {
+			return ec.marshalNCommentConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCommentConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_comments(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Issue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CommentConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Issue_comments_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Issue_commentCount(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_commentCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Issue().CommentCount(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_commentCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Issue", field, true, true, "Int")
+}
+
+func (ec *executionContext) _Issue_timeline(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Issue_timeline(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Issue().Timeline(ctx, obj, fc.Args["first"].(*int), fc.Args["after"].(*string), fc.Args["last"].(*int), fc.Args["before"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TimelineConnection) graphql.Marshaler {
+			return ec.marshalNTimelineConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Issue_timeline(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Issue",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TimelineConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Issue_timeline_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Issue_labels(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5580,6 +6917,29 @@ func (ec *executionContext) fieldContext_LabelSettings_defaultType(_ context.Con
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Limits_maxUploadMb(ctx context.Context, field graphql.CollectedField, obj *Limits) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Limits_maxUploadMb(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MaxUploadMb, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Limits_maxUploadMb(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Limits", field, false, false, "Int")
 }
 
 func (ec *executionContext) _Milestone_id(ctx context.Context, field graphql.CollectedField, obj *Milestone) (ret graphql.Marshaler) {
@@ -6418,6 +7778,182 @@ func (ec *executionContext) fieldContext_Mutation_revokeApiKey(ctx context.Conte
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_revokeApiKey_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteAttachment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteAttachment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteAttachment(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteAttachment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteAttachment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createComment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createComment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateComment(ctx, fc.Args["issueId"].(string), fc.Args["body"].(string), fc.Args["attachmentIds"].([]string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Comment) graphql.Marshaler {
+			return ec.marshalNComment2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐComment(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createComment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Comment(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createComment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateComment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateComment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateComment(ctx, fc.Args["id"].(string), fc.Args["body"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Comment) graphql.Marshaler {
+			return ec.marshalNComment2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐComment(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateComment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Comment(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateComment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteComment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteComment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteComment(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteComment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteComment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -8223,6 +9759,38 @@ func (ec *executionContext) fieldContext_Query_apiKeys(_ context.Context, field 
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_limits(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_limits(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().Limits(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Limits) graphql.Marshaler {
+			return ec.marshalNLimits2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLimits(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_limits(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Limits(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_issue(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8774,6 +10342,139 @@ func (ec *executionContext) fieldContext_State_project(_ context.Context, field 
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _TimelineConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *TimelineConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TimelineConnection_nodes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []TimelineItem) graphql.Marshaler {
+			return ec.marshalNTimelineItem2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineItemᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TimelineConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TimelineConnection", field, false, false, "TimelineItem")
+}
+
+func (ec *executionContext) _TimelineConnection_edges(ctx context.Context, field graphql.CollectedField, obj *TimelineConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TimelineConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []TimelineEdge) graphql.Marshaler {
+			return ec.marshalNTimelineEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TimelineConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TimelineConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TimelineEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TimelineConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *TimelineConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TimelineConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TimelineConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TimelineConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TimelineEdge_node(ctx context.Context, field graphql.CollectedField, obj *TimelineEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TimelineEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v TimelineItem) graphql.Marshaler {
+			return ec.marshalNTimelineItem2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineItem(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TimelineEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TimelineEdge", field, false, false, "TimelineItem")
+}
+
+func (ec *executionContext) _TimelineEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *TimelineEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TimelineEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TimelineEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TimelineEdge", field, false, false, "String")
 }
 
 func (ec *executionContext) _User_id(ctx context.Context, field graphql.CollectedField, obj *User) (ret graphql.Marshaler) {
@@ -11563,6 +13264,33 @@ func UnmarshalUserComparator(ctx context.Context, raw any) (UserComparator, erro
 
 // region    ************************** interface.gotpl ***************************
 
+func (ec *executionContext) _TimelineItem(ctx context.Context, sel ast.SelectionSet, obj TimelineItem) graphql.Marshaler {
+	switch obj := (obj).(type) {
+	case nil:
+		return graphql.Null
+	case HistoryEntry:
+		return ec._HistoryEntry(ctx, sel, &obj)
+	case *HistoryEntry:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._HistoryEntry(ctx, sel, obj)
+	case Comment:
+		return ec._Comment(ctx, sel, &obj)
+	case *Comment:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Comment(ctx, sel, obj)
+	default:
+		if typedObj, ok := obj.(graphql.Marshaler); ok {
+			return typedObj
+		} else {
+			panic(fmt.Errorf("unexpected type %T; non-generated variants of TimelineItem must implement graphql.Marshaler", obj))
+		}
+	}
+}
+
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
@@ -11601,6 +13329,221 @@ func (ec *executionContext) _ApiKey(ctx context.Context, sel ast.SelectionSet, o
 		case "lastUsedAt":
 			out.Values[i] = ec._ApiKey_lastUsedAt(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var attachmentImplementors = []string{"Attachment"}
+
+func (ec *executionContext) _Attachment(ctx context.Context, sel ast.SelectionSet, obj *Attachment) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, attachmentImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Attachment")
+		case "id":
+			out.Values[i] = ec._Attachment_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "name":
+			out.Values[i] = ec._Attachment_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "size":
+			out.Values[i] = ec._Attachment_size(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "contentType":
+			out.Values[i] = ec._Attachment_contentType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "url":
+			out.Values[i] = ec._Attachment_url(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "inline":
+			out.Values[i] = ec._Attachment_inline(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "uploader":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Attachment_uploader(ctx, field, obj)
+				})
+		case "createdAt":
+			out.Values[i] = ec._Attachment_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var commentImplementors = []string{"Comment", "TimelineItem"}
+
+func (ec *executionContext) _Comment(ctx context.Context, sel ast.SelectionSet, obj *Comment) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, commentImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Comment")
+		case "id":
+			out.Values[i] = ec._Comment_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "body":
+			out.Values[i] = ec._Comment_body(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "author":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Comment_author(ctx, field, obj)
+				})
+		case "createdAt":
+			out.Values[i] = ec._Comment_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Comment_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "editedAt":
+			out.Values[i] = ec._Comment_editedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "issue":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Comment_issue(ctx, field, obj)
+				})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var commentConnectionImplementors = []string{"CommentConnection"}
+
+func (ec *executionContext) _CommentConnection(ctx context.Context, sel ast.SelectionSet, obj *CommentConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, commentConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CommentConnection")
+		case "nodes":
+			out.Values[i] = ec._CommentConnection_nodes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "edges":
+			out.Values[i] = ec._CommentConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._CommentConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var commentEdgeImplementors = []string{"CommentEdge"}
+
+func (ec *executionContext) _CommentEdge(ctx context.Context, sel ast.SelectionSet, obj *CommentEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, commentEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CommentEdge")
+		case "node":
+			out.Values[i] = ec._CommentEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._CommentEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
@@ -11820,7 +13763,7 @@ func (ec *executionContext) _HistoryEdge(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
-var historyEntryImplementors = []string{"HistoryEntry"}
+var historyEntryImplementors = []string{"HistoryEntry", "TimelineItem"}
 
 func (ec *executionContext) _HistoryEntry(ctx context.Context, sel ast.SelectionSet, obj *HistoryEntry) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, historyEntryImplementors)
@@ -12040,6 +13983,30 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Issue_history(ctx, field, obj)
+				})
+		case "attachments":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Issue_attachments(ctx, field, obj)
+				})
+		case "comments":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Issue_comments(ctx, field, obj)
+				})
+		case "commentCount":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Issue_commentCount(ctx, field, obj)
+				})
+		case "timeline":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Issue_timeline(ctx, field, obj)
 				})
 		case "labels":
 			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
@@ -12278,6 +14245,39 @@ func (ec *executionContext) _LabelSettings(ctx context.Context, sel ast.Selectio
 	return out
 }
 
+var limitsImplementors = []string{"Limits"}
+
+func (ec *executionContext) _Limits(ctx context.Context, sel ast.SelectionSet, obj *Limits) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, limitsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Limits")
+		case "maxUploadMb":
+			out.Values[i] = ec._Limits_maxUploadMb(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var milestoneImplementors = []string{"Milestone"}
 
 func (ec *executionContext) _Milestone(ctx context.Context, sel ast.SelectionSet, obj *Milestone) graphql.Marshaler {
@@ -12475,6 +14475,34 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "revokeApiKey":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_revokeApiKey(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteAttachment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteAttachment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createComment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createComment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateComment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateComment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteComment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteComment(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -12970,6 +14998,12 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_apiKeys(ctx, field)
 				})
+		case "limits":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_limits(ctx, field)
+				})
 		case "issue":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
 				true, true,
@@ -13123,6 +15157,87 @@ func (ec *executionContext) _State(ctx context.Context, sel ast.SelectionSet, ob
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._State_project(ctx, field, obj)
 				})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var timelineConnectionImplementors = []string{"TimelineConnection"}
+
+func (ec *executionContext) _TimelineConnection(ctx context.Context, sel ast.SelectionSet, obj *TimelineConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, timelineConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TimelineConnection")
+		case "nodes":
+			out.Values[i] = ec._TimelineConnection_nodes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "edges":
+			out.Values[i] = ec._TimelineConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._TimelineConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var timelineEdgeImplementors = []string{"TimelineEdge"}
+
+func (ec *executionContext) _TimelineEdge(ctx context.Context, sel ast.SelectionSet, obj *TimelineEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, timelineEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TimelineEdge")
+		case "node":
+			out.Values[i] = ec._TimelineEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._TimelineEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -13593,6 +15708,26 @@ func (ec *executionContext) marshalNApiKey2ᚖgithubᚗcomᚋaskuksovᚋyalkos�
 	return ec._ApiKey(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNAttachment2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐAttachment(ctx context.Context, sel ast.SelectionSet, v Attachment) graphql.Marshaler {
+	return ec._Attachment(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNAttachment2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐAttachmentᚄ(ctx context.Context, sel ast.SelectionSet, v []Attachment) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNAttachment2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐAttachment(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (bool, error) {
 	res, err := graphql.UnmarshalBoolean(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -13605,6 +15740,62 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 		graphql.AddInvalidNullFromMarshaler(ctx, "Boolean!")
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNComment2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐComment(ctx context.Context, sel ast.SelectionSet, v Comment) graphql.Marshaler {
+	return ec._Comment(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNComment2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCommentᚄ(ctx context.Context, sel ast.SelectionSet, v []Comment) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNComment2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐComment(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNComment2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐComment(ctx context.Context, sel ast.SelectionSet, v *Comment) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Comment!")
+		return graphql.Null
+	}
+	return ec._Comment(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCommentConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCommentConnection(ctx context.Context, sel ast.SelectionSet, v *CommentConnection) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "CommentConnection!")
+		return graphql.Null
+	}
+	return ec._CommentConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCommentEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCommentEdge(ctx context.Context, sel ast.SelectionSet, v CommentEdge) graphql.Marshaler {
+	return ec._CommentEdge(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNCommentEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCommentEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []CommentEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCommentEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCommentEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNCreateIssueInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐCreateIssueInput(ctx context.Context, v any) (CreateIssueInput, error) {
@@ -13925,6 +16116,14 @@ func (ec *executionContext) marshalNLabelSettings2ᚖgithubᚗcomᚋaskuksovᚋy
 	return ec._LabelSettings(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNLimits2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐLimits(ctx context.Context, sel ast.SelectionSet, v *Limits) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Limits!")
+		return graphql.Null
+	}
+	return ec._Limits(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNMilestone2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐMilestone(ctx context.Context, sel ast.SelectionSet, v Milestone) graphql.Marshaler {
 	return ec._Milestone(ctx, sel, &v)
 }
@@ -14122,6 +16321,58 @@ func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel as
 		graphql.AddInvalidNullFromMarshaler(ctx, "Time!")
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNTimelineConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineConnection(ctx context.Context, sel ast.SelectionSet, v *TimelineConnection) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "TimelineConnection!")
+		return graphql.Null
+	}
+	return ec._TimelineConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTimelineEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineEdge(ctx context.Context, sel ast.SelectionSet, v TimelineEdge) graphql.Marshaler {
+	return ec._TimelineEdge(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTimelineEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []TimelineEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNTimelineEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTimelineItem2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineItem(ctx context.Context, sel ast.SelectionSet, v TimelineItem) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "TimelineItem!")
+		return graphql.Null
+	}
+	return ec._TimelineItem(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTimelineItem2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineItemᚄ(ctx context.Context, sel ast.SelectionSet, v []TimelineItem) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNTimelineItem2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐTimelineItem(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNUpdateIssueInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐUpdateIssueInput(ctx context.Context, v any) (UpdateIssueInput, error) {

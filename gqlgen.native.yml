@@ -39,3 +39,7 @@ models:
     model: github.com/askuksov/yalkos/internal/graphql/native.Label
   LabelSettings:
     model: github.com/askuksov/yalkos/internal/graphql/native.LabelSettings
+  Comment:
+    model: github.com/askuksov/yalkos/internal/graphql/native.Comment
+  Attachment:
+    model: github.com/askuksov/yalkos/internal/graphql/native.Attachment
