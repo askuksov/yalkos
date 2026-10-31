@@ -4,6 +4,7 @@ import { PageHeader } from '../app/PageHeader'
 import { useMembers, useViewer } from '../api/hooks'
 import { DisplayMenu } from '../features/issues/DisplayMenu'
 import { FilterBar, FilterChips } from '../features/issues/FilterBar'
+import { useLabels } from '../features/labels/useLabels'
 import { IssueList } from '../features/issues/IssueList'
 import { useViewParams } from '../features/issues/useViewParams'
 
@@ -12,7 +13,8 @@ export function MyIssuesPage() {
   const [params, setParams] = useViewParams('list')
   const viewer = useViewer().data
   const users = useMembers().data ?? []
-  const scope = { params, onChange: setParams, users, viewerId: viewer?.id ?? '', hideAssignee: true }
+  const labels = useLabels().data
+  const scope = { params, onChange: setParams, users, viewerId: viewer?.id ?? '', hideAssignee: true, labels }
   return (
     <>
       <PageHeader title={t('nav.myIssues')}>

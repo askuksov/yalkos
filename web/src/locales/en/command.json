@@ -34,7 +34,9 @@
     "subIssue": "Add sub-issue",
     "move": "Move to project…",
     "copy": "Copy identifier",
-    "delete": "Delete"
+    "delete": "Delete",
+    "type": "Set type…",
+    "labels": "Add label…"
   },
   "pages": {
     "state": "Change state",
@@ -43,7 +45,9 @@
     "due": "Set due date",
     "parent": "Set parent",
     "move": "Move to project",
-    "delete": "Delete"
+    "delete": "Delete",
+    "type": "Set type",
+    "labels": "Add label"
   },
   "due": {
     "set": "Set due date",
@@ -78,7 +82,9 @@
       "assignee": "Assign",
       "priority": "Set priority",
       "edit": "Edit description",
-      "escape": "Close, clear selection, go back"
+      "escape": "Close, clear selection, go back",
+      "type": "Set type",
+      "labels": "Add label (list and issue page)"
     }
   }
 }

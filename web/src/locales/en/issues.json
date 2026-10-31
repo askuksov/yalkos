@@ -12,7 +12,10 @@
       "priority": "Priority",
       "due": "Due date",
       "children": "Has sub-issues",
-      "parent": "Top-level only"
+      "parent": "Top-level only",
+      "kind": "Type",
+      "label": "Labels",
+      "nolabel": "No labels"
     },
     "due": {
       "overdue": "Overdue",
@@ -90,6 +93,39 @@
     "chooseProject": "Choose a project",
     "createMore": "Create more",
     "submit": "Create issue",
-    "created": "{{identifier}} created"
+    "created": "{{identifier}} created",
+    "type": "Type"
+  },
+  "labels": {
+    "type": "Type",
+    "labels": "Labels",
+    "noType": "No type",
+    "create": "Create label \"{{name}}\"",
+    "more": "Also: {{names}}"
+  },
+  "labelsSettings": {
+    "title": "Labels",
+    "free": "Labels without a group",
+    "exclusive": "One per issue",
+    "defaultType": "Default type: {{name}}",
+    "default": "default",
+    "colorOf": "Colour of {{name}}",
+    "nameOf": "Name of {{name}}",
+    "groupOf": "Group of {{name}}",
+    "deleteOf": "Delete {{name}}",
+    "noGroup": "No group",
+    "issues_one": "{{count}} issue",
+    "issues_other": "{{count}} issues",
+    "drag": "Drag to reorder",
+    "conflict_one": "{{count}} issue would get two labels of this group",
+    "conflict_other": "{{count}} issues would get two labels of this group",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteBody": "The label will be removed from every issue that has it.",
+    "deleteGroupBody": "Only an empty group can be deleted.",
+    "delete": "Delete",
+    "newName": "New label name",
+    "newGroup": "Put the new label in",
+    "addLabel": "Add label",
+    "addGroup": "Add group"
   }
 }

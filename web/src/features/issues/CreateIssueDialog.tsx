@@ -17,6 +17,9 @@ import { priorityKey } from '../../ui/priority'
 import { PriorityIcon } from '../../ui/PriorityIcon'
 import { StateIcon } from '../../ui/StateIcon'
 import { useToast } from '../../ui/useToast'
+import ls from '../labels/labels.module.css'
+import { TypePicker } from '../labels/TypePicker'
+import { useLabels } from '../labels/useLabels'
 import { MarkdownEditor } from '../markdown/MarkdownEditor'
 import { AssigneePicker } from '../pickers/AssigneePicker'
 import { IssuePicker } from '../pickers/IssuePicker'
@@ -69,7 +72,7 @@ export function CreateIssueProvider({ children }: { children: ReactNode }) {
 }
 
 type Parent = { id: string; identifier: string } | null
-type Open = 'project' | 'state' | 'priority' | 'assignee' | 'parent' | null
+type Open = 'project' | 'state' | 'type' | 'priority' | 'assignee' | 'parent' | null
 
 function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () => void }) {
   const { t } = useTranslation(['issues', 'common'])
@@ -84,6 +87,11 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
   const [projectId, setProjectId] = useState(opts.projectId ?? (opts.parentId ? undefined : lastProject()))
   const project = useProject(projectId).data
   const [stateId, setStateId] = useState<string | undefined>(opts.stateId)
+  const labels = useLabels().data
+  // undefined: the workspace's default type (until the user picks one).
+  const [typeId, setTypeId] = useState<string | null | undefined>(undefined)
+  const chosenType = typeId === undefined ? (labels?.defaultTypeId ?? null) : typeId
+  const typeLabel = chosenType ? labels?.byId.get(chosenType) : undefined
   const [priority, setPriority] = useState(0)
   const [assigneeId, setAssigneeId] = useState<string | null>(null)
   const [dueDate, setDueDate] = useState('')
@@ -146,6 +154,7 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
     if (description.trim()) input.description = description
     if (attachmentIds.length) input.attachmentIds = attachmentIds
     if (stateId) input.stateId = stateId
+    if (chosenType) input.labelIds = [chosenType]
     if (priority) input.priority = priority
     if (assigneeId) input.assigneeId = assigneeId
     if (dueDate) input.dueDate = dueDate
@@ -216,6 +225,11 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
             {state?.name}
           </Button>
         )}
+        {labels && (
+          <Button size="sm" aria-label={t('create.type')} icon={typeLabel && <span className={ls.dot} style={{ background: typeLabel.color }} aria-hidden />} onClick={opener('type')}>
+            {typeLabel ? typeLabel.name : t('labels.noType')}
+          </Button>
+        )}
         <Button size="sm" aria-label={t('create.priority')} icon={<PriorityIcon priority={priority} decorative />} onClick={opener('priority')}>
           {t(`common:priority.${priorityKey(priority)}`)}
         </Button>
@@ -269,6 +283,18 @@ function CreateForm({ opts, onClose }: { opts: CreateIssueOptions; onClose: () =
             onClose={close}
             onSelect={(id) => {
               setStateId(id)
+              close()
+            }}
+          />
+        )}
+        {open === 'type' && labels && (
+          <TypePicker
+            types={labels.types}
+            value={chosenType}
+            allowNone={!labels.defaultTypeId}
+            onClose={close}
+            onSelect={(id) => {
+              setTypeId(id)
               close()
             }}
           />

@@ -1,0 +1,101 @@
+.chips {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  max-inline-size: 140px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: var(--font-size-small);
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.typeChip {
+  font-weight: 600;
+}
+
+.dot {
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+}
+
+.more {
+  color: var(--fg-muted);
+  font-size: var(--font-size-small);
+}
+
+.group {
+  color: var(--fg-muted);
+  font-size: var(--font-size-small);
+}
+
+.check {
+  margin-inline-start: auto;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-inline-size: 760px;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--row-h);
+  padding-inline: var(--space-2);
+  border-block-end: 1px solid var(--border);
+}
+
+.row input[type='text'] {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.child {
+  padding-inline-start: 32px;
+}
+
+.grow {
+  flex: 1;
+}
+
+.handle {
+  cursor: grab;
+  color: var(--fg-muted);
+}
+
+.count {
+  color: var(--fg-muted);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}

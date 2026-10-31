@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, ChevronDown, ChevronRight, CircleUser, Compass, KeyRound, LogOut, Plus, Search, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, CircleUser, Compass, KeyRound, LogOut, Plus, Search, Tags, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, useLocation, useNavigate } from 'react-router'
@@ -95,6 +95,10 @@ export function Sidebar() {
         <NavLink to="/settings/members" className={s.navLink}>
           <Users size={15} aria-hidden />
           <span className={s.navLabel}>{t('nav.members')}</span>
+        </NavLink>
+        <NavLink to="/settings/labels" className={s.navLink}>
+          <Tags size={15} aria-hidden />
+          <span className={s.navLabel}>{t('nav.labels')}</span>
         </NavLink>
         <NavLink to="/settings/api-keys" className={s.navLink}>
           <KeyRound size={15} aria-hidden />

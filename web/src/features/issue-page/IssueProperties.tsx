@@ -17,6 +17,11 @@ import { IssuePicker } from '../pickers/IssuePicker'
 import { PriorityPicker } from '../pickers/PriorityPicker'
 import { StatePicker } from '../pickers/StatePicker'
 import { isDate } from '../issues/filters'
+import { Chip } from '../labels/LabelChips'
+import { LabelPicker } from '../labels/LabelPicker'
+import { TypePicker } from '../labels/TypePicker'
+import { useIssueLabels } from '../labels/useIssueLabels'
+import { useLabels } from '../labels/useLabels'
 import s from './issue-page.module.css'
 import type { PageIssue, PropName } from './types'
 
@@ -30,10 +35,12 @@ type Props = {
 
 /** Right column: each property opens a picker; changes are optimistic. */
 export function IssueProperties({ issue, readOnly, open, setOpen, onMove }: Props) {
-  const { t } = useTranslation(['issue', 'common'])
+  const { t } = useTranslation(['issue', 'common', 'issues'])
   const update = useIssueMutation()
   const viewer = useViewer().data
   const users = useMembers().data ?? []
+  const labelCat = useLabels().data
+  const labelActions = useIssueLabels(labelCat, { id: issue.id, type: issue.type ?? null, labels: issue.labels })
   const [anchors, setAnchors] = useState<Partial<Record<PropName, HTMLElement | null>>>({})
   const anchorRef = (p: PropName) => (el: HTMLElement | null) => {
     if (anchors[p] !== el) setAnchors((a) => ({ ...a, [p]: el }))
@@ -76,6 +83,25 @@ export function IssueProperties({ issue, readOnly, open, setOpen, onMove }: Prop
               <span>{t(`common:priority.${priorityKey(issue.priority)}`)}</span>
             </>
           ))}
+        </dd>
+        <dt>{t('props.type')}</dt>
+        <dd>
+          {value('type', t('props.type'), issue.type ? <Chip label={issue.type} strong /> : <span className={s.muted}>{t('issues:labels.noType')}</span>)}
+        </dd>
+        <dt>{t('props.labels')}</dt>
+        <dd>
+          {value('labels', t('props.labels'), (() => {
+            const others = issue.labels.filter((l) => l.id !== issue.type?.id)
+            return others.length ? (
+              <span className={s.labelList}>
+                {others.map((l) => (
+                  <Chip key={l.id} label={l} />
+                ))}
+              </span>
+            ) : (
+              <span className={s.muted}>{t('props.noLabels')}</span>
+            )
+          })())}
         </dd>
         <dt>{t('props.assignee')}</dt>
         <dd>
@@ -177,6 +203,26 @@ export function IssueProperties({ issue, readOnly, open, setOpen, onMove }: Prop
               const u = users.find((x) => x.id === userId)
               update.mutate({ id: issue.id, input: { assigneeId: userId }, optimistic: { assignee: u ? { id: u.id, name: u.name } : null } })
             }}
+          />
+        )}
+        {open === 'type' && labelCat && (
+          <TypePicker
+            types={labelCat.types}
+            value={issue.type?.id ?? null}
+            onClose={close}
+            onSelect={(typeId) => {
+              close()
+              labelActions.setType(typeId)
+            }}
+          />
+        )}
+        {open === 'labels' && labelCat && (
+          <LabelPicker
+            labels={labelCat}
+            selected={issue.labels.map((l) => l.id)}
+            onToggle={labelActions.toggle}
+            onCreate={labelActions.createAndAdd}
+            onClose={close}
           />
         )}
         {open === 'parent' && (

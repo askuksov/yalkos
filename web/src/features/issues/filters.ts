@@ -6,8 +6,10 @@ export type OrderDirection = 'ASC' | 'DESC'
 
 // Filters and display options of an issue view, kept in the URL query string:
 // ?state=<ids>&type=started,unstarted&assignee=me,none,<ids>&priority=1,2
+// &kind=<type label ids>|none&label=<label ids>&nolabel=1
 // &due=overdue|week|none|<YYYY-MM-DD>&parent=none&children=1&q=<text>
 // &order=priority&dir=desc&nest=0. Invalid values are dropped silently.
+// "type" is the state type; the issue type (a label) is "kind".
 
 export type ViewParams = {
   state: string[]
@@ -15,6 +17,12 @@ export type ViewParams = {
   /** 'me', 'none' or user ids; 'none' never mixes with people. */
   assignee: string[]
   priority: number[]
+  /** Issue type label ids, or ['none'] for issues without a type. */
+  kind: string[]
+  /** Label ids: issues with any of them. */
+  label: string[]
+  /** Issues without labels. */
+  nolabel?: boolean
   /** overdue, week, none, or a date: due before it. */
   due?: string
   parent?: 'none'
@@ -55,6 +63,8 @@ export function isDate(s: string): boolean {
 export function parseParams(sp: URLSearchParams, view: 'list' | 'board' = 'list'): ViewParams {
   let assignee = list(sp, 'assignee')
   if (assignee.includes('none')) assignee = ['none']
+  let kind = list(sp, 'kind')
+  if (kind.includes('none')) kind = ['none']
   const due = sp.get('due') ?? undefined
   const q = sp.get('q')?.trim()
   return {
@@ -66,6 +76,9 @@ export function parseParams(sp: URLSearchParams, view: 'list' | 'board' = 'list'
     priority: list(sp, 'priority')
       .filter((p) => /^[0-4]$/.test(p))
       .map(Number),
+    kind,
+    label: list(sp, 'label'),
+    nolabel: sp.get('nolabel') === '1' ? true : undefined,
     due: due && (['overdue', 'week', 'none'].includes(due) || isDate(due)) ? due : undefined,
     parent: sp.get('parent') === 'none' ? 'none' : undefined,
     children: sp.get('children') === '1' ? true : undefined,
@@ -86,6 +99,9 @@ export function toSearch(p: ViewParams): string {
   if (p.type.length) parts.push(`type=${enc(p.type.map((t) => t.toLowerCase()))}`)
   if (p.assignee.length) parts.push(`assignee=${enc(p.assignee)}`)
   if (p.priority.length) parts.push(`priority=${enc(p.priority)}`)
+  if (p.kind.length) parts.push(`kind=${enc(p.kind)}`)
+  if (p.label.length) parts.push(`label=${enc(p.label)}`)
+  if (p.nolabel) parts.push('nolabel=1')
   if (p.due) parts.push(`due=${encodeURIComponent(p.due)}`)
   if (p.parent) parts.push('parent=none')
   if (p.children) parts.push('children=1')
@@ -98,7 +114,8 @@ export function toSearch(p: ViewParams): string {
 
 /** Whether any filter (not a display option) is set. */
 export function hasFilters(p: ViewParams): boolean {
-  return !!(p.state.length || p.type.length || p.assignee.length || p.priority.length || p.due || p.parent || p.children || p.q)
+  return !!(p.state.length || p.type.length || p.assignee.length || p.priority.length || p.kind.length || p.label.length || p.nolabel ||
+    p.due || p.parent || p.children || p.q)
 }
 
 /** Adds days to a YYYY-MM-DD date. */
@@ -131,6 +148,9 @@ export function toFilter(p: ViewParams, todayDate: string, viewerId?: string): I
     else f.assignee = { in: people }
   }
   if (p.priority.length) f.priority = { in: p.priority }
+  if (p.kind.length) f.type = p.kind.includes('none') ? { null: true } : { in: p.kind }
+  if (p.nolabel) f.label = { null: true }
+  else if (p.label.length) f.label = { in: p.label }
   switch (p.due) {
     case undefined:
       break

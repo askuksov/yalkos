@@ -52,6 +52,8 @@ type Row = {
   parent: { id: string; identifier: string } | null
   subIssueProgress: { completed: number; total: number }
   project: { id: string; key: string; archivedAt: string | null }
+  type: { id: string; name: string; color: string } | null
+  labels: { id: string; name: string; color: string }[]
 }
 
 /** An issue as the list fragment returns it. */
@@ -62,6 +64,7 @@ export function issueRow(n: number, over: Partial<Row> = {}): Row {
     state: { id: st.id, name: st.name, type: st.type, color: st.color },
     assignee: null, parent: null, subIssueProgress: { completed: 0, total: 0 },
     project: { id: 'p1', key: 'YLK', archivedAt: null },
+    type: null, labels: [],
     ...over,
   }
 }
@@ -89,4 +92,35 @@ export function pageIssue(n: number, over: Record<string, unknown> = {}) {
     children: { totalCount: 0 },
     ...over,
   }
+}
+
+type LabelFixture = {
+  id: string; name: string; color: string; description: string; isGroup: boolean; exclusive: boolean
+  position: number; parent: { id: string } | null; children: LabelFixture[]
+}
+
+function lbl(id: string, name: string, color: string, position: number, parent: string | null): LabelFixture {
+  return { id, name, color, description: '', isGroup: false, exclusive: false, position, parent: parent ? { id: parent } : null, children: [] }
+}
+
+/** Type group (Bug, Feature, Task, Improvement), group Area (Backend, Frontend), free Performance and Security. */
+export function labelsData({ defaultType = 'task' as string | null } = {}) {
+  const types = [lbl('bug', 'Bug', '#e5484d', 0, 'type'), lbl('feature', 'Feature', '#8e4ec6', 1, 'type'), lbl('task', 'Task', '#6e7781', 2, 'type'), lbl('improvement', 'Improvement', '#30a46c', 3, 'type')]
+  const area = lbl('area', 'Area', '#3a7bd5', 1000, null)
+  area.isGroup = true
+  area.exclusive = true
+  area.children = [lbl('backend', 'Backend', '#3a7bd5', 1000, 'area'), lbl('frontend', 'Frontend', '#26b5ce', 2000, 'area')]
+  const typeGroup = { ...lbl('type', 'Type', '#6e7781', 0, null), isGroup: true, exclusive: true, children: types }
+  return {
+    labels: [typeGroup, area, lbl('perf', 'Performance', '#f2994a', 2000, null), lbl('security', 'Security', '#eb5757', 3000, null)],
+    labelSettings: { typeGroup: { id: 'type' }, defaultType: defaultType ? { id: defaultType } : null },
+  }
+}
+
+/** A label as issue rows carry it. */
+export function chip(id: string) {
+  const all = labelsData().labels.flatMap((l) => [l, ...l.children])
+  const l = all.find((x) => x.id === id)
+  if (!l) throw new Error(`no label ${id}`)
+  return { id: l.id, name: l.name, color: l.color }
 }

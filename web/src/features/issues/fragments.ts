@@ -9,6 +9,8 @@ export const IssueRowFields = graphql(`
     parent { id identifier }
     subIssueProgress { completed total }
     project { id key archivedAt }
+    type { id name color }
+    labels { id name color }
   }
 `)
 
@@ -26,7 +28,8 @@ export const IssueChildrenQuery = graphql(`
   query IssueChildren($id: String!, $orderBy: IssueOrder) {
     issue(id: $id) {
       id
-      children(first: 250, orderBy: $orderBy) { nodes { ...IssueRowFields } }
+      # 200 rows keep the query under the API cost limit (each row carries labels).
+      children(first: 200, orderBy: $orderBy) { nodes { ...IssueRowFields } }
     }
   }
 `)
