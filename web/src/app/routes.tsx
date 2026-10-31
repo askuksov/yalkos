@@ -7,6 +7,7 @@ import { IssuePage } from '../pages/IssuePage'
 import { LoginPage } from '../pages/LoginPage'
 import { MembersPage } from '../pages/MembersPage'
 import { MyIssuesPage } from '../pages/MyIssuesPage'
+import { ProjectBoardPage } from '../pages/ProjectBoardPage'
 import { ProjectIssuesPage } from '../pages/ProjectIssuesPage'
 import { ProjectSettingsPage } from '../pages/ProjectSettingsPage'
 import { SetupPage } from '../pages/SetupPage'
@@ -35,6 +36,7 @@ export const routes: RouteObject[] = [
             element: <ProjectRoute />,
             children: [
               { index: true, element: <ProjectIssuesPage /> },
+              { path: 'board', element: <ProjectBoardPage /> },
               { path: 'settings', element: <ProjectSettingsPage /> },
             ],
           },

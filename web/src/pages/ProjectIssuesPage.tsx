@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
 
 import { PageHeader } from '../app/PageHeader'
 import { useCurrentProject } from '../app/projectContext'
@@ -12,6 +13,7 @@ import { useCreateDefaults, useCreateIssue } from '../features/issues/createIssu
 import { UnarchiveProjectMutation } from '../features/issues/fragments'
 import { IssueList } from '../features/issues/IssueList'
 import s from '../features/issues/issues.module.css'
+import { toSearch } from '../features/issues/filters'
 import { useViewParams } from '../features/issues/useViewParams'
 import { Button } from '../ui/Button'
 import { useToast } from '../ui/useToast'
@@ -25,12 +27,17 @@ export function ProjectIssuesPage() {
   const archived = !!project.archivedAt
   const scope = { params, onChange: setParams, states: project.states, users, viewerId: viewer?.id ?? '' }
   const { openCreateIssue } = useCreateIssue()
+  const navigate = useNavigate()
+  const onView = (view: 'list' | 'board') => {
+    const q = toSearch(params)
+    navigate(`/p/${project.key}${view === 'board' ? '/board' : ''}${q ? `?${q}` : ''}`)
+  }
   useCreateDefaults(archived ? null : { projectId: project.id })
   return (
     <>
       <PageHeader title={project.name}>
         <FilterBar {...scope} />
-        <DisplayMenu params={params} onChange={setParams} />
+        <DisplayMenu params={params} onChange={setParams} onView={onView} />
       </PageHeader>
       {archived && <ArchivedBanner projectId={project.id} />}
       <FilterChips {...scope} />
@@ -63,7 +70,7 @@ export function ProjectIssuesPage() {
   )
 }
 
-function ArchivedBanner({ projectId }: { projectId: string }) {
+export function ArchivedBanner({ projectId }: { projectId: string }) {
   const { t } = useTranslation('issues')
   const isAdmin = useIsAdmin()
   const qc = useQueryClient()
