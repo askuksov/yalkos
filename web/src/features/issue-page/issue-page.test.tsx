@@ -114,12 +114,12 @@ describe('issue page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('The project is archived')
   })
 
-  it('opens the state picker with S', async () => {
+  it('opens the state page of the palette with S', async () => {
     serve(withIssue(pageIssue(1)))
     renderAt('/issue/YLK-1')
     await screen.findByRole('complementary', { name: 'Properties' })
     fireEvent.keyDown(document.body, { key: 's', code: 'KeyS' })
-    expect(await screen.findByPlaceholderText('Change state…')).toHaveFocus()
+    expect(await screen.findByPlaceholderText('Change state')).toHaveFocus()
   })
 
   it('moves the issue after confirmation', async () => {

@@ -32,7 +32,7 @@ describe('ui', () => {
     const opener = screen.getByRole('button', { name: 'Open it' })
     await user.click(opener)
     const input = await screen.findByLabelText('inside')
-    input.focus()
+    expect(input).toHaveFocus()
     await user.keyboard('{Escape}')
     expect(screen.queryByLabelText('inside')).not.toBeInTheDocument()
     expect(opener).toHaveFocus()

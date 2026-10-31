@@ -32,6 +32,9 @@ export function BoardCard({ issue, selected, onHover, draggable }: Props) {
       aria-selected={selected}
       data-row-id={issue.id}
       data-href={href}
+      data-identifier={issue.identifier}
+      data-project-id={issue.project.id}
+      data-project-key={issue.project.key}
       onMouseEnter={onHover}
       {...dragAttributes}
       {...listeners}

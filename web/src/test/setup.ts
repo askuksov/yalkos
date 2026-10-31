@@ -17,6 +17,14 @@ if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.sho
   }
 }
 
+// cmdk scrolls the active item into view and measures the list.
+Element.prototype.scrollIntoView ??= function scrollIntoView() {}
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver
+
 afterEach(() => {
   cleanup()
   localStorage.clear()

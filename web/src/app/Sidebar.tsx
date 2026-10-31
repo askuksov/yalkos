@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, ChevronDown, ChevronRight, CircleUser, Compass, KeyRound, LogOut, Plus, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, CircleUser, Compass, KeyRound, LogOut, Plus, Search, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, useLocation, useNavigate } from 'react-router'
@@ -8,8 +8,10 @@ import { request } from '../api/client'
 import { useIsAdmin, useProjects, useViewer } from '../api/hooks'
 import { LogoutMutation } from '../api/operations'
 import { startSession } from '../auth/session'
+import { usePalette } from '../features/command/palette'
 import { useCreateIssue } from '../features/issues/createIssue'
 import { compareNames } from '../i18n'
+import { shortcutLabel } from '../lib/hotkeys'
 import { getTheme, setTheme, type ThemeSetting } from '../theme/theme'
 import { Avatar } from '../ui/Avatar'
 import { Kbd } from '../ui/Kbd'
@@ -18,17 +20,23 @@ import { Menu } from '../ui/Menu'
 import s from './app.module.css'
 
 export function Sidebar() {
-  const { t } = useTranslation(['common', 'issues'])
+  const { t } = useTranslation(['common', 'issues', 'command'])
   const projects = useProjects()
   const isAdmin = useIsAdmin()
   const { pathname } = useLocation()
   const mine = (projects.data ?? []).filter((p) => p.isMember).sort((a, b) => compareNames(a.name, b.name))
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const { openForPage } = useCreateIssue()
+  const palette = usePalette()
 
   return (
     <aside className={s.sidebar}>
       <div className={s.workspace}>{t('app.name')}</div>
+      <button type="button" className={s.navButton} onClick={() => palette.open('root')}>
+        <Search size={15} aria-hidden />
+        <span className={s.navLabel}>{t('command:search')}</span>
+        <Kbd>{shortcutLabel('mod+k')}</Kbd>
+      </button>
       <button type="button" className={s.navButton} onClick={openForPage}>
         <Plus size={15} aria-hidden />
         <span className={s.navLabel}>{t('issues:create.button')}</span>
