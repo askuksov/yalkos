@@ -20,9 +20,11 @@ const (
 	maxComplexity = 10_000
 	authCost      = 500
 	maxRootFields = 50
-	// stateWeight is the typical number of states per project (at most 50):
-	// State.project leads back to Project.states, so the list must be weighted.
+	// stateWeight is the typical number of states per project (at most 50).
 	stateWeight = 20
+	// backEdgeCost multiplies State.project: it leads back to Project.states,
+	// so states → project → states may nest two levels but not three.
+	backEdgeCost = 10
 )
 
 // pageSize is the number of items a connection may return.
@@ -63,6 +65,7 @@ func complexity() ComplexityRoot {
 		return connCost(child, first, last)
 	}
 	c.Project.States = func(child int) int { return listCost(child, stateWeight) }
+	c.State.Project = func(child int) int { return listCost(child, backEdgeCost) }
 	c.Mutation.Login = func(child int, _, _ string) int { return authCost + child }
 	c.Mutation.Setup = func(child int, _ SetupInput) int { return authCost + child }
 	c.Mutation.AcceptInvite = func(child int, _ AcceptInviteInput) int { return authCost + child }

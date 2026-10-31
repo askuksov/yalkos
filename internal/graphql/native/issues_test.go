@@ -432,6 +432,7 @@ func TestQueryCostByPageSize(t *testing.T) {
 		"history per item": `{ issues(first: 250) { nodes { history { nodes { id action } } } } }`,
 		"deep nesting":     "{ issues { nodes { " + strings.Repeat("children { nodes { ", 8) + "id" + strings.Repeat(" } }", 8) + " } } }",
 		"states cycle":     `{ project(id: "YLK") { ` + strings.Repeat("states { project { ", 4) + "id" + strings.Repeat(" } }", 4) + " } }",
+		"states cycle x3":  `{ project(id: "YLK") { ` + strings.Repeat("states { project { ", 2) + "states { id }" + strings.Repeat(" } }", 2) + " } }",
 		"projects states":  `{ projects(first: 250) { nodes { states { id } members { id } } } issues(first: 250) { nodes { children(first: 50) { nodes { id title } } } } }`,
 	}
 	for name, q := range rejected {
@@ -445,7 +446,8 @@ func TestQueryCostByPageSize(t *testing.T) {
 			pageInfo { hasNextPage endCursor } } }`,
 		"issue page": `{ issue(id: "YLK-1") { id title description children { nodes { id identifier title state { name } } }
 			history { nodes { id action createdAt actor { name } changes { field from to } } } } }`,
-		"projects": `{ projects { nodes { id key name states { id name type color position isDefault } members { id name } } } }`,
+		"projects":                  `{ projects { nodes { id key name states { id name type color position isDefault } members { id name } } } }`,
+		"state with project states": `{ project(id: "YLK") { states { id name project { id states { id name } } } } }`,
 	}
 	for name, q := range allowed {
 		if r := owner.do(q, nil); r.code() == "COMPLEXITY_LIMIT_EXCEEDED" {
