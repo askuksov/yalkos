@@ -83,8 +83,17 @@
 }
 
 .handle {
-  cursor: grab;
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
   color: var(--fg-muted);
+  cursor: grab;
+}
+
+.handle:hover {
+  background: var(--bg-hover);
 }
 
 .count {
