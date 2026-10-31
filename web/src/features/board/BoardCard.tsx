@@ -7,11 +7,12 @@ import type { IssueRowFieldsFragment } from '../../gql/graphql'
 import { Avatar } from '../../ui/Avatar'
 import { PriorityIcon } from '../../ui/PriorityIcon'
 import { isOverdue } from '../issues/filters'
+import { LabelChips } from '../labels/LabelChips'
 import s from './board.module.css'
 
 type Props = { issue: IssueRowFieldsFragment; selected: boolean; onHover: () => void; draggable: boolean }
 
-/** identifier, title (2 lines), priority, assignee, due date, sub-issue count, parent badge. */
+/** identifier, title (2 lines), priority, type and labels, assignee, due date, sub-issue count, parent badge. */
 export function BoardCard({ issue, selected, onHover, draggable }: Props) {
   const { t } = useTranslation('issues')
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: issue.id, disabled: !draggable })
@@ -55,6 +56,7 @@ export function BoardCard({ issue, selected, onHover, draggable }: Props) {
       </Link>
       <div className={s.cardBottom}>
         <PriorityIcon priority={issue.priority} />
+        <LabelChips type={issue.type ?? null} labels={issue.labels} />
         {issue.subIssueProgress.total > 0 && (
           <span className={s.meta} title={t('list.progress', { completed: issue.subIssueProgress.completed, total: issue.subIssueProgress.total })}>
             {issue.subIssueProgress.completed}/{issue.subIssueProgress.total}

@@ -39,12 +39,19 @@ type Documents = {
     "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": typeof types.IssueHistoryDocument,
     "\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n": typeof types.IssueRefDocument,
     "\n  mutation CreateIssue($input: CreateIssueInput!) {\n    createIssue(input: $input) { id identifier project { id } }\n  }\n": typeof types.CreateIssueDocument,
-    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n  }\n": typeof types.IssueRowFieldsFragmentDoc,
+    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n  }\n": typeof types.IssueRowFieldsFragmentDoc,
     "\n  query IssueGroup($filter: IssueFilter, $orderBy: IssueOrder, $first: Int, $after: String) {\n    issues(filter: $filter, orderBy: $orderBy, first: $first, after: $after) {\n      totalCount\n      nodes { ...IssueRowFields }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": typeof types.IssueGroupDocument,
-    "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      children(first: 250, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n": typeof types.IssueChildrenDocument,
+    "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      # 200 rows keep the query under the API cost limit (each row carries labels).\n      children(first: 200, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n": typeof types.IssueChildrenDocument,
     "\n  mutation UpdateIssue($id: ID!, $input: UpdateIssueInput!) {\n    updateIssue(id: $id, input: $input) { ...IssueRowFields }\n  }\n": typeof types.UpdateIssueDocument,
     "\n  mutation DeleteIssue($id: ID!) {\n    deleteIssue(id: $id)\n  }\n": typeof types.DeleteIssueDocument,
     "\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n": typeof types.UnarchiveProjectDocument,
+    "\n  fragment LabelFields on Label {\n    id name color description isGroup exclusive position parent { id }\n  }\n": typeof types.LabelFieldsFragmentDoc,
+    "\n  query Labels {\n    labels { ...LabelFields children { ...LabelFields } }\n    labelSettings { typeGroup { id } defaultType { id } }\n  }\n": typeof types.LabelsDocument,
+    "\n  mutation CreateLabel($input: CreateLabelInput!) {\n    createLabel(input: $input) { ...LabelFields }\n  }\n": typeof types.CreateLabelDocument,
+    "\n  mutation UpdateLabel($id: ID!, $input: UpdateLabelInput!) {\n    updateLabel(id: $id, input: $input) { ...LabelFields }\n  }\n": typeof types.UpdateLabelDocument,
+    "\n  mutation DeleteLabel($id: ID!) {\n    deleteLabel(id: $id)\n  }\n": typeof types.DeleteLabelDocument,
+    "\n  mutation SetDefaultType($labelId: ID) {\n    setDefaultType(labelId: $labelId) { defaultType { id } }\n  }\n": typeof types.SetDefaultTypeDocument,
+    "\n  query LabelIssueCount($id: ID!) {\n    issues(filter: { label: { in: [$id] } }, first: 1) { totalCount }\n  }\n": typeof types.LabelIssueCountDocument,
     "\n  query IssueLink($id: String!) {\n    issue(id: $id) { id identifier title state { id name type color } }\n  }\n": typeof types.IssueLinkDocument,
     "\n  query Limits {\n    limits { maxUploadMb }\n  }\n": typeof types.LimitsDocument,
     "\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n": typeof types.PickIssuesDocument,
@@ -87,12 +94,19 @@ const documents: Documents = {
     "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": types.IssueHistoryDocument,
     "\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n": types.IssueRefDocument,
     "\n  mutation CreateIssue($input: CreateIssueInput!) {\n    createIssue(input: $input) { id identifier project { id } }\n  }\n": types.CreateIssueDocument,
-    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n  }\n": types.IssueRowFieldsFragmentDoc,
+    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n  }\n": types.IssueRowFieldsFragmentDoc,
     "\n  query IssueGroup($filter: IssueFilter, $orderBy: IssueOrder, $first: Int, $after: String) {\n    issues(filter: $filter, orderBy: $orderBy, first: $first, after: $after) {\n      totalCount\n      nodes { ...IssueRowFields }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": types.IssueGroupDocument,
-    "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      children(first: 250, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n": types.IssueChildrenDocument,
+    "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      # 200 rows keep the query under the API cost limit (each row carries labels).\n      children(first: 200, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n": types.IssueChildrenDocument,
     "\n  mutation UpdateIssue($id: ID!, $input: UpdateIssueInput!) {\n    updateIssue(id: $id, input: $input) { ...IssueRowFields }\n  }\n": types.UpdateIssueDocument,
     "\n  mutation DeleteIssue($id: ID!) {\n    deleteIssue(id: $id)\n  }\n": types.DeleteIssueDocument,
     "\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n": types.UnarchiveProjectDocument,
+    "\n  fragment LabelFields on Label {\n    id name color description isGroup exclusive position parent { id }\n  }\n": types.LabelFieldsFragmentDoc,
+    "\n  query Labels {\n    labels { ...LabelFields children { ...LabelFields } }\n    labelSettings { typeGroup { id } defaultType { id } }\n  }\n": types.LabelsDocument,
+    "\n  mutation CreateLabel($input: CreateLabelInput!) {\n    createLabel(input: $input) { ...LabelFields }\n  }\n": types.CreateLabelDocument,
+    "\n  mutation UpdateLabel($id: ID!, $input: UpdateLabelInput!) {\n    updateLabel(id: $id, input: $input) { ...LabelFields }\n  }\n": types.UpdateLabelDocument,
+    "\n  mutation DeleteLabel($id: ID!) {\n    deleteLabel(id: $id)\n  }\n": types.DeleteLabelDocument,
+    "\n  mutation SetDefaultType($labelId: ID) {\n    setDefaultType(labelId: $labelId) { defaultType { id } }\n  }\n": types.SetDefaultTypeDocument,
+    "\n  query LabelIssueCount($id: ID!) {\n    issues(filter: { label: { in: [$id] } }, first: 1) { totalCount }\n  }\n": types.LabelIssueCountDocument,
     "\n  query IssueLink($id: String!) {\n    issue(id: $id) { id identifier title state { id name type color } }\n  }\n": types.IssueLinkDocument,
     "\n  query Limits {\n    limits { maxUploadMb }\n  }\n": types.LimitsDocument,
     "\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n": types.PickIssuesDocument,
@@ -227,7 +241,7 @@ export function graphql(source: "\n  mutation CreateIssue($input: CreateIssueInp
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n  }\n"): (typeof documents)["\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n  }\n"];
+export function graphql(source: "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n  }\n"): (typeof documents)["\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -235,7 +249,7 @@ export function graphql(source: "\n  query IssueGroup($filter: IssueFilter, $ord
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      children(first: 250, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n"): (typeof documents)["\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      children(first: 250, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n"];
+export function graphql(source: "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      # 200 rows keep the query under the API cost limit (each row carries labels).\n      children(first: 200, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n"): (typeof documents)["\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      # 200 rows keep the query under the API cost limit (each row carries labels).\n      children(first: 200, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -248,6 +262,34 @@ export function graphql(source: "\n  mutation DeleteIssue($id: ID!) {\n    delet
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n"): (typeof documents)["\n  mutation UnarchiveProject($id: ID!) {\n    unarchiveProject(id: $id) { id archivedAt }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  fragment LabelFields on Label {\n    id name color description isGroup exclusive position parent { id }\n  }\n"): (typeof documents)["\n  fragment LabelFields on Label {\n    id name color description isGroup exclusive position parent { id }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Labels {\n    labels { ...LabelFields children { ...LabelFields } }\n    labelSettings { typeGroup { id } defaultType { id } }\n  }\n"): (typeof documents)["\n  query Labels {\n    labels { ...LabelFields children { ...LabelFields } }\n    labelSettings { typeGroup { id } defaultType { id } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateLabel($input: CreateLabelInput!) {\n    createLabel(input: $input) { ...LabelFields }\n  }\n"): (typeof documents)["\n  mutation CreateLabel($input: CreateLabelInput!) {\n    createLabel(input: $input) { ...LabelFields }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation UpdateLabel($id: ID!, $input: UpdateLabelInput!) {\n    updateLabel(id: $id, input: $input) { ...LabelFields }\n  }\n"): (typeof documents)["\n  mutation UpdateLabel($id: ID!, $input: UpdateLabelInput!) {\n    updateLabel(id: $id, input: $input) { ...LabelFields }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteLabel($id: ID!) {\n    deleteLabel(id: $id)\n  }\n"): (typeof documents)["\n  mutation DeleteLabel($id: ID!) {\n    deleteLabel(id: $id)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SetDefaultType($labelId: ID) {\n    setDefaultType(labelId: $labelId) { defaultType { id } }\n  }\n"): (typeof documents)["\n  mutation SetDefaultType($labelId: ID) {\n    setDefaultType(labelId: $labelId) { defaultType { id } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query LabelIssueCount($id: ID!) {\n    issues(filter: { label: { in: [$id] } }, first: 1) { totalCount }\n  }\n"): (typeof documents)["\n  query LabelIssueCount($id: ID!) {\n    issues(filter: { label: { in: [$id] } }, first: 1) { totalCount }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

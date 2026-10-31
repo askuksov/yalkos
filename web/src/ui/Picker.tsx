@@ -14,13 +14,15 @@ export type PickerProps<T> = {
   placeholder: string
   /** Server-side filtering: called with the input; items are shown as given. */
   onQuery?: (q: string) => void
+  /** Multi-select: which items are chosen (instead of value). */
+  isSelected?: (item: T) => boolean
 }
 
 /**
  * Combobox: type to filter (case-insensitive substring of the label), arrows
  * move, Enter selects, Esc closes; the current value is aria-selected.
  */
-export function Picker<T>({ items, value, getKey, getLabel, renderItem, onSelect, onClose, placeholder, onQuery }: PickerProps<T>) {
+export function Picker<T>({ items, value, getKey, getLabel, renderItem, onSelect, onClose, placeholder, onQuery, isSelected }: PickerProps<T>) {
   const { t } = useTranslation()
   const [q, setQ] = useState('')
   const needle = q.trim().toLowerCase()
@@ -69,14 +71,14 @@ export function Picker<T>({ items, value, getKey, getLabel, renderItem, onSelect
           }
         }}
       />
-      <div ref={list} id={listId} role="listbox" className={s.pickerList}>
+      <div ref={list} id={listId} role="listbox" aria-multiselectable={isSelected ? true : undefined} className={s.pickerList}>
         {shown.map((item, i) => (
           <div
             key={getKey(item)}
             id={`${listId}-${i}`}
             data-index={i}
             role="option"
-            aria-selected={getKey(item) === current}
+            aria-selected={isSelected ? isSelected(item) : getKey(item) === current}
             className={[s.menuItem, i === at ? s.active : ''].join(' ')}
             onMouseEnter={() => setActive(i)}
             onMouseDown={(e) => e.preventDefault()}

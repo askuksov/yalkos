@@ -13,6 +13,8 @@ import { PriorityIcon } from '../../ui/PriorityIcon'
 import { StateIcon } from '../../ui/StateIcon'
 import type { PickerState } from '../pickers/StatePicker'
 import type { PickerUser } from '../pickers/AssigneePicker'
+import ls from '../labels/labels.module.css'
+import type { LabelCatalog } from '../labels/useLabels'
 import { isDate, type ViewParams } from './filters'
 import s from './issues.module.css'
 
@@ -28,16 +30,18 @@ type Scope = {
   viewerId: string
   /** My issues: the assignee is always the viewer. */
   hideAssignee?: boolean
+  /** Workspace labels (types and labels filters; hidden until loaded). */
+  labels?: LabelCatalog
 }
 
-type Category = 'state' | 'type' | 'assignee' | 'priority' | 'due'
+type Category = 'state' | 'type' | 'kind' | 'label' | 'assignee' | 'priority' | 'due'
 
 function toggle<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v]
 }
 
 /** Text filter (F focuses it) and the Filter menu, for the page header. */
-export function FilterBar({ params, onChange, states, users, viewerId, hideAssignee }: Scope) {
+export function FilterBar({ params, onChange, states, users, viewerId, hideAssignee, labels }: Scope) {
   const { t } = useTranslation(['issues', 'common'])
   const input = useRef<HTMLInputElement>(null)
   const [text, setText] = useState(params.q ?? '')
@@ -74,6 +78,13 @@ export function FilterBar({ params, onChange, states, users, viewerId, hideAssig
     { key: 'type', label: t('filter.categories.type'), run: () => setCategory('type') },
     ...(hideAssignee ? [] : [{ key: 'assignee', label: t('filter.categories.assignee'), run: () => setCategory('assignee') }]),
     { key: 'priority', label: t('filter.categories.priority'), run: () => setCategory('priority') },
+    ...(labels
+      ? [
+          { key: 'kind', label: t('filter.categories.kind'), run: () => setCategory('kind') },
+          { key: 'label', label: t('filter.categories.label'), run: () => setCategory('label') },
+          { key: 'nolabel', label: t('filter.categories.nolabel'), run: () => apply({ ...params, nolabel: params.nolabel ? undefined : true, label: [] }) },
+        ]
+      : []),
     { key: 'due', label: t('filter.categories.due'), run: () => setCategory('due') },
     { key: 'children', label: t('filter.categories.children'), run: () => apply({ ...params, children: params.children ? undefined : true }) },
     { key: 'parent', label: t('filter.categories.parent'), run: () => apply({ ...params, parent: params.parent ? undefined : 'none' }) },
@@ -84,6 +95,10 @@ export function FilterBar({ params, onChange, states, users, viewerId, hideAssig
     ...users.filter((u) => !u.disabled && u.id !== viewerId).map((u) => ({ key: u.id, label: u.name })),
     { key: 'none', label: t('common:pickers.noAssignee') },
   ]
+  const kindItems = [...(labels?.types ?? []).map((l) => ({ key: l.id, label: l.name, color: l.color })), { key: 'none', label: t('labels.noType'), color: '' }]
+  const labelItems = (labels?.top ?? [])
+    .filter((l) => l.id !== labels?.typeGroupId)
+    .flatMap((l) => (l.isGroup ? l.children.map((c) => ({ key: c.id, label: `${l.name} › ${c.name}`, color: c.color })) : [{ key: l.id, label: l.name, color: l.color }]))
   const dueItems = (['overdue', 'week', 'none'] as const).map((k) => ({ key: k, label: t(`filter.due.${k}`) }))
 
   return (
@@ -139,6 +154,42 @@ export function FilterBar({ params, onChange, states, users, viewerId, hideAssig
             placeholder={t('filter.categories.type')}
           />
         )}
+        {category === 'kind' && (
+          <Picker
+            items={kindItems}
+            getKey={(x) => x.key}
+            getLabel={(x) => x.label}
+            renderItem={(x) => (
+              <>
+                {x.color && <span className={ls.dot} style={{ background: x.color }} aria-hidden />}
+                <span>{x.label}</span>
+              </>
+            )}
+            onSelect={(x) => {
+              // "No type" excludes types and the other way round.
+              const next = x.key === 'none' ? (params.kind.includes('none') ? [] : ['none']) : toggle(params.kind.filter((k) => k !== 'none'), x.key)
+              apply({ ...params, kind: next })
+            }}
+            onClose={close}
+            placeholder={t('filter.categories.kind')}
+          />
+        )}
+        {category === 'label' && (
+          <Picker
+            items={labelItems}
+            getKey={(x) => x.key}
+            getLabel={(x) => x.label}
+            renderItem={(x) => (
+              <>
+                <span className={ls.dot} style={{ background: x.color }} aria-hidden />
+                <span>{x.label}</span>
+              </>
+            )}
+            onSelect={(x) => apply({ ...params, label: toggle(params.label, x.key), nolabel: undefined })}
+            onClose={close}
+            placeholder={t('filter.categories.label')}
+          />
+        )}
         {category === 'assignee' && (
           <Picker
             items={assigneeItems}
@@ -192,8 +243,9 @@ export function FilterBar({ params, onChange, states, users, viewerId, hideAssig
 }
 
 /** Active filters as removable chips (under the header). */
-export function FilterChips({ params, onChange, states, users, viewerId }: Scope) {
+export function FilterChips({ params, onChange, states, users, viewerId, labels }: Scope) {
   const { t } = useTranslation(['issues', 'common'])
+  const labelName = (id: string) => (id === 'none' ? t('labels.noType') : (labels?.byId.get(id)?.name ?? id))
   const userName = (id: string) =>
     id === 'me' || id === viewerId ? t('common:pickers.me') : id === 'none' ? t('common:pickers.noAssignee') : (users.find((u) => u.id === id)?.name ?? id)
   const chips: { key: string; name: string; values?: string[]; without: ViewParams }[] = []
@@ -211,6 +263,11 @@ export function FilterChips({ params, onChange, states, users, viewerId }: Scope
       key: 'priority', name: t('filter.categories.priority'),
       values: params.priority.map((p) => t(`common:priority.${priorityKey(p)}`)), without: { ...params, priority: [] },
     })
+  if (params.kind.length)
+    chips.push({ key: 'kind', name: t('filter.categories.kind'), values: params.kind.map(labelName), without: { ...params, kind: [] } })
+  if (params.label.length)
+    chips.push({ key: 'label', name: t('filter.categories.label'), values: params.label.map(labelName), without: { ...params, label: [] } })
+  if (params.nolabel) chips.push({ key: 'nolabel', name: t('filter.categories.nolabel'), without: { ...params, nolabel: undefined } })
   if (params.due) {
     const label = isDate(params.due) ? t('filter.due.beforeDate', { date: params.due }) : t(`filter.due.${params.due as 'overdue' | 'week' | 'none'}`)
     chips.push({ key: 'due', name: t('filter.categories.due'), values: [label], without: { ...params, due: undefined } })
@@ -232,7 +289,9 @@ export function FilterChips({ params, onChange, states, users, viewerId }: Scope
         )
       })}
       {chips.length > 1 && (
-        <Button size="sm" variant="ghost" onClick={() => onChange({ ...params, state: [], type: [], assignee: [], priority: [], due: undefined, children: undefined, parent: undefined })}>
+        <Button size="sm" variant="ghost" onClick={() =>
+            onChange({ ...params, state: [], type: [], assignee: [], priority: [], kind: [], label: [], nolabel: undefined, due: undefined, children: undefined, parent: undefined })
+          }>
           {t('filter.clear')}
         </Button>
       )}

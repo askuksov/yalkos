@@ -62,7 +62,8 @@
     "expandSidebar": "Show sidebar",
     "userMenu": "Account",
     "logOut": "Log out",
-    "projectSettingsTitle": "{{name}} settings"
+    "projectSettingsTitle": "{{name}} settings",
+    "labels": "Labels"
   },
   "notFound": {
     "page": "Page not found",

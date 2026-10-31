@@ -16,6 +16,8 @@ import { StateIcon } from '../../ui/StateIcon'
 import { useToast } from '../../ui/useToast'
 import { MoveIssueMutation } from '../issue-page/operations'
 import { DeleteIssueMutation } from '../issues/fragments'
+import ls from '../labels/labels.module.css'
+import { useLabels } from '../labels/useLabels'
 import s from './command.module.css'
 import type { IssueTarget } from './recent'
 import { PaletteChildCountQuery, PaletteSearchQuery, useDebounced } from './search'
@@ -102,6 +104,65 @@ export function PriorityPage({ q, targets, done }: PageProps) {
             <span className={s.label}>{t(`priority.${priorityKey(p)}`)}</span>
           </Command.Item>
         ))}
+    </>
+  )
+}
+
+export function TypePage({ q, targets, done }: PageProps) {
+  const { t } = useTranslation('issues')
+  const update = useIssueMutation()
+  const labels = useLabels().data
+  if (!labels) return null
+  const items = [
+    ...labels.types.map((ty) => ({ key: ty.id, label: ty.name, type: ty as { id: string; name: string; color: string } | null })),
+    { key: 'none', label: t('labels.noType'), type: null },
+  ].filter((i) => has(i.label, q))
+  return (
+    <>
+      {items.map((i) => (
+        <Command.Item
+          key={i.key}
+          value={i.key}
+          onSelect={() => {
+            const ty = i.type ? { id: i.type.id, name: i.type.name, color: i.type.color } : null
+            // A type replaces the issue's other type; "No type" removes whichever it has.
+            const input = ty ? { addLabelIds: [ty.id] } : { removeLabelIds: labels.types.map((x) => x.id) }
+            targets.forEach((x) => update.mutate({ id: x.id, input, optimistic: { type: ty } }))
+            done()
+          }}
+        >
+          {i.type && <span className={ls.dot} style={{ background: i.type.color }} aria-hidden />}
+          <span className={s.label}>{i.label}</span>
+        </Command.Item>
+      ))}
+    </>
+  )
+}
+
+export function LabelsPage({ q, targets, done }: PageProps) {
+  const update = useIssueMutation()
+  const labels = useLabels().data
+  if (!labels) return null
+  const items = labels.top
+    .filter((l) => l.id !== labels.typeGroupId)
+    .flatMap((l) => (l.isGroup ? l.children.map((c) => ({ label: c, group: l.name })) : [{ label: l, group: '' }]))
+    .filter((i) => has(`${i.group} ${i.label.name}`, q))
+  return (
+    <>
+      {items.map((i) => (
+        <Command.Item
+          key={i.label.id}
+          value={i.label.id}
+          onSelect={() => {
+            targets.forEach((x) => update.mutate({ id: x.id, input: { addLabelIds: [i.label.id] } }))
+            done()
+          }}
+        >
+          <span className={ls.dot} style={{ background: i.label.color }} aria-hidden />
+          {i.group && <span className={s.identifier}>{i.group}</span>}
+          <span className={s.label}>{i.label.name}</span>
+        </Command.Item>
+      ))}
     </>
   )
 }

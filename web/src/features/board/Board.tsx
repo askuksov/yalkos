@@ -65,7 +65,8 @@ export function Board({ project, params, viewerId }: Props) {
   useHotkey('l', () => horizontal(1))
   useHotkey('h', () => horizontal(-1))
   const palette = usePalette()
-  const openPage = (page: 'state' | 'assignee' | 'priority') => {
+  // L moves between columns here: labels are in the palette.
+  const openPage = (page: 'state' | 'assignee' | 'priority' | 'type') => {
     const t = targetsFrom(position().cols.flat().filter((el) => el.dataset.rowId === selected))
     if (!t.length || project.archived) return false
     palette.open(page, t)
@@ -73,6 +74,7 @@ export function Board({ project, params, viewerId }: Props) {
   useHotkey('s', () => openPage('state'))
   useHotkey('a', () => openPage('assignee'))
   useHotkey('p', () => openPage('priority'))
+  useHotkey('t', () => openPage('type'))
   useHotkey('enter', (e) => {
     if (isInteractive(e.target)) return false
     const href = position().cols.flat().find((el) => el.dataset.rowId === selected)?.dataset.href

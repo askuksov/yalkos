@@ -446,6 +446,10 @@ func TestQueryCostByPageSize(t *testing.T) {
 		// Each count is its own aggregate query, so counts weigh more than a scalar.
 		"counts per item": `{ issues(first: 250) { nodes { a: children(first: 1) { totalCount } b: children(first: 1) { totalCount }
 			c: children(first: 1) { totalCount } d: children(first: 1) { totalCount } } } }`,
+		"sub-issues of 250 with every row field": `{ issue(id: "YLK-1") { children(first: 250) { nodes {
+			id identifier title priority dueDate sortOrder state { id name type color } assignee { id name } parent { id identifier }
+			subIssueProgress { completed total } project { id key archivedAt } type { id name color } labels { id name color }
+			milestone { id name } commentCount } } } }`,
 		"milestone issues per item": `{ issues(first: 250) { nodes { milestone { issues(first: 250) { nodes { id } } } } } }`,
 		"milestones per project":    `{ projects(first: 250) { nodes { milestones { issues(first: 50) { nodes { id } } } } } }`,
 		"labels per label":          `{ labels { children { children { children { id name color description } } } } }`,
@@ -478,6 +482,11 @@ func TestQueryCostByPageSize(t *testing.T) {
 		"issue page timeline": `{ issue(id: "YLK-1") { commentCount attachments { id name size contentType url inline createdAt uploader { id name } }
 			timeline(last: 50) { nodes { __typename ... on Comment { id body createdAt editedAt author { id name } }
 			... on HistoryEntry { id action createdAt actor { id name } changes { field from to } } } pageInfo { hasPreviousPage startCursor } } } }`,
+		// The web app's sub-issue query with every row field (labels, milestone, comment count).
+		"sub-issues of an issue": `{ issue(id: "YLK-1") { id children(first: 200, orderBy: { field: SORT_ORDER }) { nodes {
+			id identifier title priority dueDate sortOrder state { id name type color } assignee { id name } parent { id identifier }
+			subIssueProgress { completed total } project { id key archivedAt } type { id name color } labels { id name color }
+			milestone { id name } commentCount } } } }`,
 		"board page with labels": `{ issues(first: 250) { nodes { id identifier title type { id name color } labels { id name color }
 			milestone { id name } } } }`,
 	}

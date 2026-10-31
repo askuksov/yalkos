@@ -18,7 +18,7 @@ import { useToast } from '../../ui/useToast'
 import { useCreateIssue } from '../issues/createIssue'
 import s from './command.module.css'
 import { type PaletteApi, PaletteContext, type PalettePage } from './palette'
-import { AssigneePage, DeletePage, DuePage, MovePage, ParentPage, PriorityPage, StatePage } from './pages'
+import { AssigneePage, DeletePage, DuePage, LabelsPage, MovePage, ParentPage, PriorityPage, StatePage, TypePage } from './pages'
 import { getRecent, type IssueTarget } from './recent'
 import { PaletteSearchQuery, useDebounced } from './search'
 import { ShortcutsHelp } from './ShortcutsHelp'
@@ -105,6 +105,8 @@ function Palette({ initial, onClose, onHelp }: { initial: Open; onClose: () => v
         {page === 'state' && <StatePage {...pageProps} />}
         {page === 'assignee' && <AssigneePage {...pageProps} />}
         {page === 'priority' && <PriorityPage {...pageProps} />}
+        {page === 'type' && <TypePage {...pageProps} />}
+        {page === 'labels' && <LabelsPage {...pageProps} />}
         {page === 'due' && <DuePage {...pageProps} />}
         {page === 'parent' && <ParentPage {...pageProps} />}
         {page === 'move' && <MovePage {...pageProps} />}
@@ -180,6 +182,8 @@ function RootPage({ q, targets, searchOnly, push, close, onHelp }: RootProps) {
         { key: 'state', label: t('issue.state'), run: () => push('state') },
         { key: 'assignee', label: t('issue.assignee'), run: () => push('assignee') },
         { key: 'priority', label: t('issue.priority'), run: () => push('priority') },
+        { key: 'type', label: t('issue.type'), run: () => push('type') },
+        { key: 'labels', label: t('issue.labels'), run: () => push('labels') },
         { key: 'due', label: t('issue.due'), run: () => push('due') },
         ...(new Set(targets.map((x) => x.projectId)).size === 1 ? [{ key: 'parent', label: t('issue.parent'), run: () => push('parent') }] : []),
         ...(single

@@ -74,10 +74,12 @@ function IssueView({ issue }: { issue: PageIssue }) {
 
   const busy = editing || prop !== null || moving || deleting
   useHotkey('e', () => setEditing(true), { enabled: !readOnly && !busy })
-  // S/A/P open the matching palette page for this issue.
+  // S/A/P/T/L open the matching palette page for this issue.
   useHotkey('s', () => palette.open('state', [target]), { enabled: !readOnly && !busy })
   useHotkey('a', () => palette.open('assignee', [target]), { enabled: !readOnly && !busy })
   useHotkey('p', () => palette.open('priority', [target]), { enabled: !readOnly && !busy })
+  useHotkey('t', () => palette.open('type', [target]), { enabled: !readOnly && !busy })
+  useHotkey('l', () => palette.open('labels', [target]), { enabled: !readOnly && !busy })
   useEscape(back, !busy)
 
   const remove = useMutation({

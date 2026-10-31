@@ -52,14 +52,14 @@ export function useSelection(
   }, { enabled: checkable })
   useEscape(clear, checked.size > 0)
 
-  // S/A/P: palette pages for the checked issues, or the highlighted one.
+  // S/A/P/T/L: palette pages for the checked issues, or the highlighted one.
   const palette = usePalette()
   const targets = () => {
     const list = rows()
     const picked = checked.size ? list.filter((r) => checked.has(r.dataset.rowId ?? '')) : list.filter((r) => r.dataset.rowId === selected)
     return targetsFrom(picked)
   }
-  const openPage = (page: 'state' | 'assignee' | 'priority') => {
+  const openPage = (page: 'state' | 'assignee' | 'priority' | 'type' | 'labels') => {
     const t = targets()
     if (!t.length) return false
     palette.open(page, t)
@@ -67,6 +67,8 @@ export function useSelection(
   useHotkey('s', () => openPage('state'), { enabled: checkable })
   useHotkey('a', () => openPage('assignee'), { enabled: checkable })
   useHotkey('p', () => openPage('priority'), { enabled: checkable })
+  useHotkey('t', () => openPage('type'), { enabled: checkable })
+  useHotkey('l', () => openPage('labels'), { enabled: checkable })
   useEffect(() => {
     palette.setPageTarget(checkable ? targets() : null)
     return () => palette.setPageTarget(null)

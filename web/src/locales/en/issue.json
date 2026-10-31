@@ -42,7 +42,10 @@
     "move": "Move",
     "created": "Created",
     "createdBy": "{{name}} · {{date}}",
-    "updated": "Updated"
+    "updated": "Updated",
+    "type": "Type",
+    "labels": "Labels",
+    "noLabels": "No labels"
   },
   "move": {
     "title": "Move to project",
