@@ -15,10 +15,10 @@ import (
 const deleteProjectAudit = `-- name: DeleteProjectAudit :exec
 DELETE FROM audit_events
 WHERE entity_id IN (SELECT i.id FROM issues i WHERE i.project_id = $1::uuid)
-   OR (entity_type IN ('project', 'state') AND audit_events.project_id = $1::uuid)
+   OR (entity_type IN ('project', 'state', 'milestone') AND audit_events.project_id = $1::uuid)
 `
 
-// Events of the project, its states and the issues currently in it.
+// Events of the project, its states and milestones, and the issues currently in it.
 func (q *Queries) DeleteProjectAudit(ctx context.Context, projectID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteProjectAudit, projectID)
 	return err
