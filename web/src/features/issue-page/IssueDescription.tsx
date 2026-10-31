@@ -38,6 +38,7 @@ export function IssueDescription({ issue, readOnly, editing, setEditing }: Props
     onSuccess: () => {
       setEditing(false)
       void qc.invalidateQueries({ queryKey: ['issue'] })
+      void qc.invalidateQueries({ queryKey: ['history'] })
     },
     onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
   })

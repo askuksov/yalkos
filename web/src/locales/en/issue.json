@@ -62,5 +62,35 @@
     "done": "Issue deleted"
   },
   "archived": "This project is archived",
-  "docTitle": "{{identifier}} {{title}}"
+  "docTitle": "{{identifier}} {{title}}",
+  "subIssues": {
+    "title": "Sub-issues",
+    "add": "Add",
+    "addLabel": "Add sub-issue",
+    "progress": "{{completed}} of {{total}} done",
+    "reorder": "Drag to reorder {{identifier}}"
+  },
+  "activity": {
+    "title": "Activity",
+    "showOlder": "Show older",
+    "created": "{{actor}} created the issue",
+    "deleted": "{{actor}} deleted the issue",
+    "renamed": "{{actor}} renamed the issue to \"{{title}}\"",
+    "description": "{{actor}} updated the description",
+    "state": "{{actor}} changed state from {{from}} to {{to}}",
+    "priority": "{{actor}} set priority to {{priority}}",
+    "priorityRemoved": "{{actor}} removed priority",
+    "assigned": "{{actor}} assigned {{user}}",
+    "assignedSelf": "{{actor}} assigned themselves",
+    "unassigned": "{{actor}} unassigned {{user}}",
+    "due": "{{actor}} set due date to {{date}}",
+    "dueRemoved": "{{actor}} removed the due date",
+    "parent": "{{actor}} made this a sub-issue of {{parent}}",
+    "parentRemoved": "{{actor}} removed the parent",
+    "moved": "{{actor}} moved the issue from {{from}} to {{to}} (was {{was}})",
+    "someone": "someone",
+    "deletedState": "a deleted state",
+    "unknownIssue": "an issue",
+    "unknownProject": "another project"
+  }
 }

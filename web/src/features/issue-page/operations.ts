@@ -17,3 +17,21 @@ export const MoveIssueMutation = graphql(`
     moveIssue(id: $id, projectId: $projectId) { id identifier }
   }
 `)
+
+export const IssueHistoryQuery = graphql(`
+  query IssueHistory($id: String!, $before: String) {
+    issue(id: $id) {
+      id
+      history(last: 50, before: $before) {
+        nodes { id action actor { id name } changes { field from to } createdAt }
+        pageInfo { hasPreviousPage startCursor }
+      }
+    }
+  }
+`)
+
+export const IssueRefQuery = graphql(`
+  query IssueRef($id: String!) {
+    issue(id: $id) { id identifier }
+  }
+`)

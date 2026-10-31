@@ -6,6 +6,7 @@ import { Navigate, useNavigate, useParams } from 'react-router'
 import { NotFound } from '../app/ProjectRoute'
 import { useTitle } from '../app/useTitle'
 import { errorMessage, GraphQLRequestError, request } from '../api/client'
+import { Activity } from '../features/issue-page/Activity'
 import { IssueDescription } from '../features/issue-page/IssueDescription'
 import { IssueHeader } from '../features/issue-page/IssueHeader'
 import { IssueProperties } from '../features/issue-page/IssueProperties'
@@ -13,6 +14,7 @@ import { IssueTitle } from '../features/issue-page/IssueTitle'
 import s from '../features/issue-page/issue-page.module.css'
 import { MoveIssueDialog } from '../features/issue-page/MoveIssueDialog'
 import { IssuePageQuery } from '../features/issue-page/operations'
+import { SubIssues } from '../features/issue-page/SubIssues'
 import type { PageIssue, PropName } from '../features/issue-page/types'
 import { useCreateDefaults, useCreateIssue } from '../features/issues/createIssue'
 import { DeleteIssueMutation } from '../features/issues/fragments'
@@ -94,6 +96,8 @@ function IssueView({ issue }: { issue: PageIssue }) {
         <main className={s.main}>
           <IssueTitle issue={issue} readOnly={readOnly} />
           <IssueDescription issue={issue} readOnly={readOnly} editing={editing} setEditing={setEditing} />
+          <SubIssues issue={issue} readOnly={readOnly} />
+          <Activity issue={issue} />
         </main>
         <IssueProperties issue={issue} readOnly={readOnly} open={prop} setOpen={setProp} onMove={() => setMoving(true)} />
       </div>
