@@ -3,6 +3,7 @@ import { Navigate, type RouteObject } from 'react-router'
 import { RequireAuth } from '../auth/RequireAuth'
 import { ApiKeysPage } from '../pages/ApiKeysPage'
 import { InvitePage } from '../pages/InvitePage'
+import { IssuePage } from '../pages/IssuePage'
 import { LoginPage } from '../pages/LoginPage'
 import { MembersPage } from '../pages/MembersPage'
 import { MyIssuesPage } from '../pages/MyIssuesPage'
@@ -37,6 +38,7 @@ export const routes: RouteObject[] = [
               { path: 'settings', element: <ProjectSettingsPage /> },
             ],
           },
+          { path: 'issue/:identifier', element: <IssuePage /> },
           { path: 'settings/members', element: <MembersPage /> },
           { path: 'settings/api-keys', element: <ApiKeysPage /> },
           { path: '*', element: <NotFound what="page" /> },
