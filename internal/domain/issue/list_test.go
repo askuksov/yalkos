@@ -335,6 +335,10 @@ func TestFilterPriorityOutOfRange(t *testing.T) {
 		func(issue.Issue) bool { return false })
 	f.check(t, "priority lt 1<<40", issue.Filter{Priority: &issue.IntCond{Lt: ptr(1 << 40)}},
 		func(issue.Issue) bool { return true })
+	f.check(t, "priority in [1<<40]", issue.Filter{Priority: &issue.IntCond{In: []int{1 << 40}}},
+		func(issue.Issue) bool { return false })
+	f.check(t, "priority nin [1<<40]", issue.Filter{Priority: &issue.IntCond{Nin: []int{1 << 40}}},
+		func(issue.Issue) bool { return true })
 }
 
 func TestCursorGarbageValues(t *testing.T) {
