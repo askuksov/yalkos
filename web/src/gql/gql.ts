@@ -33,13 +33,14 @@ type Documents = {
     "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": typeof types.ProjectDocument,
     "\n  query PaletteIssue($id: String!) {\n    issue(id: $id) { id identifier title project { id key } }\n  }\n": typeof types.PaletteIssueDocument,
     "\n  query PaletteSearch($filter: IssueFilter, $first: Int) {\n    issues(filter: $filter, first: $first, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title project { id key } state { name type color } }\n    }\n  }\n": typeof types.PaletteSearchDocument,
-    "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } }\n  }\n": typeof types.PaletteChildCountDocument,
+    "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } milestone { id } }\n  }\n": typeof types.PaletteChildCountDocument,
+    "\n  query PaletteMilestones {\n    projects(first: 100) { nodes { id key isMember milestones(includeDone: false) { id name } } }\n  }\n": typeof types.PaletteMilestonesDocument,
     "\n  query IssuePage($id: String!) {\n    issue(id: $id) {\n      ...IssueRowFields\n      number description createdAt updatedAt\n      creator { id name }\n      project { id key name archivedAt states { id name type color position isDefault } }\n      children(first: 1) { totalCount }\n    }\n  }\n": typeof types.IssuePageDocument,
     "\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n": typeof types.MoveIssueDocument,
     "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": typeof types.IssueHistoryDocument,
     "\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n": typeof types.IssueRefDocument,
     "\n  mutation CreateIssue($input: CreateIssueInput!) {\n    createIssue(input: $input) { id identifier project { id } }\n  }\n": typeof types.CreateIssueDocument,
-    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n  }\n": typeof types.IssueRowFieldsFragmentDoc,
+    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n  }\n": typeof types.IssueRowFieldsFragmentDoc,
     "\n  query IssueGroup($filter: IssueFilter, $orderBy: IssueOrder, $first: Int, $after: String) {\n    issues(filter: $filter, orderBy: $orderBy, first: $first, after: $after) {\n      totalCount\n      nodes { ...IssueRowFields }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": typeof types.IssueGroupDocument,
     "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      # 200 rows keep the query under the API cost limit (each row carries labels).\n      children(first: 200, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n": typeof types.IssueChildrenDocument,
     "\n  mutation UpdateIssue($id: ID!, $input: UpdateIssueInput!) {\n    updateIssue(id: $id, input: $input) { ...IssueRowFields }\n  }\n": typeof types.UpdateIssueDocument,
@@ -54,6 +55,13 @@ type Documents = {
     "\n  query LabelIssueCount($id: ID!) {\n    issues(filter: { label: { in: [$id] } }, first: 1) { totalCount }\n  }\n": typeof types.LabelIssueCountDocument,
     "\n  query IssueLink($id: String!) {\n    issue(id: $id) { id identifier title state { id name type color } }\n  }\n": typeof types.IssueLinkDocument,
     "\n  query Limits {\n    limits { maxUploadMb }\n  }\n": typeof types.LimitsDocument,
+    "\n  fragment MilestoneFields on Milestone {\n    id name targetDate status statusAutomatic overdue\n    progress { completed total }\n    lead { id name }\n    project { id key }\n  }\n": typeof types.MilestoneFieldsFragmentDoc,
+    "\n  query Milestones($projectId: String!) {\n    project(id: $projectId) { id milestones { ...MilestoneFields } }\n  }\n": typeof types.MilestonesDocument,
+    "\n  query MilestonePage($id: ID!) {\n    milestone(id: $id) { ...MilestoneFields description createdBy { id } }\n  }\n": typeof types.MilestonePageDocument,
+    "\n  mutation CreateMilestone($projectId: ID!, $input: CreateMilestoneInput!) {\n    createMilestone(projectId: $projectId, input: $input) { id }\n  }\n": typeof types.CreateMilestoneDocument,
+    "\n  mutation UpdateMilestone($id: ID!, $input: UpdateMilestoneInput!) {\n    updateMilestone(id: $id, input: $input) { ...MilestoneFields description }\n  }\n": typeof types.UpdateMilestoneDocument,
+    "\n  mutation ReorderMilestones($projectId: ID!, $milestoneIds: [ID!]!) {\n    reorderMilestones(projectId: $projectId, milestoneIds: $milestoneIds) { id }\n  }\n": typeof types.ReorderMilestonesDocument,
+    "\n  mutation DeleteMilestone($id: ID!) {\n    deleteMilestone(id: $id)\n  }\n": typeof types.DeleteMilestoneDocument,
     "\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n": typeof types.PickIssuesDocument,
     "\n  query BrowseProjects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 100) {\n      nodes { id key name description color archivedAt isMember members { id } }\n    }\n  }\n": typeof types.BrowseProjectsDocument,
     "\n  mutation CreateProject($input: CreateProjectInput!) {\n    createProject(input: $input) { id key }\n  }\n": typeof types.CreateProjectDocument,
@@ -88,13 +96,14 @@ const documents: Documents = {
     "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": types.ProjectDocument,
     "\n  query PaletteIssue($id: String!) {\n    issue(id: $id) { id identifier title project { id key } }\n  }\n": types.PaletteIssueDocument,
     "\n  query PaletteSearch($filter: IssueFilter, $first: Int) {\n    issues(filter: $filter, first: $first, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title project { id key } state { name type color } }\n    }\n  }\n": types.PaletteSearchDocument,
-    "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } }\n  }\n": types.PaletteChildCountDocument,
+    "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } milestone { id } }\n  }\n": types.PaletteChildCountDocument,
+    "\n  query PaletteMilestones {\n    projects(first: 100) { nodes { id key isMember milestones(includeDone: false) { id name } } }\n  }\n": types.PaletteMilestonesDocument,
     "\n  query IssuePage($id: String!) {\n    issue(id: $id) {\n      ...IssueRowFields\n      number description createdAt updatedAt\n      creator { id name }\n      project { id key name archivedAt states { id name type color position isDefault } }\n      children(first: 1) { totalCount }\n    }\n  }\n": types.IssuePageDocument,
     "\n  mutation MoveIssue($id: ID!, $projectId: ID!) {\n    moveIssue(id: $id, projectId: $projectId) { id identifier }\n  }\n": types.MoveIssueDocument,
     "\n  query IssueHistory($id: String!, $before: String) {\n    issue(id: $id) {\n      id\n      history(last: 50, before: $before) {\n        nodes { id action actor { id name } changes { field from to } createdAt }\n        pageInfo { hasPreviousPage startCursor }\n      }\n    }\n  }\n": types.IssueHistoryDocument,
     "\n  query IssueRef($id: String!) {\n    issue(id: $id) { id identifier }\n  }\n": types.IssueRefDocument,
     "\n  mutation CreateIssue($input: CreateIssueInput!) {\n    createIssue(input: $input) { id identifier project { id } }\n  }\n": types.CreateIssueDocument,
-    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n  }\n": types.IssueRowFieldsFragmentDoc,
+    "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n  }\n": types.IssueRowFieldsFragmentDoc,
     "\n  query IssueGroup($filter: IssueFilter, $orderBy: IssueOrder, $first: Int, $after: String) {\n    issues(filter: $filter, orderBy: $orderBy, first: $first, after: $after) {\n      totalCount\n      nodes { ...IssueRowFields }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": types.IssueGroupDocument,
     "\n  query IssueChildren($id: String!, $orderBy: IssueOrder) {\n    issue(id: $id) {\n      id\n      # 200 rows keep the query under the API cost limit (each row carries labels).\n      children(first: 200, orderBy: $orderBy) { nodes { ...IssueRowFields } }\n    }\n  }\n": types.IssueChildrenDocument,
     "\n  mutation UpdateIssue($id: ID!, $input: UpdateIssueInput!) {\n    updateIssue(id: $id, input: $input) { ...IssueRowFields }\n  }\n": types.UpdateIssueDocument,
@@ -109,6 +118,13 @@ const documents: Documents = {
     "\n  query LabelIssueCount($id: ID!) {\n    issues(filter: { label: { in: [$id] } }, first: 1) { totalCount }\n  }\n": types.LabelIssueCountDocument,
     "\n  query IssueLink($id: String!) {\n    issue(id: $id) { id identifier title state { id name type color } }\n  }\n": types.IssueLinkDocument,
     "\n  query Limits {\n    limits { maxUploadMb }\n  }\n": types.LimitsDocument,
+    "\n  fragment MilestoneFields on Milestone {\n    id name targetDate status statusAutomatic overdue\n    progress { completed total }\n    lead { id name }\n    project { id key }\n  }\n": types.MilestoneFieldsFragmentDoc,
+    "\n  query Milestones($projectId: String!) {\n    project(id: $projectId) { id milestones { ...MilestoneFields } }\n  }\n": types.MilestonesDocument,
+    "\n  query MilestonePage($id: ID!) {\n    milestone(id: $id) { ...MilestoneFields description createdBy { id } }\n  }\n": types.MilestonePageDocument,
+    "\n  mutation CreateMilestone($projectId: ID!, $input: CreateMilestoneInput!) {\n    createMilestone(projectId: $projectId, input: $input) { id }\n  }\n": types.CreateMilestoneDocument,
+    "\n  mutation UpdateMilestone($id: ID!, $input: UpdateMilestoneInput!) {\n    updateMilestone(id: $id, input: $input) { ...MilestoneFields description }\n  }\n": types.UpdateMilestoneDocument,
+    "\n  mutation ReorderMilestones($projectId: ID!, $milestoneIds: [ID!]!) {\n    reorderMilestones(projectId: $projectId, milestoneIds: $milestoneIds) { id }\n  }\n": types.ReorderMilestonesDocument,
+    "\n  mutation DeleteMilestone($id: ID!) {\n    deleteMilestone(id: $id)\n  }\n": types.DeleteMilestoneDocument,
     "\n  query PickIssues($filter: IssueFilter) {\n    issues(filter: $filter, first: 20, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title }\n    }\n  }\n": types.PickIssuesDocument,
     "\n  query BrowseProjects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 100) {\n      nodes { id key name description color archivedAt isMember members { id } }\n    }\n  }\n": types.BrowseProjectsDocument,
     "\n  mutation CreateProject($input: CreateProjectInput!) {\n    createProject(input: $input) { id key }\n  }\n": types.CreateProjectDocument,
@@ -217,7 +233,11 @@ export function graphql(source: "\n  query PaletteSearch($filter: IssueFilter, $
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } }\n  }\n"): (typeof documents)["\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } }\n  }\n"];
+export function graphql(source: "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } milestone { id } }\n  }\n"): (typeof documents)["\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } milestone { id } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query PaletteMilestones {\n    projects(first: 100) { nodes { id key isMember milestones(includeDone: false) { id name } } }\n  }\n"): (typeof documents)["\n  query PaletteMilestones {\n    projects(first: 100) { nodes { id key isMember milestones(includeDone: false) { id name } } }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -241,7 +261,7 @@ export function graphql(source: "\n  mutation CreateIssue($input: CreateIssueInp
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n  }\n"): (typeof documents)["\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n  }\n"];
+export function graphql(source: "\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n  }\n"): (typeof documents)["\n  fragment IssueRowFields on Issue {\n    id identifier title priority dueDate sortOrder\n    state { id name type color }\n    assignee { id name }\n    parent { id identifier }\n    subIssueProgress { completed total }\n    project { id key archivedAt }\n    type { id name color }\n    labels { id name color }\n    milestone { id name }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -298,6 +318,34 @@ export function graphql(source: "\n  query IssueLink($id: String!) {\n    issue(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query Limits {\n    limits { maxUploadMb }\n  }\n"): (typeof documents)["\n  query Limits {\n    limits { maxUploadMb }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  fragment MilestoneFields on Milestone {\n    id name targetDate status statusAutomatic overdue\n    progress { completed total }\n    lead { id name }\n    project { id key }\n  }\n"): (typeof documents)["\n  fragment MilestoneFields on Milestone {\n    id name targetDate status statusAutomatic overdue\n    progress { completed total }\n    lead { id name }\n    project { id key }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Milestones($projectId: String!) {\n    project(id: $projectId) { id milestones { ...MilestoneFields } }\n  }\n"): (typeof documents)["\n  query Milestones($projectId: String!) {\n    project(id: $projectId) { id milestones { ...MilestoneFields } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query MilestonePage($id: ID!) {\n    milestone(id: $id) { ...MilestoneFields description createdBy { id } }\n  }\n"): (typeof documents)["\n  query MilestonePage($id: ID!) {\n    milestone(id: $id) { ...MilestoneFields description createdBy { id } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateMilestone($projectId: ID!, $input: CreateMilestoneInput!) {\n    createMilestone(projectId: $projectId, input: $input) { id }\n  }\n"): (typeof documents)["\n  mutation CreateMilestone($projectId: ID!, $input: CreateMilestoneInput!) {\n    createMilestone(projectId: $projectId, input: $input) { id }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation UpdateMilestone($id: ID!, $input: UpdateMilestoneInput!) {\n    updateMilestone(id: $id, input: $input) { ...MilestoneFields description }\n  }\n"): (typeof documents)["\n  mutation UpdateMilestone($id: ID!, $input: UpdateMilestoneInput!) {\n    updateMilestone(id: $id, input: $input) { ...MilestoneFields description }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation ReorderMilestones($projectId: ID!, $milestoneIds: [ID!]!) {\n    reorderMilestones(projectId: $projectId, milestoneIds: $milestoneIds) { id }\n  }\n"): (typeof documents)["\n  mutation ReorderMilestones($projectId: ID!, $milestoneIds: [ID!]!) {\n    reorderMilestones(projectId: $projectId, milestoneIds: $milestoneIds) { id }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteMilestone($id: ID!) {\n    deleteMilestone(id: $id)\n  }\n"): (typeof documents)["\n  mutation DeleteMilestone($id: ID!) {\n    deleteMilestone(id: $id)\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -6,6 +6,8 @@ export type CreateIssueOptions = {
   /** Shown on the parent chip; the server derives the project from parentId. */
   parentIdentifier?: string
   stateId?: string
+  /** New issues from a milestone page join that milestone. */
+  milestoneId?: string
 }
 
 export type CreateIssueApi = {

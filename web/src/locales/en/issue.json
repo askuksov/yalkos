@@ -45,7 +45,8 @@
     "updated": "Updated",
     "type": "Type",
     "labels": "Labels",
-    "noLabels": "No labels"
+    "noLabels": "No labels",
+    "milestone": "Milestone"
   },
   "move": {
     "title": "Move to project",
@@ -53,7 +54,8 @@
     "confirm": "{{identifier}} will get a new identifier in {{key}}.",
     "confirmWithChildren": "{{identifier}} and its sub-issues will get new identifiers in {{key}}.",
     "submit": "Move",
-    "back": "Back"
+    "back": "Back",
+    "milestoneRemoved": "Its milestone will be removed."
   },
   "delete": {
     "title": "Delete issue",

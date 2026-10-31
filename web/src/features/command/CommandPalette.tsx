@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { Command } from 'cmdk'
 import { type ReactNode, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
+import { useMatch, useNavigate } from 'react-router'
 
 import { request } from '../../api/client'
 import { useProjects } from '../../api/hooks'
@@ -18,7 +18,7 @@ import { useToast } from '../../ui/useToast'
 import { useCreateIssue } from '../issues/createIssue'
 import s from './command.module.css'
 import { type PaletteApi, PaletteContext, type PalettePage } from './palette'
-import { AssigneePage, DeletePage, DuePage, LabelsPage, MovePage, ParentPage, PriorityPage, StatePage, TypePage } from './pages'
+import { AssigneePage, DeletePage, DuePage, GoMilestonePage, LabelsPage, MilestonePage, MovePage, ParentPage, PriorityPage, StatePage, TypePage } from './pages'
 import { getRecent, type IssueTarget } from './recent'
 import { PaletteSearchQuery, useDebounced } from './search'
 import { ShortcutsHelp } from './ShortcutsHelp'
@@ -107,6 +107,8 @@ function Palette({ initial, onClose, onHelp }: { initial: Open; onClose: () => v
         {page === 'priority' && <PriorityPage {...pageProps} />}
         {page === 'type' && <TypePage {...pageProps} />}
         {page === 'labels' && <LabelsPage {...pageProps} />}
+        {page === 'milestone' && <MilestonePage {...pageProps} />}
+        {page === 'goMilestone' && <GoMilestonePage {...pageProps} />}
         {page === 'due' && <DuePage {...pageProps} />}
         {page === 'parent' && <ParentPage {...pageProps} />}
         {page === 'move' && <MovePage {...pageProps} />}
@@ -125,6 +127,7 @@ function RootPage({ q, targets, searchOnly, push, close, onHelp }: RootProps) {
   const toast = useToast()
   const { openForPage, openCreateIssue } = useCreateIssue()
   const projects = useProjects().data ?? []
+  const routeProject = useMatch('/p/:key/*')?.params.key
   const text = q.trim()
   const search = useDebounced(text, 150)
   const exact = identifierRe.test(text) ? text.toUpperCase() : null
@@ -159,12 +162,14 @@ function RootPage({ q, targets, searchOnly, push, close, onHelp }: RootProps) {
       .filter((p) => p.isMember)
       .sort((a, b) => compareNames(a.name, b.name))
       .map((p) => ({ key: `p-${p.id}`, label: t('goTo.project', { name: p.name }), run: () => go(`/p/${p.key}`) })),
+    { key: 'milestones', label: t('goTo.milestone'), run: () => push('goMilestone') },
     { key: 'browse', label: t('goTo.browseProjects'), run: () => go('/projects') },
     { key: 'members', label: t('goTo.members'), run: () => go('/settings/members') },
     { key: 'keys', label: t('goTo.apiKeys'), run: () => go('/settings/api-keys') },
   ].filter((i) => has(i.label))
   const actions: Item[] = [
     { key: 'create', label: t('actions.createIssue'), run: () => (close(), openForPage()) },
+    ...(routeProject ? [{ key: 'createMilestone', label: t('actions.createMilestone'), run: () => go(`/p/${routeProject}/milestones?new=1`) }] : []),
     {
       key: 'theme',
       label: t('actions.toggleTheme'),
@@ -184,6 +189,7 @@ function RootPage({ q, targets, searchOnly, push, close, onHelp }: RootProps) {
         { key: 'priority', label: t('issue.priority'), run: () => push('priority') },
         { key: 'type', label: t('issue.type'), run: () => push('type') },
         { key: 'labels', label: t('issue.labels'), run: () => push('labels') },
+        ...(new Set(targets.map((x) => x.projectId)).size === 1 ? [{ key: 'milestone', label: t('issue.milestone'), run: () => push('milestone') }] : []),
         { key: 'due', label: t('issue.due'), run: () => push('due') },
         ...(new Set(targets.map((x) => x.projectId)).size === 1 ? [{ key: 'parent', label: t('issue.parent'), run: () => push('parent') }] : []),
         ...(single

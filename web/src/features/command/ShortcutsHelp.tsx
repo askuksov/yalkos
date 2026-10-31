@@ -44,6 +44,7 @@ export function ShortcutsHelp({ open, onClose }: { open: boolean; onClose: () =>
         { keys: ['A'], label: t('help.rows.assignee') },
         { keys: ['T'], label: t('help.rows.type') },
         { keys: ['L'], label: t('help.rows.labels') },
+        { keys: ['M'], label: t('help.rows.milestone') },
         { keys: ['P'], label: t('help.rows.priority') },
         { keys: ['E'], label: t('help.rows.edit') },
       ],

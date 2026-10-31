@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, CornerDownRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight, Target } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -10,6 +10,7 @@ import { Avatar } from '../../ui/Avatar'
 import { PriorityIcon } from '../../ui/PriorityIcon'
 import { StateIcon } from '../../ui/StateIcon'
 import { LabelChips } from '../labels/LabelChips'
+import ms from '../milestones/milestones.module.css'
 import { isOverdue } from './filters'
 import { IssueChildrenQuery } from './fragments'
 import s from './issues.module.css'
@@ -86,6 +87,12 @@ export function IssueRow({ issue, depth = 0, nested, orderBy }: Props) {
           </span>
         )}
         <LabelChips type={issue.type ?? null} labels={issue.labels} />
+        {issue.milestone && (
+          <span className={ms.chip} title={t('list.milestone', { name: issue.milestone.name })}>
+            <Target size={12} aria-hidden />
+            {issue.milestone.name}
+          </span>
+        )}
         <span className={s.grow} />
         {issue.dueDate && (
           <span className={[s.due, overdue ? s.overdue : ''].join(' ')} title={t(overdue ? 'list.overdue' : 'list.dueDate', { date: issue.dueDate })}>

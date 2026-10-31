@@ -10,6 +10,7 @@ import { useIsAdmin, useMembers, useViewer } from '../api/hooks'
 import { DisplayMenu } from '../features/issues/DisplayMenu'
 import { FilterBar, FilterChips } from '../features/issues/FilterBar'
 import { useLabels } from '../features/labels/useLabels'
+import { useMilestones } from '../features/milestones/useMilestones'
 import { useCreateDefaults, useCreateIssue } from '../features/issues/createIssue'
 import { UnarchiveProjectMutation } from '../features/issues/fragments'
 import { IssueList } from '../features/issues/IssueList'
@@ -26,8 +27,9 @@ export function ProjectIssuesPage() {
   const viewer = useViewer().data
   const users = useMembers().data ?? []
   const labels = useLabels().data
+  const milestones = useMilestones(project.key).data
   const archived = !!project.archivedAt
-  const scope = { params, onChange: setParams, states: project.states, users, viewerId: viewer?.id ?? '', labels }
+  const scope = { params, onChange: setParams, states: project.states, users, viewerId: viewer?.id ?? '', labels, milestones }
   const { openCreateIssue } = useCreateIssue()
   const navigate = useNavigate()
   const onView = (view: 'list' | 'board') => {

@@ -44,6 +44,7 @@ function MoveSteps({ issue, onClose }: { issue: PageIssue; onClose: () => void }
   return (
     <>
       <p>{t(withChildren ? 'move.confirmWithChildren' : 'move.confirm', { identifier: issue.identifier, key: target.key })}</p>
+      {issue.milestone && <p>{t('move.milestoneRemoved')}</p>}
       <div className={s.dialogActions}>
         <Button onClick={() => setTarget(null)}>{t('move.back')}</Button>
         <Button variant="primary" disabled={move.isPending} onClick={() => move.mutate(target.id)}>

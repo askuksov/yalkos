@@ -63,7 +63,8 @@
     "userMenu": "Account",
     "logOut": "Log out",
     "projectSettingsTitle": "{{name}} settings",
-    "labels": "Labels"
+    "labels": "Labels",
+    "projectMilestones": "Milestones"
   },
   "notFound": {
     "page": "Page not found",

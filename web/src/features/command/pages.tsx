@@ -18,9 +18,10 @@ import { MoveIssueMutation } from '../issue-page/operations'
 import { DeleteIssueMutation } from '../issues/fragments'
 import ls from '../labels/labels.module.css'
 import { useLabels } from '../labels/useLabels'
+import { useMilestones } from '../milestones/useMilestones'
 import s from './command.module.css'
 import type { IssueTarget } from './recent'
-import { PaletteChildCountQuery, PaletteSearchQuery, useDebounced } from './search'
+import { PaletteChildCountQuery, PaletteMilestonesQuery, PaletteSearchQuery, useDebounced } from './search'
 
 type PageProps = { q: string; targets: IssueTarget[]; done: () => void }
 
@@ -167,6 +168,56 @@ export function LabelsPage({ q, targets, done }: PageProps) {
   )
 }
 
+export function MilestonePage({ q, targets, done }: PageProps) {
+  const { t } = useTranslation('issues')
+  const update = useIssueMutation()
+  const projectId = sharedProject(targets)
+  const milestones = (useMilestones(projectId).data ?? []).filter((m) => m.status !== 'DONE' && m.status !== 'CANCELED')
+  const items = [...milestones.map((m) => ({ key: m.id, label: m.name, m: { id: m.id, name: m.name } as { id: string; name: string } | null })), { key: 'none', label: t('milestones.none'), m: null }].filter((i) =>
+    has(i.label, q),
+  )
+  return (
+    <>
+      {items.map((i) => (
+        <Command.Item
+          key={i.key}
+          value={i.key}
+          onSelect={() => {
+            targets.forEach((x) => update.mutate({ id: x.id, input: { milestoneId: i.m?.id ?? null }, optimistic: { milestone: i.m } }))
+            done()
+          }}
+        >
+          <span className={s.label}>{i.label}</span>
+        </Command.Item>
+      ))}
+    </>
+  )
+}
+
+/** Milestones of the projects the viewer belongs to (open ones), to jump to. */
+export function GoMilestonePage({ q, done }: PageProps) {
+  const navigate = useNavigate()
+  const list = useQuery({ queryKey: ['paletteMilestones'], queryFn: () => request(PaletteMilestonesQuery), select: (d) => d.projects.nodes.filter((p) => p.isMember) })
+  const items = (list.data ?? []).flatMap((p) => p.milestones.map((m) => ({ id: m.id, name: m.name, key: p.key }))).filter((i) => has(`${i.key} ${i.name}`, q))
+  return (
+    <>
+      {items.map((i) => (
+        <Command.Item
+          key={i.id}
+          value={i.id}
+          onSelect={() => {
+            navigate(`/p/${i.key}/milestones/${i.id}`)
+            done()
+          }}
+        >
+          <span className={s.identifier}>{i.key}</span>
+          <span className={s.label}>{i.name}</span>
+        </Command.Item>
+      ))}
+    </>
+  )
+}
+
 export function DuePage({ targets, done }: PageProps) {
   const { t } = useTranslation('command')
   const update = useIssueMutation()
@@ -262,7 +313,7 @@ export function MovePage({ q, targets, done }: PageProps) {
     queryKey: ['paletteChildCount', issue?.id],
     queryFn: () => request(PaletteChildCountQuery, { id: issue?.id ?? '' }),
     enabled: !!issue,
-    select: (d) => d.issue.children.totalCount,
+    select: (d) => ({ children: d.issue.children.totalCount, milestone: !!d.issue.milestone }),
   })
   const move = useMutation({
     mutationFn: (projectId: string) => request(MoveIssueMutation, { id: issue.id, projectId }),
@@ -278,8 +329,9 @@ export function MovePage({ q, targets, done }: PageProps) {
     return (
       <Command.Item value="confirm" onSelect={() => move.mutate(target.id)}>
         <span className={s.label}>
-          {t(childCount.data ? 'issue:move.confirmWithChildren' : 'issue:move.confirm', { identifier: issue.identifier, key: target.key })}
+          {t(childCount.data?.children ? 'issue:move.confirmWithChildren' : 'issue:move.confirm', { identifier: issue.identifier, key: target.key })}
         </span>
+        {childCount.data?.milestone && <span className={s.label}>{t('issue:move.milestoneRemoved')}</span>}
       </Command.Item>
     )
   }

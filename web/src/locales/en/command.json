@@ -17,13 +17,15 @@
     "project": "{{name}}",
     "browseProjects": "Browse projects",
     "members": "Members",
-    "apiKeys": "API keys"
+    "apiKeys": "API keys",
+    "milestone": "Go to milestone…"
   },
   "actions": {
     "createIssue": "Create issue",
     "toggleTheme": "Toggle theme",
     "logOut": "Log out",
-    "shortcuts": "Keyboard shortcuts"
+    "shortcuts": "Keyboard shortcuts",
+    "createMilestone": "Create milestone"
   },
   "issue": {
     "state": "Change state…",
@@ -36,7 +38,8 @@
     "copy": "Copy identifier",
     "delete": "Delete",
     "type": "Set type…",
-    "labels": "Add label…"
+    "labels": "Add label…",
+    "milestone": "Set milestone…"
   },
   "pages": {
     "state": "Change state",
@@ -47,7 +50,9 @@
     "move": "Move to project",
     "delete": "Delete",
     "type": "Set type",
-    "labels": "Add label"
+    "labels": "Add label",
+    "milestone": "Set milestone",
+    "goMilestone": "Go to milestone"
   },
   "due": {
     "set": "Set due date",
@@ -84,7 +89,8 @@
       "edit": "Edit description",
       "escape": "Close, clear selection, go back",
       "type": "Set type",
-      "labels": "Add label (list and issue page)"
+      "labels": "Add label (list and issue page)",
+      "milestone": "Set milestone"
     }
   }
 }

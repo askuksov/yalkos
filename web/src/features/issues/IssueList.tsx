@@ -15,7 +15,7 @@ import { useSelection } from './useSelection'
 import { viewMemory } from './viewMemory'
 
 export type ListScope =
-  | { kind: 'project'; projectId: string; projectKey: string; states: PickerState[]; archived: boolean }
+  | { kind: 'project'; projectId: string; projectKey: string; states: PickerState[]; archived: boolean; milestoneId?: string }
   | { kind: 'my' }
 
 const stateTypes: StateType[] = ['BACKLOG', 'UNSTARTED', 'STARTED', 'COMPLETED', 'CANCELED']
@@ -58,7 +58,8 @@ export function IssueList({ scope, params, users, viewerId, empty, groupAction }
   const filtered = hasFilters(params)
   // Nesting shows top-level issues only, so it applies to an unfiltered project
   // list; with filters, and on My issues, matching sub-issues list flat.
-  const nested = params.nest && scope.kind === 'project' && !filtered
+  // A milestone holds sub-issues of other parents too: its list is flat.
+  const nested = params.nest && scope.kind === 'project' && !filtered && !scope.milestoneId
   const search = toSearch(params)
   const orderBy: IssueOrder = { field: params.order, direction: params.dir }
   const groups = useMemo((): Group[] => {
@@ -72,7 +73,10 @@ export function IssueList({ scope, params, users, viewerId, empty, groupAction }
         .map((st) => ({
           id: st.id, label: st.name, type: st.type,
           icon: <StateIcon type={st.type} color={st.color} />,
-          filter: { ...base, project: { eq: scope.projectId }, state: { eq: st.id } },
+          filter: {
+            ...base, project: { eq: scope.projectId }, state: { eq: st.id },
+            ...(scope.milestoneId ? { milestone: { eq: scope.milestoneId } } : {}),
+          },
         }))
     }
     return stateTypes
@@ -87,7 +91,7 @@ export function IssueList({ scope, params, users, viewerId, empty, groupAction }
 
   const loaded = groups.every((g) => counts[g.id] !== undefined)
   const none = loaded && groups.every((g) => counts[g.id] === 0)
-  const scopeKey = scope.kind === 'project' ? scope.projectKey : 'my'
+  const scopeKey = scope.kind === 'project' ? (scope.milestoneId ? `${scope.projectKey}/m/${scope.milestoneId}` : scope.projectKey) : 'my'
 
   // Restore the scroll offset once the groups have their rows.
   const restored = useRef(false)

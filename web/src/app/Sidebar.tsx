@@ -76,6 +76,9 @@ export function Sidebar() {
                   <NavLink to={base} end className={s.navLink}>
                     {t('nav.projectIssues')}
                   </NavLink>
+                  <NavLink to={`${base}/milestones`} className={s.navLink}>
+                    {t('nav.projectMilestones')}
+                  </NavLink>
                   {isAdmin && (
                     <NavLink to={`${base}/settings`} className={s.navLink}>
                       {t('nav.projectSettings')}
