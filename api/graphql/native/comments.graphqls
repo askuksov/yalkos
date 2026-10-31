@@ -1,0 +1,54 @@
+# Flat Markdown comments and the issue timeline (comments and changes by time).
+
+type Comment {
+  id: ID!
+  "Markdown."
+  body: String!
+  author: User!
+  createdAt: Time!
+  updatedAt: Time!
+  "Set once the author changes the text."
+  editedAt: Time
+  issue: Issue!
+}
+
+type CommentEdge {
+  node: Comment!
+  cursor: String!
+}
+
+type CommentConnection {
+  nodes: [Comment!]!
+  edges: [CommentEdge!]!
+  pageInfo: PageInfo!
+}
+
+union TimelineItem = Comment | HistoryEntry
+
+type TimelineEdge {
+  node: TimelineItem!
+  cursor: String!
+}
+
+type TimelineConnection {
+  nodes: [TimelineItem!]!
+  edges: [TimelineEdge!]!
+  pageInfo: PageInfo!
+}
+
+extend type Issue {
+  "Oldest first."
+  comments(first: Int, after: String, last: Int, before: String): CommentConnection!
+  commentCount: Int!
+  "Comments and change events, oldest first."
+  timeline(first: Int, after: String, last: Int, before: String): TimelineConnection!
+}
+
+extend type Mutation {
+  "attachmentIds: the author's pending uploads to attach (uploads linked in the body are attached too)."
+  createComment(issueId: ID!, body: String!, attachmentIds: [ID!]): Comment!
+  "The author only."
+  updateComment(id: ID!, body: String!): Comment!
+  "The author, Owner or Admin; the text is gone for good."
+  deleteComment(id: ID!): Boolean!
+}

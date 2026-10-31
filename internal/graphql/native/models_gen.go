@@ -12,6 +12,10 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 )
 
+type TimelineItem interface {
+	IsTimelineItem()
+}
+
 type AcceptInviteInput struct {
 	Token    string `json:"token"`
 	Name     string `json:"name"`
@@ -25,6 +29,17 @@ type APIKey struct {
 	DisplayPrefix string     `json:"displayPrefix"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	LastUsedAt    *time.Time `json:"lastUsedAt,omitempty"`
+}
+
+type CommentConnection struct {
+	Nodes    []Comment     `json:"nodes"`
+	Edges    []CommentEdge `json:"edges"`
+	PageInfo *PageInfo     `json:"pageInfo"`
+}
+
+type CommentEdge struct {
+	Node   *Comment `json:"node"`
+	Cursor string   `json:"cursor"`
 }
 
 // projectId may be omitted when parentId is given.
@@ -178,6 +193,10 @@ type LabelComparator struct {
 	Null graphql.Omittable[*bool]    `json:"null,omitempty"`
 }
 
+type Limits struct {
+	MaxUploadMb int `json:"maxUploadMb"`
+}
+
 type Mutation struct {
 }
 
@@ -223,6 +242,17 @@ type StateTypeComparator struct {
 	Eq  graphql.Omittable[*StateType]  `json:"eq,omitempty"`
 	In  graphql.Omittable[[]StateType] `json:"in,omitempty"`
 	Nin graphql.Omittable[[]StateType] `json:"nin,omitempty"`
+}
+
+type TimelineConnection struct {
+	Nodes    []TimelineItem `json:"nodes"`
+	Edges    []TimelineEdge `json:"edges"`
+	PageInfo *PageInfo      `json:"pageInfo"`
+}
+
+type TimelineEdge struct {
+	Node   TimelineItem `json:"node"`
+	Cursor string       `json:"cursor"`
 }
 
 // in: one of these types; null: true for issues without a type.

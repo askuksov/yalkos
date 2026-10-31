@@ -19,12 +19,16 @@ import (
 
 	"github.com/askuksov/yalkos/db"
 	"github.com/askuksov/yalkos/internal/authn"
+	"github.com/askuksov/yalkos/internal/blob"
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/comment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/domain/timeline"
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/store"
 	"github.com/askuksov/yalkos/internal/testdb"
@@ -36,6 +40,7 @@ type server struct {
 	url  string
 	svc  *account.Service
 	pool *pgxpool.Pool
+	deps native.Deps
 }
 
 func newServer(t *testing.T) server {
@@ -50,19 +55,28 @@ func newServer(t *testing.T) server {
 	if err := svc.RefreshSetupCode(ctx); err != nil {
 		t.Fatal(err)
 	}
-	h := native.NewHandler(testDeps(pool, svc))
-	srv := httptest.NewServer(authn.Middleware(svc, base, quiet)(h))
+	deps := testDeps(t, pool, svc)
+	srv := httptest.NewServer(authn.Middleware(svc, base, quiet)(native.NewHandler(deps)))
 	t.Cleanup(srv.Close)
-	return server{url: srv.URL, svc: svc, pool: pool}
+	return server{url: srv.URL, svc: svc, pool: pool, deps: deps}
 }
 
-// testDeps builds the native API services over pool.
-func testDeps(pool *pgxpool.Pool, accounts *account.Service) native.Deps {
+// testDeps builds the native API services over pool (files in a temp dir).
+func testDeps(t *testing.T, pool *pgxpool.Pool, accounts *account.Service) native.Deps {
+	t.Helper()
 	projects := project.New(pool, time.Now)
 	issues := issue.New(pool, projects, time.Now)
+	files, err := blob.NewLocalFS(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	attachments := attachment.New(pool, issues, files, &blob.Locks{}, 25<<20, time.Now)
+	issues.SetLinker(attachments)
 	return native.Deps{
 		Accounts: accounts, Projects: projects, Issues: issues, Audit: audit.New(pool),
-		Milestones: milestone.New(pool, projects, time.Now), Labels: label.New(pool, time.Now), Logger: quiet,
+		Milestones: milestone.New(pool, projects, time.Now), Labels: label.New(pool, time.Now),
+		Comments: comment.New(pool, issues, attachments, time.Now), Attachments: attachments,
+		Timeline: timeline.New(pool), Logger: quiet,
 	}
 }
 

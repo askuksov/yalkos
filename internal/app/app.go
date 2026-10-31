@@ -19,10 +19,12 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/comment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/domain/timeline"
 	"github.com/askuksov/yalkos/internal/graphql/linear"
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/httpapi"
@@ -87,7 +89,9 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 		UI:    ui,
 		NativeGraphQL: native.NewHandler(native.Deps{
 			Accounts: accounts, Projects: projects, Issues: issues, Audit: audit.New(pool),
-			Milestones: milestone.New(pool, projects, time.Now), Labels: label.New(pool, time.Now), Logger: logger,
+			Milestones: milestone.New(pool, projects, time.Now), Labels: label.New(pool, time.Now),
+			Comments: comment.New(pool, issues, attachments, time.Now), Attachments: attachments,
+			Timeline: timeline.New(pool), Logger: logger,
 		}),
 		LinearGraphQL: linear.NewHandler(accounts, logger),
 		Logger:        logger,

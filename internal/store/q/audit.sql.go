@@ -109,6 +109,39 @@ func (q *Queries) ListAuditEventsBackward(ctx context.Context, arg ListAuditEven
 	return items, nil
 }
 
+const listAuditEventsByIDs = `-- name: ListAuditEventsByIDs :many
+SELECT id, entity_type, entity_id, project_id, actor_id, action, changes, created_at FROM audit_events WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) ListAuditEventsByIDs(ctx context.Context, ids []uuid.UUID) ([]AuditEvent, error) {
+	rows, err := q.db.Query(ctx, listAuditEventsByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditEvent
+	for rows.Next() {
+		var i AuditEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.EntityType,
+			&i.EntityID,
+			&i.ProjectID,
+			&i.ActorID,
+			&i.Action,
+			&i.Changes,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAuditEventsForward = `-- name: ListAuditEventsForward :many
 SELECT id, entity_type, entity_id, project_id, actor_id, action, changes, created_at FROM audit_events
 WHERE entity_id = $1

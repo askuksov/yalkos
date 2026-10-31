@@ -133,3 +133,22 @@ func TestListRejectsForeignCursor(t *testing.T) {
 		t.Fatal("foreign cursor accepted")
 	}
 }
+
+func TestByIDs(t *testing.T) {
+	pool, users, clock := testfx.New(t)
+	ctx := context.Background()
+	entity := uuid.New()
+	for range 2 {
+		record(t, pool, audit.Event{EntityType: "issue", EntityID: entity, ActorID: &users.Member.ID, Action: "update",
+			Changes: map[string]audit.Change{"title": {From: "a", To: "b"}}, At: clock()})
+	}
+	svc := audit.New(pool)
+	all, err := svc.List(ctx, entity, page.Args{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.ByIDs(ctx, []uuid.UUID{all.Items[1].ID, uuid.New(), all.Items[0].ID})
+	if err != nil || len(got) != 2 || got[0].ID != all.Items[1].ID || got[1].ID != all.Items[0].ID || len(got[0].Changes) != 1 {
+		t.Fatalf("ByIDs = %+v, %v", got, err)
+	}
+}

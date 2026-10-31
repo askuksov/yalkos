@@ -36,6 +36,8 @@ const (
 	labelChildrenWeight  = 10
 	issueLabelWeight     = 4
 	projectMilestoneSize = 20
+	// Typical number of files on one issue.
+	attachmentWeight = 10
 )
 
 // pageSize is the number of items a connection may return.
@@ -83,6 +85,13 @@ func complexity() ComplexityRoot {
 	c.Query.Labels = func(child int) int { return listCost(child, labelWeight) }
 	c.Label.Children = func(child int) int { return listCost(child, labelChildrenWeight) }
 	c.Issue.Labels = func(child int) int { return listCost(child, issueLabelWeight) }
+	c.Issue.Comments = func(child int, first *int, _ *string, last *int, _ *string) int {
+		return connCost(child, first, last)
+	}
+	c.Issue.Timeline = func(child int, first *int, _ *string, last *int, _ *string) int {
+		return connCost(child, first, last)
+	}
+	c.Issue.Attachments = func(child int) int { return listCost(child, attachmentWeight) }
 	c.Project.States = func(child int) int { return listCost(child, stateWeight) }
 	c.Project.Members = func(child int) int { return listCost(child, memberWeight) }
 	c.State.Project = func(child int) int { return listCost(child, backEdgeCost) }

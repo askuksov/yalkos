@@ -1,0 +1,35 @@
+# Files on issues. Upload: POST /api/attachments (multipart: optional issueId, then file);
+# download: GET /api/attachments/{id}/{name}, both with a session or an API key.
+
+type Attachment {
+  id: ID!
+  name: String!
+  "Bytes."
+  size: Int!
+  "Detected from the content."
+  contentType: String!
+  "Relative download URL."
+  url: String!
+  "Shown in the browser (raster images, PDF) rather than downloaded."
+  inline: Boolean!
+  uploader: User!
+  createdAt: Time!
+}
+
+type Limits {
+  maxUploadMb: Int!
+}
+
+extend type Issue {
+  "Oldest first."
+  attachments: [Attachment!]!
+}
+
+extend type Query {
+  limits: Limits!
+}
+
+extend type Mutation {
+  "The uploader, Owner or Admin."
+  deleteAttachment(id: ID!): Boolean!
+}

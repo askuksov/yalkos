@@ -30,3 +30,6 @@ WHERE entity_id IN (SELECT i.id FROM issues i WHERE i.project_id = @project_id::
    OR (entity_type = 'attachment' AND (
         entity_id IN (SELECT a.id FROM attachments a JOIN issues i ON i.id = a.issue_id WHERE i.project_id = @project_id::uuid)
      OR (audit_events.project_id = @project_id::uuid AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.id = audit_events.entity_id))));
+
+-- name: ListAuditEventsByIDs :many
+SELECT * FROM audit_events WHERE id = ANY(@ids::uuid[]);
