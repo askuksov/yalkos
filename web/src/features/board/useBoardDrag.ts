@@ -87,6 +87,9 @@ export function useBoardDrag(projectKey: string, search: string) {
 
     const fromKey = boardKey(projectKey, from.stateId, search)
     const toKey = boardKey(projectKey, toState, search)
+    // A column refetch already in flight would land without this drop.
+    void qc.cancelQueries({ queryKey: fromKey })
+    void qc.cancelQueries({ queryKey: toKey })
     const snapshot = [
       { key: fromKey, data: qc.getQueryData<Pages>(fromKey) },
       ...(same ? [] : [{ key: toKey, data: qc.getQueryData<Pages>(toKey) }]),
