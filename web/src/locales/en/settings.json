@@ -1,1 +1,39 @@
-{}
+{
+  "roles": {
+    "OWNER": "owner",
+    "ADMIN": "admin",
+    "MEMBER": "member"
+  },
+  "members": {
+    "title": "Members",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "status": "Status",
+    "roleOf": "Role of {{name}}",
+    "enable": "Enable",
+    "disable": "Disable",
+    "active": "active",
+    "disabled": "disabled",
+    "invite": "Invite",
+    "inviteRole": "Role",
+    "createInvite": "Create invite link",
+    "inviteLink": "Send this link (valid 7 days, single use):",
+    "inviteExpires": "{{role}} · expires {{date}}",
+    "revoke": "Revoke"
+  },
+  "apiKeys": {
+    "title": "API keys",
+    "hint": "Use a key with any Linear-compatible tool: <code>{{header}}</code>.",
+    "headerExample": "Authorization: <key>",
+    "once": "You will not see this key again.",
+    "copyNow": "Copy it now.",
+    "name": "Key name",
+    "create": "Create key",
+    "key": "Key",
+    "created": "Created",
+    "lastUsed": "Last used",
+    "never": "never",
+    "revoke": "Revoke"
+  }
+}

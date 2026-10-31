@@ -1,0 +1,176 @@
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  block-size: 100%;
+}
+.collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 0;
+  padding: var(--space-3) var(--space-2);
+  border-inline-end: 1px solid var(--border);
+  background: var(--bg-subtle);
+  overflow-y: auto;
+}
+.workspace {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-2);
+  font-weight: 600;
+}
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.navLink,
+.navButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: 28px;
+  padding-inline: var(--space-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+.navLink:hover,
+.navButton:hover {
+  background: var(--bg-hover);
+}
+.navLink[aria-current='page'] {
+  background: var(--bg-selected);
+}
+.navLabel {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.section {
+  margin-block-start: var(--space-3);
+  padding-inline: var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--font-size-small);
+  font-weight: 600;
+}
+.projectRow {
+  display: flex;
+  align-items: center;
+}
+.chevron {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.chevron:hover {
+  background: var(--bg-hover);
+}
+.sub {
+  padding-inline-start: 26px;
+}
+.projectKey {
+  color: var(--fg-muted);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+.dot {
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 2px;
+}
+.spacer {
+  flex: 1;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+}
+.header {
+  position: sticky;
+  z-index: 5;
+  inset-block-start: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 44px;
+  padding: var(--space-2) var(--space-4);
+  border-block-end: 1px solid var(--border);
+  background: var(--bg);
+}
+.header h1 {
+  font-size: 15px;
+}
+.headerActions {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.content {
+  padding: var(--space-4);
+}
+.expand {
+  position: fixed;
+  z-index: 6;
+  inset-block-start: 8px;
+  inset-inline-start: 8px;
+}
+.notFound {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+/* Pages outside the shell (sign-in, setup, invite) */
+.auth {
+  display: grid;
+  place-items: center;
+  min-block-size: 100%;
+  padding: var(--space-4);
+  background: var(--bg-subtle);
+}
+.card {
+  inline-size: min(380px, 100%);
+  padding: var(--space-4) 20px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+.card h1 {
+  margin-block: var(--space-2) var(--space-3);
+  font-size: 18px;
+}
+.card form input {
+  inline-size: 100%;
+}
+.card button[type='submit'] {
+  inline-size: 100%;
+  margin-block-start: var(--space-3);
+}

@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "Yalkos"
+    "name": "Yalkos",
+    "documentTitle": "{{title}} · Yalkos"
   },
   "actions": {
     "save": "Save",
@@ -45,5 +46,31 @@
   },
   "toast": {
     "region": "Notifications"
+  },
+  "nav": {
+    "main": "Main",
+    "myIssues": "My issues",
+    "projects": "Projects",
+    "browseProjects": "Browse projects",
+    "projectIssues": "Issues",
+    "projectSettings": "Settings",
+    "expandProject": "Show {{name}} pages",
+    "settings": "Settings",
+    "members": "Members",
+    "apiKeys": "API keys",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Show sidebar",
+    "userMenu": "Account",
+    "logOut": "Log out",
+    "projectSettingsTitle": "{{name}} settings"
+  },
+  "notFound": {
+    "page": "Page not found",
+    "project": "Project not found",
+    "issue": "Issue not found",
+    "back": "Go to My issues"
+  },
+  "pages": {
+    "myIssues": "My issues"
   }
 }
