@@ -33,3 +33,9 @@ models:
     model: github.com/askuksov/yalkos/internal/graphql/native.IssueConnection
   HistoryEntry:
     model: github.com/askuksov/yalkos/internal/graphql/native.HistoryEntry
+  Milestone:
+    model: github.com/askuksov/yalkos/internal/graphql/native.Milestone
+  Label:
+    model: github.com/askuksov/yalkos/internal/graphql/native.Label
+  LabelSettings:
+    model: github.com/askuksov/yalkos/internal/graphql/native.LabelSettings

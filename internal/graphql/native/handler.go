@@ -13,17 +13,21 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
 	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/domain/label"
+	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/graphql/gqlerr"
 )
 
 // Deps are the services behind the native API.
 type Deps struct {
-	Accounts *account.Service
-	Projects *project.Service
-	Issues   *issue.Service
-	Audit    *audit.Service
-	Logger   *slog.Logger
+	Accounts   *account.Service
+	Projects   *project.Service
+	Issues     *issue.Service
+	Audit      *audit.Service
+	Milestones *milestone.Service
+	Labels     *label.Service
+	Logger     *slog.Logger
 }
 
 // NewHandler serves the native schema over POST only, with introspection enabled.
@@ -31,7 +35,8 @@ type Deps struct {
 func NewHandler(d Deps) http.Handler {
 	logger := d.Logger
 	srv := handler.New(NewExecutableSchema(Config{Resolvers: &Resolver{
-		Accounts: d.Accounts, Projects: d.Projects, Issues: d.Issues, Audit: d.Audit, Logger: logger,
+		Accounts: d.Accounts, Projects: d.Projects, Issues: d.Issues, Audit: d.Audit,
+		Milestones: d.Milestones, Labels: d.Labels, Logger: logger,
 	}, Complexity: complexity()}))
 	srv.AddTransport(transport.POST{})
 	srv.Use(extension.Introspection{})

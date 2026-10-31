@@ -1,0 +1,97 @@
+# Workspace labels, label groups and the issue type (labels of the Type group).
+
+"A label, or with isGroup a group of labels (one level deep). An issue holds at most one label of an exclusive group."
+type Label {
+  id: ID!
+  name: String!
+  color: String!
+  description: String!
+  isGroup: Boolean!
+  exclusive: Boolean!
+  parent: Label
+  "A group's labels by position."
+  children: [Label!]!
+  position: Float!
+}
+
+type LabelSettings {
+  typeGroup: Label!
+  "The type new issues get; null when none is chosen."
+  defaultType: Label
+}
+
+input CreateLabelInput {
+  name: String!
+  color: String!
+  description: String
+  parentId: ID
+  isGroup: Boolean
+  "Groups only; default true."
+  exclusive: Boolean
+}
+
+"Explicit parentId: null moves a label out of its group."
+input UpdateLabelInput {
+  name: String
+  color: String
+  description: String
+  parentId: ID
+  exclusive: Boolean
+  position: Float
+}
+
+"in: any of; nin: none of; null: true for issues without labels."
+input LabelComparator {
+  in: [ID!]
+  nin: [ID!]
+  null: Boolean
+}
+
+"in: one of these types; null: true for issues without a type."
+input TypeComparator {
+  in: [ID!]
+  null: Boolean
+}
+
+extend type Issue {
+  "Type first, then by name."
+  labels: [Label!]!
+  "The issue's label from the type group."
+  type: Label
+}
+
+extend input IssueFilter {
+  label: LabelComparator
+  type: TypeComparator
+}
+
+extend input CreateIssueInput {
+  "Without a type the issue gets the default type."
+  labelIds: [ID!]
+  "Pending uploads to attach (uploads linked in the description are attached too)."
+  attachmentIds: [ID!]
+}
+
+extend input UpdateIssueInput {
+  "Replaces the labels."
+  labelIds: [ID!]
+  "A label of an exclusive group replaces the issue's other label of that group."
+  addLabelIds: [ID!]
+  removeLabelIds: [ID!]
+}
+
+extend type Query {
+  "Top-level labels and groups (with their children) by position."
+  labels: [Label!]!
+  labelSettings: LabelSettings!
+}
+
+extend type Mutation {
+  createLabel(input: CreateLabelInput!): Label!
+  "Owner or Admin."
+  updateLabel(id: ID!, input: UpdateLabelInput!): Label!
+  "Owner or Admin; a group must be empty; removes the label from issues."
+  deleteLabel(id: ID!): Boolean!
+  "Owner or Admin; null: new issues get no type."
+  setDefaultType(labelId: ID): LabelSettings!
+}

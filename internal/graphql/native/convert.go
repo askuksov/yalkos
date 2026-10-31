@@ -127,7 +127,9 @@ type Issue struct {
 	CanceledAt  *time.Time
 
 	uid, projectID, stateID, creatorID uuid.UUID
-	assigneeID, parentID               *uuid.UUID
+	assigneeID, parentID, milestoneID  *uuid.UUID
+	// labelIDs is set when the issue came from a write (else loaded per page).
+	labelIDs []uuid.UUID
 }
 
 // HistoryEntry is one audit event; actor resolves through the user loader.
@@ -146,7 +148,7 @@ func issueOut(i issue.Issue) *Issue {
 		Priority: i.Priority, SortOrder: i.SortOrder, CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
 		CompletedAt: i.CompletedAt, CanceledAt: i.CanceledAt,
 		uid: i.ID, projectID: i.ProjectID, stateID: i.StateID, creatorID: i.CreatorID,
-		assigneeID: i.AssigneeID, parentID: i.ParentID,
+		assigneeID: i.AssigneeID, parentID: i.ParentID, milestoneID: i.MilestoneID, labelIDs: i.LabelIDs,
 	}
 	if i.DueDate != nil {
 		d := Date(*i.DueDate)

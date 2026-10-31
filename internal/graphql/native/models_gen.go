@@ -38,6 +38,29 @@ type CreateIssueInput struct {
 	AssigneeID  graphql.Omittable[*string]  `json:"assigneeId,omitempty"`
 	DueDate     graphql.Omittable[*Date]    `json:"dueDate,omitempty"`
 	SortOrder   graphql.Omittable[*float64] `json:"sortOrder,omitempty"`
+	// Without a type the issue gets the default type.
+	LabelIds graphql.Omittable[[]string] `json:"labelIds,omitempty"`
+	// Pending uploads to attach (uploads linked in the description are attached too).
+	AttachmentIds graphql.Omittable[[]string] `json:"attachmentIds,omitempty"`
+	// A sub-issue without it gets its parent's milestone.
+	MilestoneID graphql.Omittable[*string] `json:"milestoneId,omitempty"`
+}
+
+type CreateLabelInput struct {
+	Name        string                     `json:"name"`
+	Color       string                     `json:"color"`
+	Description graphql.Omittable[*string] `json:"description,omitempty"`
+	ParentID    graphql.Omittable[*string] `json:"parentId,omitempty"`
+	IsGroup     graphql.Omittable[*bool]   `json:"isGroup,omitempty"`
+	// Groups only; default true.
+	Exclusive graphql.Omittable[*bool] `json:"exclusive,omitempty"`
+}
+
+type CreateMilestoneInput struct {
+	Name        string                     `json:"name"`
+	Description graphql.Omittable[*string] `json:"description,omitempty"`
+	TargetDate  graphql.Omittable[*Date]   `json:"targetDate,omitempty"`
+	LeadID      graphql.Omittable[*string] `json:"leadId,omitempty"`
 }
 
 type CreateProjectInput struct {
@@ -137,12 +160,22 @@ type IssueFilter struct {
 	DueDate         graphql.Omittable[*DateComparator]      `json:"dueDate,omitempty"`
 	IncludeArchived graphql.Omittable[*bool]                `json:"includeArchived,omitempty"`
 	// Words of the title and description, each matched as a prefix; an identifier (KEY-N) also matches that issue.
-	Search graphql.Omittable[*string] `json:"search,omitempty"`
+	Search    graphql.Omittable[*string]          `json:"search,omitempty"`
+	Label     graphql.Omittable[*LabelComparator] `json:"label,omitempty"`
+	Type      graphql.Omittable[*TypeComparator]  `json:"type,omitempty"`
+	Milestone graphql.Omittable[*IDComparator]    `json:"milestone,omitempty"`
 }
 
 type IssueOrder struct {
 	Field     IssueOrderField                    `json:"field"`
 	Direction graphql.Omittable[*OrderDirection] `json:"direction,omitempty"`
+}
+
+// in: any of; nin: none of; null: true for issues without labels.
+type LabelComparator struct {
+	In   graphql.Omittable[[]string] `json:"in,omitempty"`
+	Nin  graphql.Omittable[[]string] `json:"nin,omitempty"`
+	Null graphql.Omittable[*bool]    `json:"null,omitempty"`
 }
 
 type Mutation struct {
@@ -192,6 +225,12 @@ type StateTypeComparator struct {
 	Nin graphql.Omittable[[]StateType] `json:"nin,omitempty"`
 }
 
+// in: one of these types; null: true for issues without a type.
+type TypeComparator struct {
+	In   graphql.Omittable[[]string] `json:"in,omitempty"`
+	Null graphql.Omittable[*bool]    `json:"null,omitempty"`
+}
+
 // Omitted fields stay; explicit null clears assigneeId, dueDate, parentId.
 type UpdateIssueInput struct {
 	Title       graphql.Omittable[*string]  `json:"title,omitempty"`
@@ -202,6 +241,33 @@ type UpdateIssueInput struct {
 	DueDate     graphql.Omittable[*Date]    `json:"dueDate,omitempty"`
 	ParentID    graphql.Omittable[*string]  `json:"parentId,omitempty"`
 	SortOrder   graphql.Omittable[*float64] `json:"sortOrder,omitempty"`
+	// Replaces the labels.
+	LabelIds graphql.Omittable[[]string] `json:"labelIds,omitempty"`
+	// A label of an exclusive group replaces the issue's other label of that group.
+	AddLabelIds    graphql.Omittable[[]string] `json:"addLabelIds,omitempty"`
+	RemoveLabelIds graphql.Omittable[[]string] `json:"removeLabelIds,omitempty"`
+	// Explicit null removes the issue from its milestone.
+	MilestoneID graphql.Omittable[*string] `json:"milestoneId,omitempty"`
+}
+
+// Explicit parentId: null moves a label out of its group.
+type UpdateLabelInput struct {
+	Name        graphql.Omittable[*string]  `json:"name,omitempty"`
+	Color       graphql.Omittable[*string]  `json:"color,omitempty"`
+	Description graphql.Omittable[*string]  `json:"description,omitempty"`
+	ParentID    graphql.Omittable[*string]  `json:"parentId,omitempty"`
+	Exclusive   graphql.Omittable[*bool]    `json:"exclusive,omitempty"`
+	Position    graphql.Omittable[*float64] `json:"position,omitempty"`
+}
+
+// Explicit null clears targetDate/leadId; statusAutomatic: true drops a manual status.
+type UpdateMilestoneInput struct {
+	Name            graphql.Omittable[*string]          `json:"name,omitempty"`
+	Description     graphql.Omittable[*string]          `json:"description,omitempty"`
+	TargetDate      graphql.Omittable[*Date]            `json:"targetDate,omitempty"`
+	LeadID          graphql.Omittable[*string]          `json:"leadId,omitempty"`
+	Status          graphql.Omittable[*MilestoneStatus] `json:"status,omitempty"`
+	StatusAutomatic graphql.Omittable[*bool]            `json:"statusAutomatic,omitempty"`
 }
 
 // Omitted fields stay; explicit null clears icon and color.
@@ -294,6 +360,65 @@ func (e *IssueOrderField) UnmarshalJSON(b []byte) error {
 }
 
 func (e IssueOrderField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type MilestoneStatus string
+
+const (
+	MilestoneStatusPlanned    MilestoneStatus = "PLANNED"
+	MilestoneStatusInProgress MilestoneStatus = "IN_PROGRESS"
+	MilestoneStatusDone       MilestoneStatus = "DONE"
+	MilestoneStatusCanceled   MilestoneStatus = "CANCELED"
+)
+
+var AllMilestoneStatus = []MilestoneStatus{
+	MilestoneStatusPlanned,
+	MilestoneStatusInProgress,
+	MilestoneStatusDone,
+	MilestoneStatusCanceled,
+}
+
+func (e MilestoneStatus) IsValid() bool {
+	switch e {
+	case MilestoneStatusPlanned, MilestoneStatusInProgress, MilestoneStatusDone, MilestoneStatusCanceled:
+		return true
+	}
+	return false
+}
+
+func (e MilestoneStatus) String() string {
+	return string(e)
+}
+
+func (e *MilestoneStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = MilestoneStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid MilestoneStatus", str)
+	}
+	return nil
+}
+
+func (e MilestoneStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *MilestoneStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e MilestoneStatus) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

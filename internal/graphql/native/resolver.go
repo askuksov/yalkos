@@ -14,16 +14,20 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/audit"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
+	"github.com/askuksov/yalkos/internal/domain/label"
+	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
 )
 
 // Resolver is the root resolver.
 type Resolver struct {
-	Accounts *account.Service
-	Projects *project.Service
-	Issues   *issue.Service
-	Audit    *audit.Service
-	Logger   *slog.Logger
+	Accounts   *account.Service
+	Projects   *project.Service
+	Issues     *issue.Service
+	Audit      *audit.Service
+	Milestones *milestone.Service
+	Labels     *label.Service
+	Logger     *slog.Logger
 }
 
 func actor(ctx context.Context) (*authn.Actor, error) {

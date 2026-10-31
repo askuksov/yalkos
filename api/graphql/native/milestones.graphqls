@@ -1,0 +1,83 @@
+# Milestones: goals of one project with automatic or manual status.
+
+enum MilestoneStatus {
+  PLANNED
+  IN_PROGRESS
+  DONE
+  CANCELED
+}
+
+type Milestone {
+  id: ID!
+  name: String!
+  "Markdown."
+  description: String!
+  targetDate: Date
+  lead: User
+  "The manual status, or the one computed from the milestone's issues."
+  status: MilestoneStatus!
+  statusAutomatic: Boolean!
+  "Live issues: completed vs not canceled."
+  progress: Progress!
+  "Target date before today and not done or canceled."
+  overdue: Boolean!
+  project: Project!
+  createdBy: User
+  createdAt: Time!
+  updatedAt: Time!
+  "Issues of this milestone; the filter adds to milestone eq."
+  issues(filter: IssueFilter, orderBy: IssueOrder, first: Int, after: String, last: Int, before: String): IssueConnection!
+}
+
+input CreateMilestoneInput {
+  name: String!
+  description: String
+  targetDate: Date
+  leadId: ID
+}
+
+"Explicit null clears targetDate/leadId; statusAutomatic: true drops a manual status."
+input UpdateMilestoneInput {
+  name: String
+  description: String
+  targetDate: Date
+  leadId: ID
+  status: MilestoneStatus
+  statusAutomatic: Boolean
+}
+
+extend type Project {
+  "In manual order; includeDone: false leaves out done and canceled ones."
+  milestones(includeDone: Boolean = true): [Milestone!]!
+}
+
+extend type Issue {
+  milestone: Milestone
+}
+
+extend input IssueFilter {
+  milestone: IDComparator
+}
+
+extend input CreateIssueInput {
+  "A sub-issue without it gets its parent's milestone."
+  milestoneId: ID
+}
+
+extend input UpdateIssueInput {
+  "Explicit null removes the issue from its milestone."
+  milestoneId: ID
+}
+
+extend type Query {
+  milestone(id: ID!): Milestone!
+}
+
+extend type Mutation {
+  createMilestone(projectId: ID!, input: CreateMilestoneInput!): Milestone!
+  updateMilestone(id: ID!, input: UpdateMilestoneInput!): Milestone!
+  "milestoneIds: every milestone of the project, in the new order."
+  reorderMilestones(projectId: ID!, milestoneIds: [ID!]!): [Milestone!]!
+  "Creator, Owner or Admin; its issues lose the milestone."
+  deleteMilestone(id: ID!): Boolean!
+}

@@ -96,6 +96,39 @@ func intCondIn(c *IntComparator) *issue.IntCond {
 	}
 }
 
+func optIDs(field string, ids []string) ([]uuid.UUID, error) {
+	if ids == nil {
+		return nil, nil
+	}
+	return parseIDs(field, ids)
+}
+
+func labelCondIn(c *LabelComparator) (*issue.LabelCond, error) {
+	if c == nil {
+		return nil, nil
+	}
+	in, err := optIDs("filter.label.in", c.In.Value())
+	if err != nil {
+		return nil, err
+	}
+	nin, err := optIDs("filter.label.nin", c.Nin.Value())
+	if err != nil {
+		return nil, err
+	}
+	return &issue.LabelCond{In: in, Nin: nin, Null: c.Null.Value()}, nil
+}
+
+func typeCondIn(c *TypeComparator) (*issue.TypeCond, error) {
+	if c == nil {
+		return nil, nil
+	}
+	in, err := optIDs("filter.type.in", c.In.Value())
+	if err != nil {
+		return nil, err
+	}
+	return &issue.TypeCond{In: in, Null: c.Null.Value()}, nil
+}
+
 func dateOf(d *Date) *time.Time {
 	if d == nil {
 		return nil
@@ -130,6 +163,15 @@ func issueFilterIn(f *IssueFilter, me uuid.UUID) (issue.Filter, error) {
 		return out, err
 	}
 	if out.Assignee, err = userCondIn(f.Assignee.Value(), me); err != nil {
+		return out, err
+	}
+	if out.Milestone, err = idCondIn("filter.milestone", f.Milestone.Value()); err != nil {
+		return out, err
+	}
+	if out.Label, err = labelCondIn(f.Label.Value()); err != nil {
+		return out, err
+	}
+	if out.Type, err = typeCondIn(f.Type.Value()); err != nil {
 		return out, err
 	}
 	out.StateType = stateTypeCondIn(f.StateType.Value())

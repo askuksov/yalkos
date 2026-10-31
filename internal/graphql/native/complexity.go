@@ -30,6 +30,12 @@ const (
 	// countCost weighs IssueConnection.totalCount: each count is its own
 	// aggregate query, unlike scalars read from loaded rows.
 	countCost = 10
+	// Typical sizes of lists that are not paginated: labels and groups at the
+	// top level, labels in a group, labels on one issue, milestones of a project.
+	labelWeight          = 30
+	labelChildrenWeight  = 10
+	issueLabelWeight     = 4
+	projectMilestoneSize = 20
 )
 
 // pageSize is the number of items a connection may return.
@@ -70,6 +76,13 @@ func complexity() ComplexityRoot {
 		return connCost(child, first, last)
 	}
 	c.IssueConnection.TotalCount = func(int) int { return countCost }
+	c.Milestone.Issues = func(child int, _ *IssueFilter, _ *IssueOrder, first *int, _ *string, last *int, _ *string) int {
+		return connCost(child, first, last)
+	}
+	c.Project.Milestones = func(child int, _ *bool) int { return listCost(child, projectMilestoneSize) }
+	c.Query.Labels = func(child int) int { return listCost(child, labelWeight) }
+	c.Label.Children = func(child int) int { return listCost(child, labelChildrenWeight) }
+	c.Issue.Labels = func(child int) int { return listCost(child, issueLabelWeight) }
 	c.Project.States = func(child int) int { return listCost(child, stateWeight) }
 	c.Project.Members = func(child int) int { return listCost(child, memberWeight) }
 	c.State.Project = func(child int) int { return listCost(child, backEdgeCost) }

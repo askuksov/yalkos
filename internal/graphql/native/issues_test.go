@@ -19,9 +19,6 @@ import (
 	"github.com/askuksov/yalkos/db"
 	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/domain/account"
-	"github.com/askuksov/yalkos/internal/domain/audit"
-	"github.com/askuksov/yalkos/internal/domain/issue"
-	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/store"
 	"github.com/askuksov/yalkos/internal/testdb"
@@ -221,8 +218,8 @@ func TestIssuesFilterAPI(t *testing.T) {
 func TestUnknownFilterFieldRejected(t *testing.T) {
 	s := newServer(t)
 	owner := ownerBrowser(t, s)
-	r := owner.do(`{ issues(filter: {label: {eq: "x"}}) { nodes { id } } }`, nil)
-	if len(r.Errors) == 0 || !strings.Contains(r.Errors[0].Message, "label") || r.Data["issues"] != nil {
+	r := owner.do(`{ issues(filter: {color: {eq: "x"}}) { nodes { id } } }`, nil)
+	if len(r.Errors) == 0 || !strings.Contains(r.Errors[0].Message, "color") || r.Data["issues"] != nil {
 		t.Fatalf("got %s", r.raw)
 	}
 }
@@ -369,9 +366,7 @@ func tracedServer(t *testing.T) (server, *counter) {
 	if err := svc.RefreshSetupCode(ctx); err != nil {
 		t.Fatal(err)
 	}
-	projects := project.New(pool, time.Now)
-	issues := issue.New(pool, projects, time.Now)
-	h := native.NewHandler(native.Deps{Accounts: svc, Projects: projects, Issues: issues, Audit: audit.New(pool), Logger: quiet})
+	h := native.NewHandler(testDeps(pool, svc))
 	return server{url: newHTTPServer(t, authn.Middleware(svc, base, quiet)(h)), svc: svc, pool: pool}, queries
 }
 
@@ -424,6 +419,11 @@ func TestIssueListQueryCount(t *testing.T) {
 	if n := countList(t, owner, queries, `id subIssueProgress { completed total }`); n > 8 {
 		t.Fatalf("issue list with sub-issue progress ran %d SQL statements, want ≤ 8", n)
 	}
+	// Labels, type and milestone (with its progress) batch per page too.
+	if n := countList(t, owner, queries, `id type { id name color } labels { id name color parent { id } }
+		milestone { id name status progress { completed total } }`); n > 10 {
+		t.Fatalf("issue list with labels and milestone ran %d SQL statements, want ≤ 10", n)
+	}
 }
 
 // Connections cost their page size times their selection, so nested lists
@@ -442,6 +442,9 @@ func TestQueryCostByPageSize(t *testing.T) {
 		// Each count is its own aggregate query, so counts weigh more than a scalar.
 		"counts per item": `{ issues(first: 250) { nodes { a: children(first: 1) { totalCount } b: children(first: 1) { totalCount }
 			c: children(first: 1) { totalCount } d: children(first: 1) { totalCount } } } }`,
+		"milestone issues per item": `{ issues(first: 250) { nodes { milestone { issues(first: 250) { nodes { id } } } } } }`,
+		"milestones per project":    `{ projects(first: 250) { nodes { milestones { issues(first: 50) { nodes { id } } } } } }`,
+		"labels per label":          `{ labels { children { children { children { id name color description } } } } }`,
 	}
 	for name, q := range rejected {
 		if r := owner.do(q, nil); r.code() != "COMPLEXITY_LIMIT_EXCEEDED" {
@@ -460,6 +463,14 @@ func TestQueryCostByPageSize(t *testing.T) {
 			state { id name type color } assignee { id name } parent { id identifier } subIssueProgress { completed total }
 			project { id key archivedAt } } pageInfo { hasNextPage endCursor } } }`,
 		"board page with progress": `{ issues(first: 250) { nodes { id identifier title subIssueProgress { completed total } } } }`,
+		"milestones page": `{ project(id: "YLK") { milestones { id name status statusAutomatic progress { completed total } overdue
+			targetDate lead { id name } } } }`,
+		"milestone page": `{ milestone(id: "00000000-0000-0000-0000-000000000000") { id name description issues(first: 100) { totalCount
+			nodes { id identifier title type { id name color } labels { id name color } state { id name type } } } } }`,
+		"labels settings": `{ labels { id name color description isGroup exclusive position children { id name color description position parent { id } } }
+			labelSettings { typeGroup { id } defaultType { id } } }`,
+		"board page with labels": `{ issues(first: 250) { nodes { id identifier title type { id name color } labels { id name color }
+			milestone { id name } } } }`,
 	}
 	for name, q := range allowed {
 		if r := owner.do(q, nil); r.code() == "COMPLEXITY_LIMIT_EXCEEDED" {

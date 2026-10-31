@@ -121,6 +121,15 @@ func (r *mutationResolver) CreateIssue(ctx context.Context, input CreateIssueInp
 		in.Priority = *p
 	}
 	in.DueDate = dateOf(input.DueDate.Value())
+	if in.MilestoneID, err = parseOptID("milestoneId", input.MilestoneID.Value()); err != nil {
+		return nil, err
+	}
+	if in.LabelIDs, err = optIDs("labelIds", input.LabelIds.Value()); err != nil {
+		return nil, err
+	}
+	if in.AttachmentIDs, err = optIDs("attachmentIds", input.AttachmentIds.Value()); err != nil {
+		return nil, err
+	}
 	i, err := r.Issues.Create(ctx, a.User, in)
 	if err != nil {
 		return nil, err
@@ -166,6 +175,12 @@ func (r *mutationResolver) UpdateIssue(ctx context.Context, id string, input Upd
 	}
 	if d, set := input.DueDate.ValueOK(); set {
 		p.DueDate = kit.Opt[time.Time]{Set: true, Value: dateOf(d)}
+	}
+	if p.MilestoneID, err = optID("milestoneId", input.MilestoneID.ValueOK); err != nil {
+		return nil, err
+	}
+	if err := labelPatch(&p, input); err != nil {
+		return nil, err
 	}
 	i, err := r.Issues.Update(ctx, a.User, iid, p)
 	if err != nil {
