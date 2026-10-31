@@ -13,7 +13,8 @@ type Props = {
 }
 
 /**
- * Floating panel next to anchor; closes on an outside click and on Esc. It
+ * Floating panel next to anchor; closes on an outside click and on Esc, and
+ * hands focus back to the anchor when it closes (unless focus moved elsewhere). It
  * renders into the open modal dialog that holds the anchor (the rest of the
  * page is inert while a modal is open), otherwise into <body>.
  */
@@ -40,6 +41,17 @@ export function Popover({ anchor, open, onClose, children, placement = 'bottom-s
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
+  }, [open, anchor])
+
+  // Closing removes the focused panel: put focus back on the anchor, unless the
+  // user already moved it somewhere else (an outside click on a field).
+  useEffect(() => {
+    if (!open) return
+    return () => {
+      const active = document.activeElement
+      const lost = !active || active === document.body || !active.isConnected
+      if (lost && anchor?.isConnected) anchor.focus()
+    }
   }, [open, anchor])
 
   if (!open) return null

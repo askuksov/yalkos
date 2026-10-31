@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Dialog } from './Dialog'
+import { Menu } from './Menu'
+import { Popover } from './Popover'
 import { PriorityIcon } from './PriorityIcon'
 import { StateIcon, type StateTypeName } from './StateIcon'
 import { ToastProvider } from './Toast'
@@ -36,6 +38,51 @@ describe('ui', () => {
     await user.keyboard('{Escape}')
     expect(screen.queryByLabelText('inside')).not.toBeInTheDocument()
     expect(opener).toHaveFocus()
+  })
+
+  it('Popover and Menu hand focus back to their button', async () => {
+    const user = userEvent.setup()
+    function Harness() {
+      const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null)
+      const [open, setOpen] = useState(false)
+      const [menu, setMenu] = useState(false)
+      const [menuAnchor, setMenuAnchor] = useState<HTMLButtonElement | null>(null)
+      return (
+        <>
+          <button ref={setAnchor} type="button" onClick={() => setOpen(true)}>
+            Pick
+          </button>
+          <Popover anchor={anchor} open={open} onClose={() => setOpen(false)}>
+            <input
+              aria-label="filter"
+              autoFocus
+              onKeyDown={(e) => {
+                // Like Picker: Enter selects and keeps its default from reaching the button.
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  setOpen(false)
+                }
+              }}
+            />
+          </Popover>
+          <button ref={setMenuAnchor} type="button" onClick={() => setMenu(true)}>
+            More
+          </button>
+          <Menu anchor={menuAnchor} open={menu} onClose={() => setMenu(false)} label="Actions" items={[{ label: 'Do it', onSelect: () => {} }]} />
+        </>
+      )
+    }
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Pick' }))
+    expect(screen.getByLabelText('filter')).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Pick' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'Pick' }))
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'Pick' })).toHaveFocus()
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('button', { name: 'More' })).toHaveFocus()
   })
 
   it('error toasts stay, info toasts disappear after 4 s', () => {
