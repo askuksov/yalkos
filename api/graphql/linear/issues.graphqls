@@ -215,3 +215,93 @@ input AttachmentFilter {
   title: StringComparator
   createdAt: DateComparator
 }
+
+"An issue found by searchIssues: the issue's fields and metadata."
+type IssueSearchResult {
+  id: ID!
+  trashed: Boolean
+  "Always an empty list."
+  reactionData: JSONObject!
+  "Ids of the issue's labels, its type included."
+  labelIds: [String!]!
+  integrationSourceType: IntegrationService
+  url: String!
+  "KEY-N with the team's current key."
+  identifier: String!
+  priorityLabel: String!
+  previousIdentifiers: [String!]!
+  reactions: [Reaction!]!
+  customerTicketCount: Int!
+  sharedAccess: IssueSharedAccess!
+  "Suggested git branch name: identifier and title."
+  branchName: String!
+  delegate: User
+  botActor: ActorBot
+  sourceComment: Comment
+  cycle: Cycle
+  dueDate: TimelessDate
+  estimate: Float
+  syncedWith: [ExternalEntityInfo!]
+  externalUserCreator: ExternalUser
+  asksExternalUserRequester: ExternalUser
+  asksRequester: User
+  description: String
+  title: String!
+  number: Float!
+  lastAppliedTemplate: Template
+  updatedAt: DateTime!
+  boardOrder: Float!
+  sortOrder: Float!
+  prioritySortOrder: Float!
+  "Order among the parent's sub-issues; null without a parent."
+  subIssueSortOrder: Float
+  parent: Issue
+  "0 no priority, 1 urgent, 2 high, 3 medium, 4 low."
+  priority: Float!
+  projectMilestone: ProjectMilestone
+  project: Project
+  recurringIssueTemplate: Template
+  team: Team!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  startedTriageAt: DateTime
+  triagedAt: DateTime
+  addedToCycleAt: DateTime
+  addedToProjectAt: DateTime
+  addedToTeamAt: DateTime
+  autoArchivedAt: DateTime
+  autoClosedAt: DateTime
+  canceledAt: DateTime
+  completedAt: DateTime
+  startedAt: DateTime
+  slaStartedAt: DateTime
+  slaBreachesAt: DateTime
+  slaHighRiskAt: DateTime
+  slaMediumRiskAt: DateTime
+  snoozedUntilAt: DateTime
+  slaType: String
+  assignee: User
+  creator: User
+  snoozedBy: User
+  favorite: Favorite
+  state: WorkflowState!
+  inheritsSharedAccess: Boolean!
+  "Always an empty object."
+  metadata: JSONObject!
+}
+
+type IssueSearchPayload {
+  "Declared for client compatibility; always empty."
+  archivePayload: ArchiveResponse!
+  "Number of all matches."
+  totalCount: Float!
+  nodes: [IssueSearchResult!]!
+  pageInfo: PageInfo!
+}
+
+type ArchiveResponse {
+  archive: String!
+  totalCount: Float!
+  databaseVersion: Float!
+  includesDependencies: [String!]!
+}

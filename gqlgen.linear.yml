@@ -98,3 +98,20 @@ models:
         resolver: true
       issue:
         resolver: true
+  IssueSearchResult:
+    extraFields:
+      Src:
+        type: github.com/askuksov/yalkos/internal/domain/issue.Issue
+    fields:
+      labelIds:
+        resolver: true
+      team:
+        resolver: true
+      state:
+        resolver: true
+      assignee:
+        resolver: true
+      creator:
+        resolver: true
+      parent:
+        resolver: true

@@ -29,6 +29,7 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 type ResolverRoot interface {
 	Attachment() AttachmentResolver
 	Issue() IssueResolver
+	IssueSearchResult() IssueSearchResultResolver
 	Organization() OrganizationResolver
 	Query() QueryResolver
 	Team() TeamResolver
@@ -59,6 +60,13 @@ type ComplexityRoot struct {
 		ID         func(childComplexity int) int
 		UpdatedAt  func(childComplexity int) int
 		UpdatedBy  func(childComplexity int) int
+	}
+
+	ArchiveResponse struct {
+		Archive              func(childComplexity int) int
+		DatabaseVersion      func(childComplexity int) int
+		IncludesDependencies func(childComplexity int) int
+		TotalCount           func(childComplexity int) int
 	}
 
 	Attachment struct {
@@ -269,6 +277,79 @@ type ComplexityRoot struct {
 		Node   func(childComplexity int) int
 	}
 
+	IssueSearchPayload struct {
+		ArchivePayload func(childComplexity int) int
+		Nodes          func(childComplexity int) int
+		PageInfo       func(childComplexity int) int
+		TotalCount     func(childComplexity int) int
+	}
+
+	IssueSearchResult struct {
+		AddedToCycleAt            func(childComplexity int) int
+		AddedToProjectAt          func(childComplexity int) int
+		AddedToTeamAt             func(childComplexity int) int
+		ArchivedAt                func(childComplexity int) int
+		AsksExternalUserRequester func(childComplexity int) int
+		AsksRequester             func(childComplexity int) int
+		Assignee                  func(childComplexity int) int
+		AutoArchivedAt            func(childComplexity int) int
+		AutoClosedAt              func(childComplexity int) int
+		BoardOrder                func(childComplexity int) int
+		BotActor                  func(childComplexity int) int
+		BranchName                func(childComplexity int) int
+		CanceledAt                func(childComplexity int) int
+		CompletedAt               func(childComplexity int) int
+		CreatedAt                 func(childComplexity int) int
+		Creator                   func(childComplexity int) int
+		CustomerTicketCount       func(childComplexity int) int
+		Cycle                     func(childComplexity int) int
+		Delegate                  func(childComplexity int) int
+		Description               func(childComplexity int) int
+		DueDate                   func(childComplexity int) int
+		Estimate                  func(childComplexity int) int
+		ExternalUserCreator       func(childComplexity int) int
+		Favorite                  func(childComplexity int) int
+		ID                        func(childComplexity int) int
+		Identifier                func(childComplexity int) int
+		InheritsSharedAccess      func(childComplexity int) int
+		IntegrationSourceType     func(childComplexity int) int
+		LabelIds                  func(childComplexity int) int
+		LastAppliedTemplate       func(childComplexity int) int
+		Metadata                  func(childComplexity int) int
+		Number                    func(childComplexity int) int
+		Parent                    func(childComplexity int) int
+		PreviousIdentifiers       func(childComplexity int) int
+		Priority                  func(childComplexity int) int
+		PriorityLabel             func(childComplexity int) int
+		PrioritySortOrder         func(childComplexity int) int
+		Project                   func(childComplexity int) int
+		ProjectMilestone          func(childComplexity int) int
+		ReactionData              func(childComplexity int) int
+		Reactions                 func(childComplexity int) int
+		RecurringIssueTemplate    func(childComplexity int) int
+		SLABreachesAt             func(childComplexity int) int
+		SLAHighRiskAt             func(childComplexity int) int
+		SLAMediumRiskAt           func(childComplexity int) int
+		SLAStartedAt              func(childComplexity int) int
+		SLAType                   func(childComplexity int) int
+		SharedAccess              func(childComplexity int) int
+		SnoozedBy                 func(childComplexity int) int
+		SnoozedUntilAt            func(childComplexity int) int
+		SortOrder                 func(childComplexity int) int
+		SourceComment             func(childComplexity int) int
+		StartedAt                 func(childComplexity int) int
+		StartedTriageAt           func(childComplexity int) int
+		State                     func(childComplexity int) int
+		SubIssueSortOrder         func(childComplexity int) int
+		SyncedWith                func(childComplexity int) int
+		Team                      func(childComplexity int) int
+		Title                     func(childComplexity int) int
+		Trashed                   func(childComplexity int) int
+		TriagedAt                 func(childComplexity int) int
+		URL                       func(childComplexity int) int
+		UpdatedAt                 func(childComplexity int) int
+	}
+
 	IssueSharedAccess struct {
 		DisallowedIssueFields     func(childComplexity int) int
 		IsShared                  func(childComplexity int) int
@@ -388,16 +469,19 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Issue          func(childComplexity int, id string) int
-		Issues         func(childComplexity int, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, sort []IssueSortInput) int
-		Organization   func(childComplexity int) int
-		Team           func(childComplexity int, id string) int
-		Teams          func(childComplexity int, after *string, before *string, filter *TeamFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
-		User           func(childComplexity int, id string) int
-		Users          func(childComplexity int, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) int
-		Viewer         func(childComplexity int) int
-		WorkflowState  func(childComplexity int, id string) int
-		WorkflowStates func(childComplexity int, after *string, before *string, filter *WorkflowStateFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
+		Issue                func(childComplexity int, id string) int
+		IssueSearch          func(childComplexity int, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, query *string) int
+		IssueVcsBranchSearch func(childComplexity int, branchName string) int
+		Issues               func(childComplexity int, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, sort []IssueSortInput) int
+		Organization         func(childComplexity int) int
+		SearchIssues         func(childComplexity int, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, includeComments *bool, last *int, orderBy *PaginationOrderBy, teamID *string, term string) int
+		Team                 func(childComplexity int, id string) int
+		Teams                func(childComplexity int, after *string, before *string, filter *TeamFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
+		User                 func(childComplexity int, id string) int
+		Users                func(childComplexity int, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) int
+		Viewer               func(childComplexity int) int
+		WorkflowState        func(childComplexity int, id string) int
+		WorkflowStates       func(childComplexity int, after *string, before *string, filter *WorkflowStateFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
 	}
 
 	Reaction struct {
@@ -636,6 +720,18 @@ type IssueResolver interface {
 	Relations(ctx context.Context, obj *Issue, after *string, before *string, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*IssueRelationConnection, error)
 	Attachments(ctx context.Context, obj *Issue, after *string, before *string, filter *AttachmentFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*AttachmentConnection, error)
 }
+type IssueSearchResultResolver interface {
+	LabelIds(ctx context.Context, obj *IssueSearchResult) ([]string, error)
+
+	Parent(ctx context.Context, obj *IssueSearchResult) (*Issue, error)
+
+	Team(ctx context.Context, obj *IssueSearchResult) (*Team, error)
+
+	Assignee(ctx context.Context, obj *IssueSearchResult) (*User, error)
+	Creator(ctx context.Context, obj *IssueSearchResult) (*User, error)
+
+	State(ctx context.Context, obj *IssueSearchResult) (*WorkflowState, error)
+}
 type OrganizationResolver interface {
 	Teams(ctx context.Context, obj *Organization, after *string, before *string, filter *TeamFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*TeamConnection, error)
 }
@@ -650,6 +746,9 @@ type QueryResolver interface {
 	WorkflowState(ctx context.Context, id string) (*WorkflowState, error)
 	Issues(ctx context.Context, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, sort []IssueSortInput) (*IssueConnection, error)
 	Issue(ctx context.Context, id string) (*Issue, error)
+	SearchIssues(ctx context.Context, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, includeComments *bool, last *int, orderBy *PaginationOrderBy, teamID *string, term string) (*IssueSearchPayload, error)
+	IssueSearch(ctx context.Context, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, query *string) (*IssueConnection, error)
+	IssueVcsBranchSearch(ctx context.Context, branchName string) (*Issue, error)
 }
 type TeamResolver interface {
 	DefaultIssueState(ctx context.Context, obj *Team) (*WorkflowState, error)
@@ -761,6 +860,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AiPromptRules.UpdatedBy(childComplexity), true
+
+	case "ArchiveResponse.archive":
+		if e.ComplexityRoot.ArchiveResponse.Archive == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ArchiveResponse.Archive(childComplexity), true
+	case "ArchiveResponse.databaseVersion":
+		if e.ComplexityRoot.ArchiveResponse.DatabaseVersion == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ArchiveResponse.DatabaseVersion(childComplexity), true
+	case "ArchiveResponse.includesDependencies":
+		if e.ComplexityRoot.ArchiveResponse.IncludesDependencies == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ArchiveResponse.IncludesDependencies(childComplexity), true
+	case "ArchiveResponse.totalCount":
+		if e.ComplexityRoot.ArchiveResponse.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ArchiveResponse.TotalCount(childComplexity), true
 
 	case "Attachment.archivedAt":
 		if e.ComplexityRoot.Attachment.ArchivedAt == nil {
@@ -1634,6 +1758,410 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.IssueRelationEdge.Node(childComplexity), true
 
+	case "IssueSearchPayload.archivePayload":
+		if e.ComplexityRoot.IssueSearchPayload.ArchivePayload == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchPayload.ArchivePayload(childComplexity), true
+	case "IssueSearchPayload.nodes":
+		if e.ComplexityRoot.IssueSearchPayload.Nodes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchPayload.Nodes(childComplexity), true
+	case "IssueSearchPayload.pageInfo":
+		if e.ComplexityRoot.IssueSearchPayload.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchPayload.PageInfo(childComplexity), true
+	case "IssueSearchPayload.totalCount":
+		if e.ComplexityRoot.IssueSearchPayload.TotalCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchPayload.TotalCount(childComplexity), true
+
+	case "IssueSearchResult.addedToCycleAt":
+		if e.ComplexityRoot.IssueSearchResult.AddedToCycleAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.AddedToCycleAt(childComplexity), true
+	case "IssueSearchResult.addedToProjectAt":
+		if e.ComplexityRoot.IssueSearchResult.AddedToProjectAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.AddedToProjectAt(childComplexity), true
+	case "IssueSearchResult.addedToTeamAt":
+		if e.ComplexityRoot.IssueSearchResult.AddedToTeamAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.AddedToTeamAt(childComplexity), true
+	case "IssueSearchResult.archivedAt":
+		if e.ComplexityRoot.IssueSearchResult.ArchivedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.ArchivedAt(childComplexity), true
+	case "IssueSearchResult.asksExternalUserRequester":
+		if e.ComplexityRoot.IssueSearchResult.AsksExternalUserRequester == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.AsksExternalUserRequester(childComplexity), true
+	case "IssueSearchResult.asksRequester":
+		if e.ComplexityRoot.IssueSearchResult.AsksRequester == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.AsksRequester(childComplexity), true
+	case "IssueSearchResult.assignee":
+		if e.ComplexityRoot.IssueSearchResult.Assignee == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Assignee(childComplexity), true
+	case "IssueSearchResult.autoArchivedAt":
+		if e.ComplexityRoot.IssueSearchResult.AutoArchivedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.AutoArchivedAt(childComplexity), true
+	case "IssueSearchResult.autoClosedAt":
+		if e.ComplexityRoot.IssueSearchResult.AutoClosedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.AutoClosedAt(childComplexity), true
+	case "IssueSearchResult.boardOrder":
+		if e.ComplexityRoot.IssueSearchResult.BoardOrder == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.BoardOrder(childComplexity), true
+	case "IssueSearchResult.botActor":
+		if e.ComplexityRoot.IssueSearchResult.BotActor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.BotActor(childComplexity), true
+	case "IssueSearchResult.branchName":
+		if e.ComplexityRoot.IssueSearchResult.BranchName == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.BranchName(childComplexity), true
+	case "IssueSearchResult.canceledAt":
+		if e.ComplexityRoot.IssueSearchResult.CanceledAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.CanceledAt(childComplexity), true
+	case "IssueSearchResult.completedAt":
+		if e.ComplexityRoot.IssueSearchResult.CompletedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.CompletedAt(childComplexity), true
+	case "IssueSearchResult.createdAt":
+		if e.ComplexityRoot.IssueSearchResult.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.CreatedAt(childComplexity), true
+	case "IssueSearchResult.creator":
+		if e.ComplexityRoot.IssueSearchResult.Creator == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Creator(childComplexity), true
+	case "IssueSearchResult.customerTicketCount":
+		if e.ComplexityRoot.IssueSearchResult.CustomerTicketCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.CustomerTicketCount(childComplexity), true
+	case "IssueSearchResult.cycle":
+		if e.ComplexityRoot.IssueSearchResult.Cycle == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Cycle(childComplexity), true
+	case "IssueSearchResult.delegate":
+		if e.ComplexityRoot.IssueSearchResult.Delegate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Delegate(childComplexity), true
+	case "IssueSearchResult.description":
+		if e.ComplexityRoot.IssueSearchResult.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Description(childComplexity), true
+	case "IssueSearchResult.dueDate":
+		if e.ComplexityRoot.IssueSearchResult.DueDate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.DueDate(childComplexity), true
+	case "IssueSearchResult.estimate":
+		if e.ComplexityRoot.IssueSearchResult.Estimate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Estimate(childComplexity), true
+	case "IssueSearchResult.externalUserCreator":
+		if e.ComplexityRoot.IssueSearchResult.ExternalUserCreator == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.ExternalUserCreator(childComplexity), true
+	case "IssueSearchResult.favorite":
+		if e.ComplexityRoot.IssueSearchResult.Favorite == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Favorite(childComplexity), true
+	case "IssueSearchResult.id":
+		if e.ComplexityRoot.IssueSearchResult.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.ID(childComplexity), true
+	case "IssueSearchResult.identifier":
+		if e.ComplexityRoot.IssueSearchResult.Identifier == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Identifier(childComplexity), true
+	case "IssueSearchResult.inheritsSharedAccess":
+		if e.ComplexityRoot.IssueSearchResult.InheritsSharedAccess == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.InheritsSharedAccess(childComplexity), true
+	case "IssueSearchResult.integrationSourceType":
+		if e.ComplexityRoot.IssueSearchResult.IntegrationSourceType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.IntegrationSourceType(childComplexity), true
+	case "IssueSearchResult.labelIds":
+		if e.ComplexityRoot.IssueSearchResult.LabelIds == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.LabelIds(childComplexity), true
+	case "IssueSearchResult.lastAppliedTemplate":
+		if e.ComplexityRoot.IssueSearchResult.LastAppliedTemplate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.LastAppliedTemplate(childComplexity), true
+	case "IssueSearchResult.metadata":
+		if e.ComplexityRoot.IssueSearchResult.Metadata == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Metadata(childComplexity), true
+	case "IssueSearchResult.number":
+		if e.ComplexityRoot.IssueSearchResult.Number == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Number(childComplexity), true
+	case "IssueSearchResult.parent":
+		if e.ComplexityRoot.IssueSearchResult.Parent == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Parent(childComplexity), true
+	case "IssueSearchResult.previousIdentifiers":
+		if e.ComplexityRoot.IssueSearchResult.PreviousIdentifiers == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.PreviousIdentifiers(childComplexity), true
+	case "IssueSearchResult.priority":
+		if e.ComplexityRoot.IssueSearchResult.Priority == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Priority(childComplexity), true
+	case "IssueSearchResult.priorityLabel":
+		if e.ComplexityRoot.IssueSearchResult.PriorityLabel == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.PriorityLabel(childComplexity), true
+	case "IssueSearchResult.prioritySortOrder":
+		if e.ComplexityRoot.IssueSearchResult.PrioritySortOrder == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.PrioritySortOrder(childComplexity), true
+	case "IssueSearchResult.project":
+		if e.ComplexityRoot.IssueSearchResult.Project == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Project(childComplexity), true
+	case "IssueSearchResult.projectMilestone":
+		if e.ComplexityRoot.IssueSearchResult.ProjectMilestone == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.ProjectMilestone(childComplexity), true
+	case "IssueSearchResult.reactionData":
+		if e.ComplexityRoot.IssueSearchResult.ReactionData == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.ReactionData(childComplexity), true
+	case "IssueSearchResult.reactions":
+		if e.ComplexityRoot.IssueSearchResult.Reactions == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Reactions(childComplexity), true
+	case "IssueSearchResult.recurringIssueTemplate":
+		if e.ComplexityRoot.IssueSearchResult.RecurringIssueTemplate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.RecurringIssueTemplate(childComplexity), true
+	case "IssueSearchResult.slaBreachesAt":
+		if e.ComplexityRoot.IssueSearchResult.SLABreachesAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SLABreachesAt(childComplexity), true
+	case "IssueSearchResult.slaHighRiskAt":
+		if e.ComplexityRoot.IssueSearchResult.SLAHighRiskAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SLAHighRiskAt(childComplexity), true
+	case "IssueSearchResult.slaMediumRiskAt":
+		if e.ComplexityRoot.IssueSearchResult.SLAMediumRiskAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SLAMediumRiskAt(childComplexity), true
+	case "IssueSearchResult.slaStartedAt":
+		if e.ComplexityRoot.IssueSearchResult.SLAStartedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SLAStartedAt(childComplexity), true
+	case "IssueSearchResult.slaType":
+		if e.ComplexityRoot.IssueSearchResult.SLAType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SLAType(childComplexity), true
+	case "IssueSearchResult.sharedAccess":
+		if e.ComplexityRoot.IssueSearchResult.SharedAccess == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SharedAccess(childComplexity), true
+	case "IssueSearchResult.snoozedBy":
+		if e.ComplexityRoot.IssueSearchResult.SnoozedBy == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SnoozedBy(childComplexity), true
+	case "IssueSearchResult.snoozedUntilAt":
+		if e.ComplexityRoot.IssueSearchResult.SnoozedUntilAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SnoozedUntilAt(childComplexity), true
+	case "IssueSearchResult.sortOrder":
+		if e.ComplexityRoot.IssueSearchResult.SortOrder == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SortOrder(childComplexity), true
+	case "IssueSearchResult.sourceComment":
+		if e.ComplexityRoot.IssueSearchResult.SourceComment == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SourceComment(childComplexity), true
+	case "IssueSearchResult.startedAt":
+		if e.ComplexityRoot.IssueSearchResult.StartedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.StartedAt(childComplexity), true
+	case "IssueSearchResult.startedTriageAt":
+		if e.ComplexityRoot.IssueSearchResult.StartedTriageAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.StartedTriageAt(childComplexity), true
+	case "IssueSearchResult.state":
+		if e.ComplexityRoot.IssueSearchResult.State == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.State(childComplexity), true
+	case "IssueSearchResult.subIssueSortOrder":
+		if e.ComplexityRoot.IssueSearchResult.SubIssueSortOrder == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SubIssueSortOrder(childComplexity), true
+	case "IssueSearchResult.syncedWith":
+		if e.ComplexityRoot.IssueSearchResult.SyncedWith == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.SyncedWith(childComplexity), true
+	case "IssueSearchResult.team":
+		if e.ComplexityRoot.IssueSearchResult.Team == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Team(childComplexity), true
+	case "IssueSearchResult.title":
+		if e.ComplexityRoot.IssueSearchResult.Title == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Title(childComplexity), true
+	case "IssueSearchResult.trashed":
+		if e.ComplexityRoot.IssueSearchResult.Trashed == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.Trashed(childComplexity), true
+	case "IssueSearchResult.triagedAt":
+		if e.ComplexityRoot.IssueSearchResult.TriagedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.TriagedAt(childComplexity), true
+	case "IssueSearchResult.url":
+		if e.ComplexityRoot.IssueSearchResult.URL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.URL(childComplexity), true
+	case "IssueSearchResult.updatedAt":
+		if e.ComplexityRoot.IssueSearchResult.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.IssueSearchResult.UpdatedAt(childComplexity), true
+
 	case "IssueSharedAccess.disallowedIssueFields":
 		if e.ComplexityRoot.IssueSharedAccess.DisallowedIssueFields == nil {
 			break
@@ -2222,6 +2750,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Issue(childComplexity, args["id"].(string)), true
+	case "Query.issueSearch":
+		if e.ComplexityRoot.Query.IssueSearch == nil {
+			break
+		}
+
+		args, err := ec.field_Query_issueSearch_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.IssueSearch(childComplexity, args["after"].(*string), args["before"].(*string), args["filter"].(*IssueFilter), args["first"].(*int), args["includeArchived"].(*bool), args["last"].(*int), args["orderBy"].(*PaginationOrderBy), args["query"].(*string)), true
+	case "Query.issueVcsBranchSearch":
+		if e.ComplexityRoot.Query.IssueVcsBranchSearch == nil {
+			break
+		}
+
+		args, err := ec.field_Query_issueVcsBranchSearch_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.IssueVcsBranchSearch(childComplexity, args["branchName"].(string)), true
 	case "Query.issues":
 		if e.ComplexityRoot.Query.Issues == nil {
 			break
@@ -2239,6 +2789,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Organization(childComplexity), true
+	case "Query.searchIssues":
+		if e.ComplexityRoot.Query.SearchIssues == nil {
+			break
+		}
+
+		args, err := ec.field_Query_searchIssues_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.SearchIssues(childComplexity, args["after"].(*string), args["before"].(*string), args["filter"].(*IssueFilter), args["first"].(*int), args["includeArchived"].(*bool), args["includeComments"].(*bool), args["last"].(*int), args["orderBy"].(*PaginationOrderBy), args["teamId"].(*string), args["term"].(string)), true
 	case "Query.team":
 		if e.ComplexityRoot.Query.Team == nil {
 			break
@@ -4083,6 +4644,96 @@ input AttachmentFilter {
   title: StringComparator
   createdAt: DateComparator
 }
+
+"An issue found by searchIssues: the issue's fields and metadata."
+type IssueSearchResult {
+  id: ID!
+  trashed: Boolean
+  "Always an empty list."
+  reactionData: JSONObject!
+  "Ids of the issue's labels, its type included."
+  labelIds: [String!]!
+  integrationSourceType: IntegrationService
+  url: String!
+  "KEY-N with the team's current key."
+  identifier: String!
+  priorityLabel: String!
+  previousIdentifiers: [String!]!
+  reactions: [Reaction!]!
+  customerTicketCount: Int!
+  sharedAccess: IssueSharedAccess!
+  "Suggested git branch name: identifier and title."
+  branchName: String!
+  delegate: User
+  botActor: ActorBot
+  sourceComment: Comment
+  cycle: Cycle
+  dueDate: TimelessDate
+  estimate: Float
+  syncedWith: [ExternalEntityInfo!]
+  externalUserCreator: ExternalUser
+  asksExternalUserRequester: ExternalUser
+  asksRequester: User
+  description: String
+  title: String!
+  number: Float!
+  lastAppliedTemplate: Template
+  updatedAt: DateTime!
+  boardOrder: Float!
+  sortOrder: Float!
+  prioritySortOrder: Float!
+  "Order among the parent's sub-issues; null without a parent."
+  subIssueSortOrder: Float
+  parent: Issue
+  "0 no priority, 1 urgent, 2 high, 3 medium, 4 low."
+  priority: Float!
+  projectMilestone: ProjectMilestone
+  project: Project
+  recurringIssueTemplate: Template
+  team: Team!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  startedTriageAt: DateTime
+  triagedAt: DateTime
+  addedToCycleAt: DateTime
+  addedToProjectAt: DateTime
+  addedToTeamAt: DateTime
+  autoArchivedAt: DateTime
+  autoClosedAt: DateTime
+  canceledAt: DateTime
+  completedAt: DateTime
+  startedAt: DateTime
+  slaStartedAt: DateTime
+  slaBreachesAt: DateTime
+  slaHighRiskAt: DateTime
+  slaMediumRiskAt: DateTime
+  snoozedUntilAt: DateTime
+  slaType: String
+  assignee: User
+  creator: User
+  snoozedBy: User
+  favorite: Favorite
+  state: WorkflowState!
+  inheritsSharedAccess: Boolean!
+  "Always an empty object."
+  metadata: JSONObject!
+}
+
+type IssueSearchPayload {
+  "Declared for client compatibility; always empty."
+  archivePayload: ArchiveResponse!
+  "Number of all matches."
+  totalCount: Float!
+  nodes: [IssueSearchResult!]!
+  pageInfo: PageInfo!
+}
+
+type ArchiveResponse {
+  archive: String!
+  totalCount: Float!
+  databaseVersion: Float!
+  includesDependencies: [String!]!
+}
 `, BuiltIn: false},
 	{Name: "../../../api/graphql/linear/schema.graphqls", Input: `# Linear-compatible API: a hand-written subset served at /graphql.
 # Type and field names follow the Linear-compatible names; Team is a Yalkos
@@ -4110,6 +4761,12 @@ type Query {
   issues(after: String, before: String, filter: IssueFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [IssueSortInput!]): IssueConnection!
   "An issue by UUID or KEY-N (current or former)."
   issue(id: String!): Issue!
+  "Issues matching words of the title and description (by prefix) or an identifier; comments are not searched."
+  searchIssues(after: String, before: String, filter: IssueFilter, first: Int, includeArchived: Boolean, includeComments: Boolean, last: Int, orderBy: PaginationOrderBy, teamId: String, term: String!): IssueSearchPayload!
+  "Older form of searchIssues; without query it lists all issues."
+  issueSearch(after: String, before: String, filter: IssueFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy, query: String): IssueConnection!
+  "The issue whose identifier (KEY-N) appears in a branch name, or null."
+  issueVcsBranchSearch(branchName: String!): Issue
 }
 `, BuiltIn: false},
 	{Name: "../../../api/graphql/linear/teams.graphqls", Input: `"A team is a Yalkos project."
@@ -4471,6 +5128,20 @@ func (ec *executionContext) childFields_AiPromptRules(ctx context.Context, field
 	return nil, fmt.Errorf("no field named %q was found under type AiPromptRules", field.Name)
 }
 
+func (ec *executionContext) childFields_ArchiveResponse(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "archive":
+		return ec.fieldContext_ArchiveResponse_archive(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_ArchiveResponse_totalCount(ctx, field)
+	case "databaseVersion":
+		return ec.fieldContext_ArchiveResponse_databaseVersion(ctx, field)
+	case "includesDependencies":
+		return ec.fieldContext_ArchiveResponse_includesDependencies(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ArchiveResponse", field.Name)
+}
+
 func (ec *executionContext) childFields_Attachment(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "subtitle":
@@ -4813,6 +5484,152 @@ func (ec *executionContext) childFields_IssueRelationEdge(ctx context.Context, f
 		return ec.fieldContext_IssueRelationEdge_cursor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type IssueRelationEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_IssueSearchPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "archivePayload":
+		return ec.fieldContext_IssueSearchPayload_archivePayload(ctx, field)
+	case "totalCount":
+		return ec.fieldContext_IssueSearchPayload_totalCount(ctx, field)
+	case "nodes":
+		return ec.fieldContext_IssueSearchPayload_nodes(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_IssueSearchPayload_pageInfo(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IssueSearchPayload", field.Name)
+}
+
+func (ec *executionContext) childFields_IssueSearchResult(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_IssueSearchResult_id(ctx, field)
+	case "trashed":
+		return ec.fieldContext_IssueSearchResult_trashed(ctx, field)
+	case "reactionData":
+		return ec.fieldContext_IssueSearchResult_reactionData(ctx, field)
+	case "labelIds":
+		return ec.fieldContext_IssueSearchResult_labelIds(ctx, field)
+	case "integrationSourceType":
+		return ec.fieldContext_IssueSearchResult_integrationSourceType(ctx, field)
+	case "url":
+		return ec.fieldContext_IssueSearchResult_url(ctx, field)
+	case "identifier":
+		return ec.fieldContext_IssueSearchResult_identifier(ctx, field)
+	case "priorityLabel":
+		return ec.fieldContext_IssueSearchResult_priorityLabel(ctx, field)
+	case "previousIdentifiers":
+		return ec.fieldContext_IssueSearchResult_previousIdentifiers(ctx, field)
+	case "reactions":
+		return ec.fieldContext_IssueSearchResult_reactions(ctx, field)
+	case "customerTicketCount":
+		return ec.fieldContext_IssueSearchResult_customerTicketCount(ctx, field)
+	case "sharedAccess":
+		return ec.fieldContext_IssueSearchResult_sharedAccess(ctx, field)
+	case "branchName":
+		return ec.fieldContext_IssueSearchResult_branchName(ctx, field)
+	case "delegate":
+		return ec.fieldContext_IssueSearchResult_delegate(ctx, field)
+	case "botActor":
+		return ec.fieldContext_IssueSearchResult_botActor(ctx, field)
+	case "sourceComment":
+		return ec.fieldContext_IssueSearchResult_sourceComment(ctx, field)
+	case "cycle":
+		return ec.fieldContext_IssueSearchResult_cycle(ctx, field)
+	case "dueDate":
+		return ec.fieldContext_IssueSearchResult_dueDate(ctx, field)
+	case "estimate":
+		return ec.fieldContext_IssueSearchResult_estimate(ctx, field)
+	case "syncedWith":
+		return ec.fieldContext_IssueSearchResult_syncedWith(ctx, field)
+	case "externalUserCreator":
+		return ec.fieldContext_IssueSearchResult_externalUserCreator(ctx, field)
+	case "asksExternalUserRequester":
+		return ec.fieldContext_IssueSearchResult_asksExternalUserRequester(ctx, field)
+	case "asksRequester":
+		return ec.fieldContext_IssueSearchResult_asksRequester(ctx, field)
+	case "description":
+		return ec.fieldContext_IssueSearchResult_description(ctx, field)
+	case "title":
+		return ec.fieldContext_IssueSearchResult_title(ctx, field)
+	case "number":
+		return ec.fieldContext_IssueSearchResult_number(ctx, field)
+	case "lastAppliedTemplate":
+		return ec.fieldContext_IssueSearchResult_lastAppliedTemplate(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_IssueSearchResult_updatedAt(ctx, field)
+	case "boardOrder":
+		return ec.fieldContext_IssueSearchResult_boardOrder(ctx, field)
+	case "sortOrder":
+		return ec.fieldContext_IssueSearchResult_sortOrder(ctx, field)
+	case "prioritySortOrder":
+		return ec.fieldContext_IssueSearchResult_prioritySortOrder(ctx, field)
+	case "subIssueSortOrder":
+		return ec.fieldContext_IssueSearchResult_subIssueSortOrder(ctx, field)
+	case "parent":
+		return ec.fieldContext_IssueSearchResult_parent(ctx, field)
+	case "priority":
+		return ec.fieldContext_IssueSearchResult_priority(ctx, field)
+	case "projectMilestone":
+		return ec.fieldContext_IssueSearchResult_projectMilestone(ctx, field)
+	case "project":
+		return ec.fieldContext_IssueSearchResult_project(ctx, field)
+	case "recurringIssueTemplate":
+		return ec.fieldContext_IssueSearchResult_recurringIssueTemplate(ctx, field)
+	case "team":
+		return ec.fieldContext_IssueSearchResult_team(ctx, field)
+	case "archivedAt":
+		return ec.fieldContext_IssueSearchResult_archivedAt(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_IssueSearchResult_createdAt(ctx, field)
+	case "startedTriageAt":
+		return ec.fieldContext_IssueSearchResult_startedTriageAt(ctx, field)
+	case "triagedAt":
+		return ec.fieldContext_IssueSearchResult_triagedAt(ctx, field)
+	case "addedToCycleAt":
+		return ec.fieldContext_IssueSearchResult_addedToCycleAt(ctx, field)
+	case "addedToProjectAt":
+		return ec.fieldContext_IssueSearchResult_addedToProjectAt(ctx, field)
+	case "addedToTeamAt":
+		return ec.fieldContext_IssueSearchResult_addedToTeamAt(ctx, field)
+	case "autoArchivedAt":
+		return ec.fieldContext_IssueSearchResult_autoArchivedAt(ctx, field)
+	case "autoClosedAt":
+		return ec.fieldContext_IssueSearchResult_autoClosedAt(ctx, field)
+	case "canceledAt":
+		return ec.fieldContext_IssueSearchResult_canceledAt(ctx, field)
+	case "completedAt":
+		return ec.fieldContext_IssueSearchResult_completedAt(ctx, field)
+	case "startedAt":
+		return ec.fieldContext_IssueSearchResult_startedAt(ctx, field)
+	case "slaStartedAt":
+		return ec.fieldContext_IssueSearchResult_slaStartedAt(ctx, field)
+	case "slaBreachesAt":
+		return ec.fieldContext_IssueSearchResult_slaBreachesAt(ctx, field)
+	case "slaHighRiskAt":
+		return ec.fieldContext_IssueSearchResult_slaHighRiskAt(ctx, field)
+	case "slaMediumRiskAt":
+		return ec.fieldContext_IssueSearchResult_slaMediumRiskAt(ctx, field)
+	case "snoozedUntilAt":
+		return ec.fieldContext_IssueSearchResult_snoozedUntilAt(ctx, field)
+	case "slaType":
+		return ec.fieldContext_IssueSearchResult_slaType(ctx, field)
+	case "assignee":
+		return ec.fieldContext_IssueSearchResult_assignee(ctx, field)
+	case "creator":
+		return ec.fieldContext_IssueSearchResult_creator(ctx, field)
+	case "snoozedBy":
+		return ec.fieldContext_IssueSearchResult_snoozedBy(ctx, field)
+	case "favorite":
+		return ec.fieldContext_IssueSearchResult_favorite(ctx, field)
+	case "state":
+		return ec.fieldContext_IssueSearchResult_state(ctx, field)
+	case "inheritsSharedAccess":
+		return ec.fieldContext_IssueSearchResult_inheritsSharedAccess(ctx, field)
+	case "metadata":
+		return ec.fieldContext_IssueSearchResult_metadata(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IssueSearchResult", field.Name)
 }
 
 func (ec *executionContext) childFields_IssueSharedAccess(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -5819,6 +6636,90 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_issueSearch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*IssueFilter, error) {
+			return ec.unmarshalOIssueFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "includeArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeArchived"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*PaginationOrderBy, error) {
+			return ec.unmarshalOPaginationOrderBy2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaginationOrderBy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg6
+	arg7, err := graphql.ProcessArgField(ctx, rawArgs, "query",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["query"] = arg7
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_issueVcsBranchSearch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "branchName",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["branchName"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_issue_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -5900,6 +6801,92 @@ func (ec *executionContext) field_Query_issues_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["sort"] = arg7
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_searchIssues_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*IssueFilter, error) {
+			return ec.unmarshalOIssueFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "includeArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeArchived"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "includeComments",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeComments"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg6
+	arg7, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*PaginationOrderBy, error) {
+			return ec.unmarshalOPaginationOrderBy2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaginationOrderBy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg7
+	arg8, err := graphql.ProcessArgField(ctx, rawArgs, "teamId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["teamId"] = arg8
+	arg9, err := graphql.ProcessArgField(ctx, rawArgs, "term",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["term"] = arg9
 	return args, nil
 }
 
@@ -6776,6 +7763,98 @@ func (ec *executionContext) fieldContext_AiPromptRules_updatedBy(_ context.Conte
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _ArchiveResponse_archive(ctx context.Context, field graphql.CollectedField, obj *ArchiveResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ArchiveResponse_archive(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Archive, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ArchiveResponse_archive(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ArchiveResponse", field, false, false, "String")
+}
+
+func (ec *executionContext) _ArchiveResponse_totalCount(ctx context.Context, field graphql.CollectedField, obj *ArchiveResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ArchiveResponse_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ArchiveResponse_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ArchiveResponse", field, false, false, "Float")
+}
+
+func (ec *executionContext) _ArchiveResponse_databaseVersion(ctx context.Context, field graphql.CollectedField, obj *ArchiveResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ArchiveResponse_databaseVersion(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DatabaseVersion, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ArchiveResponse_databaseVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ArchiveResponse", field, false, false, "Float")
+}
+
+func (ec *executionContext) _ArchiveResponse_includesDependencies(ctx context.Context, field graphql.CollectedField, obj *ArchiveResponse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ArchiveResponse_includesDependencies(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IncludesDependencies, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ArchiveResponse_includesDependencies(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ArchiveResponse", field, false, false, "String")
 }
 
 func (ec *executionContext) _Attachment_subtitle(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
@@ -10452,6 +11531,1763 @@ func (ec *executionContext) fieldContext_IssueRelationEdge_cursor(_ context.Cont
 	return graphql.NewScalarFieldContext("IssueRelationEdge", field, false, false, "String")
 }
 
+func (ec *executionContext) _IssueSearchPayload_archivePayload(ctx context.Context, field graphql.CollectedField, obj *IssueSearchPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchPayload_archivePayload(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ArchivePayload, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *ArchiveResponse) graphql.Marshaler {
+			return ec.marshalNArchiveResponse2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐArchiveResponse(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchPayload_archivePayload(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ArchiveResponse(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchPayload_totalCount(ctx context.Context, field graphql.CollectedField, obj *IssueSearchPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchPayload_totalCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TotalCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchPayload_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchPayload", field, false, false, "Float")
+}
+
+func (ec *executionContext) _IssueSearchPayload_nodes(ctx context.Context, field graphql.CollectedField, obj *IssueSearchPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchPayload_nodes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []IssueSearchResult) graphql.Marshaler {
+			return ec.marshalNIssueSearchResult2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueSearchResultᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchPayload_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IssueSearchResult(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchPayload_pageInfo(ctx context.Context, field graphql.CollectedField, obj *IssueSearchPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchPayload_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchPayload_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_id(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "ID")
+}
+
+func (ec *executionContext) _IssueSearchResult_trashed(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_trashed(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Trashed, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_trashed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _IssueSearchResult_reactionData(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_reactionData(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReactionData, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v JSONObject) graphql.Marshaler {
+			return ec.marshalNJSONObject2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐJSONObject(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_reactionData(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "JSONObject")
+}
+
+func (ec *executionContext) _IssueSearchResult_labelIds(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_labelIds(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IssueSearchResult().LabelIds(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_labelIds(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, true, true, "String")
+}
+
+func (ec *executionContext) _IssueSearchResult_integrationSourceType(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_integrationSourceType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IntegrationSourceType, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *IntegrationService) graphql.Marshaler {
+			return ec.marshalOIntegrationService2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIntegrationService(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_integrationSourceType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "IntegrationService")
+}
+
+func (ec *executionContext) _IssueSearchResult_url(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_url(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.URL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "String")
+}
+
+func (ec *executionContext) _IssueSearchResult_identifier(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_identifier(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Identifier, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_identifier(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "String")
+}
+
+func (ec *executionContext) _IssueSearchResult_priorityLabel(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_priorityLabel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PriorityLabel, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_priorityLabel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "String")
+}
+
+func (ec *executionContext) _IssueSearchResult_previousIdentifiers(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_previousIdentifiers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PreviousIdentifiers, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_previousIdentifiers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "String")
+}
+
+func (ec *executionContext) _IssueSearchResult_reactions(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_reactions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Reactions, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Reaction) graphql.Marshaler {
+			return ec.marshalNReaction2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐReactionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_reactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Reaction(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_customerTicketCount(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_customerTicketCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CustomerTicketCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_customerTicketCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Int")
+}
+
+func (ec *executionContext) _IssueSearchResult_sharedAccess(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_sharedAccess(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SharedAccess, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *IssueSharedAccess) graphql.Marshaler {
+			return ec.marshalNIssueSharedAccess2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueSharedAccess(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_sharedAccess(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IssueSharedAccess(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_branchName(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_branchName(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BranchName, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_branchName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "String")
+}
+
+func (ec *executionContext) _IssueSearchResult_delegate(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_delegate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Delegate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_delegate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_botActor(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_botActor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BotActor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *ActorBot) graphql.Marshaler {
+			return ec.marshalOActorBot2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐActorBot(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_botActor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ActorBot(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_sourceComment(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_sourceComment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SourceComment, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Comment) graphql.Marshaler {
+			return ec.marshalOComment2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐComment(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_sourceComment(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Comment(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_cycle(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_cycle(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cycle, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Cycle) graphql.Marshaler {
+			return ec.marshalOCycle2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐCycle(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_cycle(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Cycle(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_dueDate(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_dueDate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DueDate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTimelessDate2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_dueDate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "TimelessDate")
+}
+
+func (ec *executionContext) _IssueSearchResult_estimate(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_estimate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Estimate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_estimate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Float")
+}
+
+func (ec *executionContext) _IssueSearchResult_syncedWith(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_syncedWith(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SyncedWith, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []ExternalEntityInfo) graphql.Marshaler {
+			return ec.marshalOExternalEntityInfo2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐExternalEntityInfoᚄ(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_syncedWith(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ExternalEntityInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_externalUserCreator(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_externalUserCreator(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ExternalUserCreator, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *ExternalUser) graphql.Marshaler {
+			return ec.marshalOExternalUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐExternalUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_externalUserCreator(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ExternalUser(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_asksExternalUserRequester(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_asksExternalUserRequester(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AsksExternalUserRequester, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *ExternalUser) graphql.Marshaler {
+			return ec.marshalOExternalUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐExternalUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_asksExternalUserRequester(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ExternalUser(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_asksRequester(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_asksRequester(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AsksRequester, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_asksRequester(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_description(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "String")
+}
+
+func (ec *executionContext) _IssueSearchResult_title(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_title(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Title, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_title(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "String")
+}
+
+func (ec *executionContext) _IssueSearchResult_number(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_number(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Number, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_number(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Float")
+}
+
+func (ec *executionContext) _IssueSearchResult_lastAppliedTemplate(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_lastAppliedTemplate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LastAppliedTemplate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Template) graphql.Marshaler {
+			return ec.marshalOTemplate2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTemplate(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_lastAppliedTemplate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Template(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_updatedAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_boardOrder(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_boardOrder(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BoardOrder, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_boardOrder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Float")
+}
+
+func (ec *executionContext) _IssueSearchResult_sortOrder(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_sortOrder(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SortOrder, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_sortOrder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Float")
+}
+
+func (ec *executionContext) _IssueSearchResult_prioritySortOrder(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_prioritySortOrder(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PrioritySortOrder, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_prioritySortOrder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Float")
+}
+
+func (ec *executionContext) _IssueSearchResult_subIssueSortOrder(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_subIssueSortOrder(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SubIssueSortOrder, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_subIssueSortOrder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Float")
+}
+
+func (ec *executionContext) _IssueSearchResult_parent(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_parent(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IssueSearchResult().Parent(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Issue) graphql.Marshaler {
+			return ec.marshalOIssue2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssue(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_parent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Issue(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_priority(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_priority(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Priority, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_priority(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Float")
+}
+
+func (ec *executionContext) _IssueSearchResult_projectMilestone(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_projectMilestone(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectMilestone, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *ProjectMilestone) graphql.Marshaler {
+			return ec.marshalOProjectMilestone2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectMilestone(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_projectMilestone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ProjectMilestone(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_project(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_project(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Project, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Project) graphql.Marshaler {
+			return ec.marshalOProject2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProject(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_project(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Project(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_recurringIssueTemplate(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_recurringIssueTemplate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RecurringIssueTemplate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Template) graphql.Marshaler {
+			return ec.marshalOTemplate2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTemplate(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_recurringIssueTemplate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Template(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_team(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_team(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IssueSearchResult().Team(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
+			return ec.marshalNTeam2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_team(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Team(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_archivedAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_archivedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ArchivedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_archivedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_createdAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_startedTriageAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_startedTriageAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StartedTriageAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_startedTriageAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_triagedAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_triagedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TriagedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_triagedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_addedToCycleAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_addedToCycleAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AddedToCycleAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_addedToCycleAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_addedToProjectAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_addedToProjectAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AddedToProjectAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_addedToProjectAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_addedToTeamAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_addedToTeamAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AddedToTeamAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_addedToTeamAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_autoArchivedAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_autoArchivedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AutoArchivedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_autoArchivedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_autoClosedAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_autoClosedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AutoClosedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_autoClosedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_canceledAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_canceledAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CanceledAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_canceledAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_completedAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_completedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CompletedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_completedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_startedAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_startedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StartedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_startedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_slaStartedAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_slaStartedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SLAStartedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_slaStartedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_slaBreachesAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_slaBreachesAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SLABreachesAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_slaBreachesAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_slaHighRiskAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_slaHighRiskAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SLAHighRiskAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_slaHighRiskAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_slaMediumRiskAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_slaMediumRiskAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SLAMediumRiskAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_slaMediumRiskAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_snoozedUntilAt(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_snoozedUntilAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SnoozedUntilAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_snoozedUntilAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _IssueSearchResult_slaType(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_slaType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SLAType, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_slaType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "String")
+}
+
+func (ec *executionContext) _IssueSearchResult_assignee(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_assignee(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IssueSearchResult().Assignee(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_assignee(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_creator(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_creator(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IssueSearchResult().Creator(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_creator(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_snoozedBy(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_snoozedBy(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SnoozedBy, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_snoozedBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_favorite(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_favorite(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Favorite, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Favorite) graphql.Marshaler {
+			return ec.marshalOFavorite2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐFavorite(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_favorite(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Favorite(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_state(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_state(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.IssueSearchResult().State(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalNWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "IssueSearchResult",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _IssueSearchResult_inheritsSharedAccess(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_inheritsSharedAccess(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InheritsSharedAccess, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_inheritsSharedAccess(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _IssueSearchResult_metadata(ctx context.Context, field graphql.CollectedField, obj *IssueSearchResult) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_IssueSearchResult_metadata(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Metadata, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v JSONObject) graphql.Marshaler {
+			return ec.marshalNJSONObject2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐJSONObject(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_IssueSearchResult_metadata(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("IssueSearchResult", field, false, false, "JSONObject")
+}
+
 func (ec *executionContext) _IssueSharedAccess_disallowedIssueFields(ctx context.Context, field graphql.CollectedField, obj *IssueSharedAccess) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -13090,6 +15926,138 @@ func (ec *executionContext) fieldContext_Query_issue(ctx context.Context, field 
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_issue_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_searchIssues(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_searchIssues(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().SearchIssues(ctx, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["filter"].(*IssueFilter), fc.Args["first"].(*int), fc.Args["includeArchived"].(*bool), fc.Args["includeComments"].(*bool), fc.Args["last"].(*int), fc.Args["orderBy"].(*PaginationOrderBy), fc.Args["teamId"].(*string), fc.Args["term"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *IssueSearchPayload) graphql.Marshaler {
+			return ec.marshalNIssueSearchPayload2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueSearchPayload(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_searchIssues(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IssueSearchPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_searchIssues_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_issueSearch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_issueSearch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().IssueSearch(ctx, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["filter"].(*IssueFilter), fc.Args["first"].(*int), fc.Args["includeArchived"].(*bool), fc.Args["last"].(*int), fc.Args["orderBy"].(*PaginationOrderBy), fc.Args["query"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *IssueConnection) graphql.Marshaler {
+			return ec.marshalNIssueConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_issueSearch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IssueConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_issueSearch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_issueVcsBranchSearch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_issueVcsBranchSearch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().IssueVcsBranchSearch(ctx, fc.Args["branchName"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Issue) graphql.Marshaler {
+			return ec.marshalOIssue2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssue(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_issueVcsBranchSearch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Issue(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_issueVcsBranchSearch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -20633,6 +23601,54 @@ func (ec *executionContext) _AiPromptRules(ctx context.Context, sel ast.Selectio
 	return out
 }
 
+var archiveResponseImplementors = []string{"ArchiveResponse"}
+
+func (ec *executionContext) _ArchiveResponse(ctx context.Context, sel ast.SelectionSet, obj *ArchiveResponse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, archiveResponseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ArchiveResponse")
+		case "archive":
+			out.Values[i] = ec._ArchiveResponse_archive(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalCount":
+			out.Values[i] = ec._ArchiveResponse_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "databaseVersion":
+			out.Values[i] = ec._ArchiveResponse_databaseVersion(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "includesDependencies":
+			out.Values[i] = ec._ArchiveResponse_includesDependencies(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var attachmentImplementors = []string{"Attachment"}
 
 func (ec *executionContext) _Attachment(ctx context.Context, sel ast.SelectionSet, obj *Attachment) graphql.Marshaler {
@@ -21983,6 +24999,403 @@ func (ec *executionContext) _IssueRelationEdge(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var issueSearchPayloadImplementors = []string{"IssueSearchPayload"}
+
+func (ec *executionContext) _IssueSearchPayload(ctx context.Context, sel ast.SelectionSet, obj *IssueSearchPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, issueSearchPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IssueSearchPayload")
+		case "archivePayload":
+			out.Values[i] = ec._IssueSearchPayload_archivePayload(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalCount":
+			out.Values[i] = ec._IssueSearchPayload_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "nodes":
+			out.Values[i] = ec._IssueSearchPayload_nodes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._IssueSearchPayload_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var issueSearchResultImplementors = []string{"IssueSearchResult"}
+
+func (ec *executionContext) _IssueSearchResult(ctx context.Context, sel ast.SelectionSet, obj *IssueSearchResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, issueSearchResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("IssueSearchResult")
+		case "id":
+			out.Values[i] = ec._IssueSearchResult_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "trashed":
+			out.Values[i] = ec._IssueSearchResult_trashed(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "reactionData":
+			out.Values[i] = ec._IssueSearchResult_reactionData(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "labelIds":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IssueSearchResult_labelIds(ctx, field, obj)
+				})
+		case "integrationSourceType":
+			out.Values[i] = ec._IssueSearchResult_integrationSourceType(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "url":
+			out.Values[i] = ec._IssueSearchResult_url(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "identifier":
+			out.Values[i] = ec._IssueSearchResult_identifier(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "priorityLabel":
+			out.Values[i] = ec._IssueSearchResult_priorityLabel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "previousIdentifiers":
+			out.Values[i] = ec._IssueSearchResult_previousIdentifiers(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "reactions":
+			out.Values[i] = ec._IssueSearchResult_reactions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "customerTicketCount":
+			out.Values[i] = ec._IssueSearchResult_customerTicketCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "sharedAccess":
+			out.Values[i] = ec._IssueSearchResult_sharedAccess(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "branchName":
+			out.Values[i] = ec._IssueSearchResult_branchName(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "delegate":
+			out.Values[i] = ec._IssueSearchResult_delegate(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "botActor":
+			out.Values[i] = ec._IssueSearchResult_botActor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "sourceComment":
+			out.Values[i] = ec._IssueSearchResult_sourceComment(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "cycle":
+			out.Values[i] = ec._IssueSearchResult_cycle(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "dueDate":
+			out.Values[i] = ec._IssueSearchResult_dueDate(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "estimate":
+			out.Values[i] = ec._IssueSearchResult_estimate(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "syncedWith":
+			out.Values[i] = ec._IssueSearchResult_syncedWith(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "externalUserCreator":
+			out.Values[i] = ec._IssueSearchResult_externalUserCreator(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "asksExternalUserRequester":
+			out.Values[i] = ec._IssueSearchResult_asksExternalUserRequester(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "asksRequester":
+			out.Values[i] = ec._IssueSearchResult_asksRequester(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "description":
+			out.Values[i] = ec._IssueSearchResult_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "title":
+			out.Values[i] = ec._IssueSearchResult_title(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "number":
+			out.Values[i] = ec._IssueSearchResult_number(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "lastAppliedTemplate":
+			out.Values[i] = ec._IssueSearchResult_lastAppliedTemplate(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._IssueSearchResult_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "boardOrder":
+			out.Values[i] = ec._IssueSearchResult_boardOrder(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "sortOrder":
+			out.Values[i] = ec._IssueSearchResult_sortOrder(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "prioritySortOrder":
+			out.Values[i] = ec._IssueSearchResult_prioritySortOrder(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "subIssueSortOrder":
+			out.Values[i] = ec._IssueSearchResult_subIssueSortOrder(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "parent":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IssueSearchResult_parent(ctx, field, obj)
+				})
+		case "priority":
+			out.Values[i] = ec._IssueSearchResult_priority(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "projectMilestone":
+			out.Values[i] = ec._IssueSearchResult_projectMilestone(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "project":
+			out.Values[i] = ec._IssueSearchResult_project(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "recurringIssueTemplate":
+			out.Values[i] = ec._IssueSearchResult_recurringIssueTemplate(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "team":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IssueSearchResult_team(ctx, field, obj)
+				})
+		case "archivedAt":
+			out.Values[i] = ec._IssueSearchResult_archivedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "createdAt":
+			out.Values[i] = ec._IssueSearchResult_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "startedTriageAt":
+			out.Values[i] = ec._IssueSearchResult_startedTriageAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "triagedAt":
+			out.Values[i] = ec._IssueSearchResult_triagedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "addedToCycleAt":
+			out.Values[i] = ec._IssueSearchResult_addedToCycleAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "addedToProjectAt":
+			out.Values[i] = ec._IssueSearchResult_addedToProjectAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "addedToTeamAt":
+			out.Values[i] = ec._IssueSearchResult_addedToTeamAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "autoArchivedAt":
+			out.Values[i] = ec._IssueSearchResult_autoArchivedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "autoClosedAt":
+			out.Values[i] = ec._IssueSearchResult_autoClosedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "canceledAt":
+			out.Values[i] = ec._IssueSearchResult_canceledAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "completedAt":
+			out.Values[i] = ec._IssueSearchResult_completedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "startedAt":
+			out.Values[i] = ec._IssueSearchResult_startedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slaStartedAt":
+			out.Values[i] = ec._IssueSearchResult_slaStartedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slaBreachesAt":
+			out.Values[i] = ec._IssueSearchResult_slaBreachesAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slaHighRiskAt":
+			out.Values[i] = ec._IssueSearchResult_slaHighRiskAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slaMediumRiskAt":
+			out.Values[i] = ec._IssueSearchResult_slaMediumRiskAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "snoozedUntilAt":
+			out.Values[i] = ec._IssueSearchResult_snoozedUntilAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slaType":
+			out.Values[i] = ec._IssueSearchResult_slaType(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "assignee":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IssueSearchResult_assignee(ctx, field, obj)
+				})
+		case "creator":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IssueSearchResult_creator(ctx, field, obj)
+				})
+		case "snoozedBy":
+			out.Values[i] = ec._IssueSearchResult_snoozedBy(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "favorite":
+			out.Values[i] = ec._IssueSearchResult_favorite(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "state":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._IssueSearchResult_state(ctx, field, obj)
+				})
+		case "inheritsSharedAccess":
+			out.Values[i] = ec._IssueSearchResult_inheritsSharedAccess(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "metadata":
+			out.Values[i] = ec._IssueSearchResult_metadata(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var issueSharedAccessImplementors = []string{"IssueSharedAccess"}
 
 func (ec *executionContext) _IssueSharedAccess(ctx context.Context, sel ast.SelectionSet, obj *IssueSharedAccess) graphql.Marshaler {
@@ -22756,6 +26169,24 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_issue(ctx, field)
+				})
+		case "searchIssues":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_searchIssues(ctx, field)
+				})
+		case "issueSearch":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_issueSearch(ctx, field)
+				})
+		case "issueVcsBranchSearch":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_issueVcsBranchSearch(ctx, field)
 				})
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
@@ -24408,6 +27839,14 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
+func (ec *executionContext) marshalNArchiveResponse2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐArchiveResponse(ctx context.Context, sel ast.SelectionSet, v *ArchiveResponse) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "ArchiveResponse!")
+		return graphql.Null
+	}
+	return ec._ArchiveResponse(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNAttachment2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐAttachment(ctx context.Context, sel ast.SelectionSet, v Attachment) graphql.Marshaler {
 	return ec._Attachment(ctx, sel, &v)
 }
@@ -24678,6 +28117,34 @@ func (ec *executionContext) marshalNIssueRelationEdge2ᚕgithubᚗcomᚋaskuksov
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
 		return ec.marshalNIssueRelationEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueRelationEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNIssueSearchPayload2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueSearchPayload(ctx context.Context, sel ast.SelectionSet, v *IssueSearchPayload) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "IssueSearchPayload!")
+		return graphql.Null
+	}
+	return ec._IssueSearchPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNIssueSearchResult2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueSearchResult(ctx context.Context, sel ast.SelectionSet, v IssueSearchResult) graphql.Marshaler {
+	return ec._IssueSearchResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNIssueSearchResult2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueSearchResultᚄ(ctx context.Context, sel ast.SelectionSet, v []IssueSearchResult) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNIssueSearchResult2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssueSearchResult(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {

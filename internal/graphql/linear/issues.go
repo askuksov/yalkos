@@ -72,14 +72,7 @@ func (r *Resolver) issueConn(ctx context.Context, scope issue.Filter, f *IssueFi
 	if err != nil {
 		return nil, err
 	}
-	if scope.Project == nil && scope.Parent == nil && scope.Assignee == nil {
-		// Top level: the caller's team filter decides on archived teams.
-		user.IncludeArchived = scope.IncludeArchived
-		scope = user
-	} else {
-		scope.All = append(scope.All, user)
-	}
-	res, err := r.d.Issues.List(ctx, scope, order, a)
+	res, err := r.d.Issues.List(ctx, scoped(scope, user), order, a)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +83,19 @@ func (r *Resolver) issueConn(ctx context.Context, scope issue.Filter, f *IssueFi
 		out.Edges[i] = IssueEdge{Node: n, Cursor: res.Cursors[i]}
 	}
 	return out, nil
+}
+
+// scoped ANDs the caller's filter with a list's scope. Without a project,
+// parent or assignee scope the caller's filter is the top level, so its team
+// filter decides on archived teams.
+func scoped(scope, user issue.Filter) issue.Filter {
+	if scope.Project == nil && scope.Parent == nil && scope.Assignee == nil {
+		user.IncludeArchived = scope.IncludeArchived
+		user.Search = scope.Search
+		return user
+	}
+	scope.All = append(scope.All, user)
+	return scope
 }
 
 // issueByRef finds a live issue by UUID or KEY-N (current or former). With an
@@ -199,4 +205,28 @@ func childScope(id uuid.UUID) issue.Filter {
 
 func assigneeScope(id uuid.UUID, includeArchived *bool) issue.Filter {
 	return issue.Filter{Assignee: &issue.IDCond{Eq: &id}, IncludeArchived: isTrue(includeArchived)}
+}
+
+func (r *Resolver) issueLabelIDs(ctx context.Context, i issue.Issue) ([]string, error) {
+	if i.LabelIDs != nil {
+		return idStrings(i.LabelIDs), nil
+	}
+	ids, err := loadersFrom(ctx).issueLabels.Load(ctx, i.ID)
+	return idStrings(ids), err
+}
+
+func (r *Resolver) issueTeam(ctx context.Context, i issue.Issue) (*Team, error) {
+	p, err := loadersFrom(ctx).projects.Load(ctx, i.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	return teamOut(p), nil
+}
+
+func (r *Resolver) issueState(ctx context.Context, i issue.Issue) (*WorkflowState, error) {
+	st, err := loadersFrom(ctx).states.Load(ctx, i.StateID)
+	if err != nil {
+		return nil, err
+	}
+	return stateOut(st), nil
 }

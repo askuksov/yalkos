@@ -96,6 +96,23 @@ func (r *queryResolver) Issue(ctx context.Context, id string) (*Issue, error) {
 	return r.issueOut(i), nil
 }
 
+// SearchIssues is the resolver for the searchIssues field.
+func (r *queryResolver) SearchIssues(ctx context.Context, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, includeComments *bool, last *int, orderBy *PaginationOrderBy, teamID *string, term string) (*IssueSearchPayload, error) {
+	return r.searchIssues(ctx, term, teamID, filter, includeArchived, orderBy, pageArgs(first, after, last, before))
+}
+
+// IssueSearch is the resolver for the issueSearch field.
+func (r *queryResolver) IssueSearch(ctx context.Context, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, query *string) (*IssueConnection, error) {
+	scope := issueScope(includeArchived)
+	scope.Search = query
+	return r.issueConn(ctx, scope, filter, orderBy, nil, pageArgs(first, after, last, before))
+}
+
+// IssueVcsBranchSearch is the resolver for the issueVcsBranchSearch field.
+func (r *queryResolver) IssueVcsBranchSearch(ctx context.Context, branchName string) (*Issue, error) {
+	return r.issueByBranch(ctx, branchName)
+}
+
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
