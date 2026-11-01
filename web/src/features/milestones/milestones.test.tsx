@@ -69,6 +69,18 @@ describe('milestones', () => {
     await waitFor(() => expect(callsOf('UpdateMilestone')[1]).toEqual({ id: 'm1', input: { statusAutomatic: true } }))
   })
 
+  it('keeps the description draft when another field saves', async () => {
+    serve(handlers({ UpdateMilestone: () => ({ updateMilestone: { ...bank, description: 'Connect *banks*' } }) }))
+    renderAt('/p/YLK/milestones/m1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit description' }))
+    const box = screen.getByRole('textbox', { name: 'Description' })
+    await userEvent.type(box, ' and cards')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'CANCELED')
+    await waitFor(() => expect(callsOf('UpdateMilestone')).toHaveLength(1))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.getByRole('textbox', { name: 'Description' })).toHaveValue('Connect *banks* and cards')
+  })
+
   it('shows milestone issues as a list with a fixed filter', async () => {
     serve(handlers())
     renderAt('/p/YLK/milestones/m1')
