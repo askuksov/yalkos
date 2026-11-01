@@ -29,6 +29,9 @@ func (r *Resolver) searchResultOut(i issue.Issue) IssueSearchResult {
 // searchIssues runs a word search with the caller's filter, within one team
 // when teamRef is set.
 func (r *Resolver) searchIssues(ctx context.Context, term string, teamRef *string, f *IssueFilter, includeArchived *bool, by *PaginationOrderBy, a page.Args) (*IssueSearchPayload, error) {
+	if _, err := r.actor(ctx); err != nil {
+		return nil, err
+	}
 	scope := issueScope(includeArchived)
 	scope.Search = &term
 	if teamRef != nil {
