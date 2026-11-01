@@ -73,6 +73,12 @@ Send the key as `Authorization: <key>` or `Authorization: Bearer <key>`. Keys ac
 
 `https://<host>/mcp` is an MCP server (Streamable HTTP) for AI coding agents. Connect it with an API key from **Settings → API keys**: the agent acts as the key's user, and every change it makes shows in the issue's history under that user. The endpoint accepts API keys only, not browser sessions. The **API keys** page shows both setups below with your address filled in.
 
+The examples read the key from `YALKOS_API_KEY`; set it in the shell first:
+
+```sh
+export YALKOS_API_KEY=yal_api_...   # the key from Settings → API keys
+```
+
 **Claude Code:**
 
 ```sh
@@ -109,7 +115,7 @@ This saves the server for you in this folder (scope `local`, the default). With 
 }
 ```
 
-`"oauth": false` tells OpenCode the server uses API keys, so a wrong key shows an error instead of an OAuth login.
+Start OpenCode from a shell where `YALKOS_API_KEY` is set. `"oauth": false` tells OpenCode the server uses API keys, so a wrong key shows an error instead of an OAuth login.
 
 Tools:
 
