@@ -76,16 +76,25 @@ func TestResolvePerson(t *testing.T) {
 func TestResolveLabels(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	e.label(t, "UI", nil)
+	free := e.label(t, "UI", nil)
 	area := e.group(t, "Area", false)
 	grouped := e.label(t, "UI", &area.ID)
 	c := e.newCall(e.users.Owner)
 
-	_, err := c.labels(ctx, []string{"ui"})
-	if got, want := errText(t, err), `Label "ui" is ambiguous: UI, Area/UI.`; got != want {
+	// A free label is named by its name alone; grouped ones also have Group/Name.
+	ids, err := c.labels(ctx, []string{"ui"})
+	if err != nil || len(ids) != 1 || ids[0] != free.ID {
+		t.Errorf("ui = %v, %v (want the free label %s)", ids, err, free.ID)
+	}
+	platform := e.group(t, "Platform", false)
+	e.label(t, "API", &platform.ID)
+	e.label(t, "API", &area.ID)
+	c = e.newCall(e.users.Owner)
+	_, err = c.labels(ctx, []string{"api"})
+	if got, want := errText(t, err), `Label "api" is ambiguous: Platform/API, Area/API.`; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
-	ids, err := c.labels(ctx, []string{"area/ui"})
+	ids, err = c.labels(ctx, []string{"area/ui"})
 	if err != nil || len(ids) != 1 || ids[0] != grouped.ID {
 		t.Errorf("area/ui = %v, %v (want %s)", ids, err, grouped.ID)
 	}

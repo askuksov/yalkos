@@ -219,6 +219,17 @@ func (c *call) oneLabel(x *labelIndex, name string) (uuid.UUID, error) {
 			hits = append(hits, l)
 		}
 	}
+	// A free label is reachable only by its bare name; grouped ones also
+	// answer to Group/Name, so the free one wins a clash.
+	var free []label.Label
+	for _, l := range hits {
+		if l.ParentID == nil {
+			free = append(free, l)
+		}
+	}
+	if len(hits) > 1 && len(free) == 1 {
+		return free[0].ID, nil
+	}
 	switch len(hits) {
 	case 1:
 		return hits[0].ID, nil
