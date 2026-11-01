@@ -28,6 +28,7 @@ import (
 	"github.com/askuksov/yalkos/internal/graphql/linear"
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/httpapi"
+	"github.com/askuksov/yalkos/internal/mcpserver"
 	"github.com/askuksov/yalkos/internal/store"
 )
 
@@ -84,19 +85,27 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	// Pending uploads and unreferenced files are removed hourly until shutdown.
 	go attachments.RunCleanup(ctx, time.Hour, logger)
 
+	milestones := milestone.New(pool, projects, time.Now)
+	labels := label.New(pool, time.Now)
+	comments := comment.New(pool, issues, attachments, time.Now)
 	router := httpapi.NewRouter(httpapi.Deps{
 		Ready: func(c context.Context) error { return store.Ready(c, pool, migrations) },
 		UI:    ui,
 		NativeGraphQL: native.NewHandler(native.Deps{
 			Accounts: accounts, Projects: projects, Issues: issues, Audit: audit.New(pool),
-			Milestones: milestone.New(pool, projects, time.Now), Labels: label.New(pool, time.Now),
-			Comments: comment.New(pool, issues, attachments, time.Now), Attachments: attachments,
+			Milestones: milestones, Labels: labels, Comments: comments, Attachments: attachments,
 			Timeline: timeline.New(pool), Logger: logger,
 		}),
 		LinearGraphQL: linear.NewHandler(accounts, logger),
-		Logger:        logger,
-		Auth:          authn.Middleware(accounts, baseURL, logger),
-		Attachments:   attachments,
+		MCP: mcpserver.NewHandler(mcpserver.Deps{
+			Accounts: accounts, Projects: projects, Issues: issues, Milestones: milestones,
+			Labels: labels, Comments: comments, Attachments: attachments,
+			BaseURL: baseURL, Logger: logger,
+		}),
+		BaseURL:     baseURL,
+		Logger:      logger,
+		Auth:        authn.Middleware(accounts, baseURL, logger),
+		Attachments: attachments,
 	})
 
 	ln, err := net.Listen("tcp", cfg.ListenAddr)

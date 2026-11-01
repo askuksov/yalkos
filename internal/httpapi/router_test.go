@@ -10,10 +10,15 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"testing/fstest"
 
+	"github.com/google/uuid"
+
+	"github.com/askuksov/yalkos/internal/authn"
+	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/store"
 )
 
@@ -270,5 +275,72 @@ func TestReferrerPolicy(t *testing.T) {
 		if got := do(h, "GET", p).Header().Get("Referrer-Policy"); got != "no-referrer" {
 			t.Errorf("GET %s Referrer-Policy = %q, want no-referrer", p, got)
 		}
+	}
+}
+
+func TestWellKnownAndSubpathsNotFound(t *testing.T) {
+	h := newTestRouter(t, nil)
+	for _, c := range []struct{ method, path string }{
+		{"GET", "/.well-known/oauth-protected-resource"},
+		{"GET", "/.well-known/oauth-protected-resource/mcp"},
+		{"POST", "/mcp/x"},
+	} {
+		rec := do(h, c.method, c.path)
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s %s status = %d, want 404", c.method, c.path, rec.Code)
+			continue
+		}
+		if b := jsonBody(t, rec); b["error"] != "not found" {
+			t.Errorf("%s %s body = %v", c.method, c.path, b)
+		}
+	}
+}
+
+// keyAuth accepts only the API key "yal_api_good".
+type keyAuth struct{}
+
+func (keyAuth) UserByAPIKey(_ context.Context, key string) (account.User, error) {
+	if key == "yal_api_good" {
+		return account.User{ID: uuid.New(), Name: "Agent"}, nil
+	}
+	return account.User{}, account.ErrUnauthenticated
+}
+
+func (keyAuth) UserBySession(context.Context, string) (account.User, error) {
+	return account.User{}, account.ErrUnauthenticated
+}
+
+func TestMCPRouteWired(t *testing.T) {
+	base, _ := url.Parse("http://yalkos.test")
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	mcp := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.Header().Set("Allow", http.MethodPost)
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	h := newTestRouter(t, func(d *Deps) {
+		d.MCP = mcp
+		d.BaseURL = base
+		d.Auth = authn.Middleware(keyAuth{}, base, logger)
+	})
+	send := func(method string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, "/mcp", nil)
+		req.Header.Set("Authorization", "Bearer yal_api_good")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := send("POST"); rec.Code != http.StatusNoContent {
+		t.Errorf("POST /mcp status = %d, want 204", rec.Code)
+	}
+	rec := send("GET")
+	if rec.Code != http.StatusMethodNotAllowed || strings.Contains(rec.Body.String(), indexHTML) {
+		t.Errorf("GET /mcp = %d %q, want 405 from the handler", rec.Code, rec.Body.String())
+	}
+	if rec := do(h, "POST", "/mcp"); rec.Code != http.StatusUnauthorized {
+		t.Errorf("POST /mcp without key status = %d, want 401", rec.Code)
 	}
 }
