@@ -12,6 +12,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
+	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/project"
 )
 
@@ -38,6 +39,7 @@ type loaders struct {
 	allUsers    memo[[]account.User]
 	allProjects memo[[]project.Project]
 	allStates   memo[[]project.State]
+	allLabels   memo[[]label.Label]
 }
 
 type loadersKey struct{}

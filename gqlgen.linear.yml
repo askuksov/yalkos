@@ -55,6 +55,8 @@ models:
         resolver: true
       issues:
         resolver: true
+      labels:
+        resolver: true
   WorkflowState:
     extraFields:
       ProjectID:
@@ -88,6 +90,8 @@ models:
       relations:
         resolver: true
       attachments:
+        resolver: true
+      labels:
         resolver: true
   Attachment:
     extraFields:
@@ -124,4 +128,17 @@ models:
       projectId:
         omittable: true
       dueDate:
+        omittable: true
+  IssueLabel:
+    extraFields:
+      Src:
+        type: github.com/askuksov/yalkos/internal/domain/label.Label
+    fields:
+      parent:
+        resolver: true
+      creator:
+        resolver: true
+  IssueLabelUpdateInput:
+    fields:
+      parentId:
         omittable: true

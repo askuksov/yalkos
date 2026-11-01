@@ -1,0 +1,83 @@
+"A workspace label or label group; issue types are the labels of the Type group."
+type IssueLabel {
+  lastAppliedAt: DateTime
+  color: String!
+  description: String
+  name: String!
+  updatedAt: DateTime!
+  inheritedFrom: IssueLabel
+  id: ID!
+  "The label's group."
+  parent: IssueLabel
+  "Groups only: singleSelect when one label of the group per issue."
+  groupType: LabelGroupType
+  "Always null: labels belong to the workspace."
+  team: Team
+  archivedAt: DateTime
+  createdAt: DateTime!
+  creator: User
+  retiredBy: User
+  isGroup: Boolean!
+}
+
+type IssueLabelConnection {
+  nodes: [IssueLabel!]!
+  edges: [IssueLabelEdge!]!
+  pageInfo: PageInfo!
+}
+
+type IssueLabelEdge {
+  node: IssueLabel!
+  cursor: String!
+}
+
+input IssueLabelFilter {
+  and: [IssueLabelFilter!]
+  or: [IssueLabelFilter!]
+  id: IDComparator
+  name: StringComparator
+  isGroup: BooleanComparator
+  parent: IssueLabelFilter
+}
+
+"Matches issues that have a label matching all given conditions; null: true matches issues without labels."
+input IssueLabelCollectionFilter {
+  id: IDComparator
+  name: StringComparator
+  some: IssueLabelFilter
+  null: Boolean
+}
+
+input IssueLabelCreateInput {
+  name: String!
+  color: String
+  description: String
+  "The group to put the label in."
+  parentId: String
+  isGroup: Boolean
+  "singleSelect: one label of the group per issue (the default for groups)."
+  groupType: LabelGroupType
+  "Not supported: labels belong to the workspace."
+  teamId: String
+}
+
+input IssueLabelUpdateInput {
+  name: String
+  color: String
+  description: String
+  "null takes the label out of its group."
+  parentId: String
+  groupType: LabelGroupType
+}
+
+type IssueLabelPayload {
+  lastSyncId: Float!
+  issueLabel: IssueLabel!
+  success: Boolean!
+}
+
+type DeletePayload {
+  entityId: String!
+  lastSyncId: Float!
+  success: Boolean!
+}

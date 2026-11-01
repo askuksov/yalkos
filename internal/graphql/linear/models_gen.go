@@ -12,6 +12,7 @@ import (
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/google/uuid"
 )
@@ -114,6 +115,12 @@ type DateComparator struct {
 	Gte *string  `json:"gte,omitempty"`
 	In  []string `json:"in,omitempty"`
 	Nin []string `json:"nin,omitempty"`
+}
+
+type DeletePayload struct {
+	EntityID   string  `json:"entityId"`
+	LastSyncID float64 `json:"lastSyncId"`
+	Success    bool    `json:"success"`
 }
 
 type Document struct {
@@ -330,7 +337,84 @@ type IssueFilter struct {
 	Creator     *NullableUserFilter             `json:"creator,omitempty"`
 	State       *WorkflowStateFilter            `json:"state,omitempty"`
 	Team        *TeamFilter                     `json:"team,omitempty"`
+	Labels      *IssueLabelCollectionFilter     `json:"labels,omitempty"`
 	Parent      *NullableIssueFilter            `json:"parent,omitempty"`
+}
+
+// A workspace label or label group; issue types are the labels of the Type group.
+type IssueLabel struct {
+	LastAppliedAt *time.Time  `json:"lastAppliedAt,omitempty"`
+	Color         string      `json:"color"`
+	Description   *string     `json:"description,omitempty"`
+	Name          string      `json:"name"`
+	UpdatedAt     time.Time   `json:"updatedAt"`
+	InheritedFrom *IssueLabel `json:"inheritedFrom,omitempty"`
+	ID            string      `json:"id"`
+	// Groups only: singleSelect when one label of the group per issue.
+	GroupType *LabelGroupType `json:"groupType,omitempty"`
+	// Always null: labels belong to the workspace.
+	Team       *Team       `json:"team,omitempty"`
+	ArchivedAt *time.Time  `json:"archivedAt,omitempty"`
+	CreatedAt  time.Time   `json:"createdAt"`
+	RetiredBy  *User       `json:"retiredBy,omitempty"`
+	IsGroup    bool        `json:"isGroup"`
+	Src        label.Label `json:"-"`
+}
+
+// Matches issues that have a label matching all given conditions; null: true matches issues without labels.
+type IssueLabelCollectionFilter struct {
+	ID   *IDComparator     `json:"id,omitempty"`
+	Name *StringComparator `json:"name,omitempty"`
+	Some *IssueLabelFilter `json:"some,omitempty"`
+	Null *bool             `json:"null,omitempty"`
+}
+
+type IssueLabelConnection struct {
+	Nodes    []IssueLabel     `json:"nodes"`
+	Edges    []IssueLabelEdge `json:"edges"`
+	PageInfo *PageInfo        `json:"pageInfo"`
+}
+
+type IssueLabelCreateInput struct {
+	Name        string  `json:"name"`
+	Color       *string `json:"color,omitempty"`
+	Description *string `json:"description,omitempty"`
+	// The group to put the label in.
+	ParentID *string `json:"parentId,omitempty"`
+	IsGroup  *bool   `json:"isGroup,omitempty"`
+	// singleSelect: one label of the group per issue (the default for groups).
+	GroupType *LabelGroupType `json:"groupType,omitempty"`
+	// Not supported: labels belong to the workspace.
+	TeamID *string `json:"teamId,omitempty"`
+}
+
+type IssueLabelEdge struct {
+	Node   *IssueLabel `json:"node"`
+	Cursor string      `json:"cursor"`
+}
+
+type IssueLabelFilter struct {
+	And     []IssueLabelFilter `json:"and,omitempty"`
+	Or      []IssueLabelFilter `json:"or,omitempty"`
+	ID      *IDComparator      `json:"id,omitempty"`
+	Name    *StringComparator  `json:"name,omitempty"`
+	IsGroup *BooleanComparator `json:"isGroup,omitempty"`
+	Parent  *IssueLabelFilter  `json:"parent,omitempty"`
+}
+
+type IssueLabelPayload struct {
+	LastSyncID float64     `json:"lastSyncId"`
+	IssueLabel *IssueLabel `json:"issueLabel"`
+	Success    bool        `json:"success"`
+}
+
+type IssueLabelUpdateInput struct {
+	Name        *string `json:"name,omitempty"`
+	Color       *string `json:"color,omitempty"`
+	Description *string `json:"description,omitempty"`
+	// null takes the label out of its group.
+	ParentID  graphql.Omittable[*string] `json:"parentId,omitempty"`
+	GroupType *LabelGroupType            `json:"groupType,omitempty"`
 }
 
 type IssuePayload struct {
