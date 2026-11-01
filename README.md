@@ -2,7 +2,7 @@
 
 Lightweight, self-hosted issue tracker with a Linear-compatible API.
 
-> Status: early development. Accounts, invites, API keys, projects, issues, labels, milestones, comments and file attachments work in the browser and through the API.
+> Status: early development. Accounts, invites, API keys, projects, issues, labels, milestones, comments and file attachments work in the browser and through the API; AI agents such as Claude Code and OpenCode work with issues over MCP.
 
 ## Run with Docker
 
@@ -52,12 +52,13 @@ Files are stored under `/data/blobs/` by content hash; restore both the dump and
 
 ### API keys
 
-Create a key under **API keys** (it is shown once). Keys look like `yal_api_…` and work with both endpoints:
+Create a key under **API keys** (it is shown once). Keys look like `yal_api_…` and work with these endpoints:
 
 | Endpoint | For |
 | :--- | :--- |
 | `POST /graphql` | Linear-compatible API (`@linear/sdk`, Linear tools) |
 | `POST /api/graphql` | Yalkos API |
+| `POST /mcp` | AI agents (MCP): Claude Code, OpenCode |
 
 ```ts
 import { LinearClient } from '@linear/sdk'
@@ -67,6 +68,68 @@ const me = await linear.viewer
 ```
 
 Send the key as `Authorization: <key>` or `Authorization: Bearer <key>`. Keys act as their user but cannot manage credentials: creating or revoking keys, changing the password and inviting people need a signed-in browser session.
+
+### AI agents (MCP)
+
+`https://<host>/mcp` is an MCP server (Streamable HTTP) for AI coding agents. Connect it with an API key from **Settings → API keys**: the agent acts as the key's user, and every change it makes shows in the issue's history under that user. The endpoint accepts API keys only, not browser sessions. The **API keys** page shows both setups below with your address filled in.
+
+**Claude Code:**
+
+```sh
+claude mcp add --transport http yalkos https://app.example.com/mcp --header "Authorization: Bearer $YALKOS_API_KEY"
+```
+
+This saves the server for you in this folder (scope `local`, the default). With `--scope project` Claude Code writes `.mcp.json` into the repository instead — then keep the key out of it with a variable:
+
+```json
+{
+  "mcpServers": {
+    "yalkos": {
+      "type": "http",
+      "url": "https://app.example.com/mcp",
+      "headers": { "Authorization": "Bearer ${YALKOS_API_KEY}" }
+    }
+  }
+}
+```
+
+**OpenCode** (`opencode.json`):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "yalkos": {
+      "type": "remote",
+      "url": "https://app.example.com/mcp",
+      "headers": { "Authorization": "Bearer {env:YALKOS_API_KEY}" },
+      "oauth": false
+    }
+  }
+}
+```
+
+`"oauth": false` tells OpenCode the server uses API keys, so a wrong key shows an error instead of an OAuth login.
+
+Tools:
+
+| Tool | Does |
+| :--- | :--- |
+| `list_projects` | Projects with their keys; archived ones on request |
+| `list_states` | Workflow states of a project in board order, with their type |
+| `list_milestones` | Milestones of a project with status, progress, target date and lead |
+| `list_labels` | Issue types and labels, with label groups |
+| `list_users` | Active people with name, email and role; `"me": true` marks the key's owner |
+| `search_issues` | Find issues by project, words, state, assignee, type, labels, milestone, priority or parent; paged |
+| `get_issue` | One issue with description, sub-issues, files and the latest comments |
+| `list_comments` | Comments of an issue, newest page first |
+| `create_issue` | Create an issue or a sub-issue |
+| `update_issue` | Change fields of an issue; only the fields passed change |
+| `add_comment` | Add a Markdown comment to an issue |
+| `create_milestone` | Create a milestone in a project |
+| `update_milestone` | Change a milestone, or pin or release its status |
+
+Conventions: issues are named by identifier (`YLK-12`); states, labels, types, milestones and people by name (people also by email); `me` is the key's owner; `none` clears a value in updates and matches an empty one in searches. Times are UTC, written `YYYY-MM-DD HH:mm`.
 
 ### Projects and issues
 
