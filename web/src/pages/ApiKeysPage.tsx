@@ -8,6 +8,7 @@ import { errorMessage, request } from '../api/client'
 import { ApiKeysQuery, CreateApiKeyMutation, RevokeApiKeyMutation } from '../api/operations'
 import { formatDateTime } from '../lib/date'
 import { Button } from '../ui/Button'
+import { AgentSetup } from './AgentSetup'
 
 export function ApiKeysPage() {
   const { t } = useTranslation(['settings', 'common'])
@@ -91,6 +92,7 @@ export function ApiKeysPage() {
             ))}
           </tbody>
         </table>
+        <AgentSetup apiKey={created} />
       </div>
     </>
   )

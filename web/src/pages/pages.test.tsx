@@ -138,6 +138,60 @@ describe('ApiKeysPage', () => {
     expect(screen.queryByText(plain)).not.toBeInTheDocument()
     expect(screen.getByText('yal_api_aaaa…')).toBeInTheDocument()
   })
+
+  const keysPage = (create?: Handler) => ({
+    ...shell,
+    SetupStatus: () => ({ setupStatus: { needed: false } }),
+    Viewer: () => ({ viewer: owner }),
+    ApiKeys: () => ({ apiKeys: [] }),
+    ...(create ? { CreateApiKey: create } : {}),
+  })
+  const claudeCommand = (key: string) =>
+    `claude mcp add --transport http yalkos ${window.location.origin}/mcp --header "Authorization: Bearer ${key}"`
+  const count = (text: string) => (document.body.textContent ?? '').split(text).length - 1
+
+  it('shows agent setup with a placeholder key', async () => {
+    serve(keysPage())
+    renderAt('/settings/api-keys')
+    expect(await screen.findByRole('heading', { name: 'Connect an AI agent' })).toBeInTheDocument()
+    expect(screen.getByText(claudeCommand('YOUR_API_KEY'))).toBeInTheDocument()
+    expect(document.body.textContent).toContain(`${window.location.origin}/mcp`)
+    expect(screen.getByText('Anyone with the key can act as you. Revoke it here if it leaks.')).toBeInTheDocument()
+    expect(document.body.textContent).toContain('Authorization: Bearer <key>')
+  })
+
+  it('puts a just-created key into the agent commands', async () => {
+    const plain = 'yal_api_' + 'b'.repeat(40)
+    serve(keysPage(() => ({ createApiKey: { key: plain, apiKey: { id: 'k2' } } })))
+    renderAt('/settings/api-keys')
+    await userEvent.type(await screen.findByLabelText('Key name'), 'Agent')
+    await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
+    expect(await screen.findByText(claudeCommand(plain))).toBeInTheDocument()
+    expect(count(plain)).toBe(3)
+    expect(count('YOUR_API_KEY')).toBe(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(count(plain)).toBe(0)
+    expect(count('YOUR_API_KEY')).toBe(2)
+  })
+
+  it('copies the OpenCode config', async () => {
+    const user = userEvent.setup()
+    serve(keysPage())
+    renderAt('/settings/api-keys')
+    await screen.findByRole('heading', { name: 'Connect an AI agent' })
+    const copies = screen.getAllByRole('button', { name: 'Copy' })
+    expect(copies).toHaveLength(2)
+    await user.click(copies[1])
+    const cfg = JSON.parse(await navigator.clipboard.readText())
+    expect(cfg.mcp.yalkos).toEqual({
+      type: 'remote',
+      url: `${window.location.origin}/mcp`,
+      headers: { Authorization: 'Bearer YOUR_API_KEY' },
+      oauth: false,
+    })
+    await user.click(copies[0])
+    expect(await navigator.clipboard.readText()).toBe(claudeCommand('YOUR_API_KEY'))
+  })
 })
 
 describe('SessionWatcher', () => {

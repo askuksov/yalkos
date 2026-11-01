@@ -99,3 +99,9 @@ form select {
 .secret code {
   word-break: break-all;
 }
+
+/* Copyable commands and config: keep line breaks, wrap long lines. */
+.snippet {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
