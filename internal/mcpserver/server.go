@@ -57,4 +57,6 @@ func NewHandler(d Deps) http.Handler {
 	})
 }
 
-func registerTools(_ *mcp.Server, _ *Deps) {}
+func registerTools(srv *mcp.Server, d *Deps) {
+	registerLookupTools(srv, d)
+}
