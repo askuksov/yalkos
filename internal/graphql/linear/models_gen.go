@@ -8,6 +8,9 @@ import (
 	"io"
 	"strconv"
 	"time"
+
+	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/google/uuid"
 )
 
 type ExternalEntityInfoMetadata interface {
@@ -237,6 +240,70 @@ type NumberComparator struct {
 	Nin []float64 `json:"nin,omitempty"`
 }
 
+// The workspace.
+type Organization struct {
+	AllowedAuthServices           []string `json:"allowedAuthServices"`
+	AllowedFileUploadContentTypes []string `json:"allowedFileUploadContentTypes,omitempty"`
+	// Live issues of all teams.
+	CreatedIssueCount                        int                  `json:"createdIssueCount"`
+	AuthSettings                             JSONObject           `json:"authSettings"`
+	CustomersConfiguration                   JSONObject           `json:"customersConfiguration"`
+	DefaultFeedSummarySchedule               *FeedSummarySchedule `json:"defaultFeedSummarySchedule,omitempty"`
+	PullRequestIssueMode                     string               `json:"pullRequestIssueMode"`
+	PreviousURLKeys                          []string             `json:"previousUrlKeys"`
+	PeriodUploadVolume                       float64              `json:"periodUploadVolume"`
+	SecuritySettings                         JSONObject           `json:"securitySettings"`
+	SlackProjectChannelIntegration           *Integration         `json:"slackProjectChannelIntegration,omitempty"`
+	LogoURL                                  *string              `json:"logoUrl,omitempty"`
+	InitiativeUpdateRemindersDay             Day                  `json:"initiativeUpdateRemindersDay"`
+	ProjectUpdateRemindersDay                Day                  `json:"projectUpdateRemindersDay"`
+	DefaultHomeView                          *string              `json:"defaultHomeView,omitempty"`
+	ReleaseChannel                           ReleaseChannel       `json:"releaseChannel"`
+	InitiativeUpdateReminderFrequencyInWeeks *float64             `json:"initiativeUpdateReminderFrequencyInWeeks,omitempty"`
+	ProjectUpdateReminderFrequencyInWeeks    *float64             `json:"projectUpdateReminderFrequencyInWeeks,omitempty"`
+	InitiativeUpdateRemindersHour            float64              `json:"initiativeUpdateRemindersHour"`
+	ProjectUpdateRemindersHour               float64              `json:"projectUpdateRemindersHour"`
+	DefaultHomeViewTargetID                  *string              `json:"defaultHomeViewTargetId,omitempty"`
+	UpdatedAt                                time.Time            `json:"updatedAt"`
+	CustomerCount                            int                  `json:"customerCount"`
+	// Active users.
+	UserCount                 int        `json:"userCount"`
+	SlackProjectChannelPrefix string     `json:"slackProjectChannelPrefix"`
+	GitBranchFormat           *string    `json:"gitBranchFormat,omitempty"`
+	DeletionRequestedAt       *time.Time `json:"deletionRequestedAt,omitempty"`
+	TrialStartsAt             *time.Time `json:"trialStartsAt,omitempty"`
+	TrialEndsAt               *time.Time `json:"trialEndsAt,omitempty"`
+	ArchivedAt                *time.Time `json:"archivedAt,omitempty"`
+	CreatedAt                 time.Time  `json:"createdAt"`
+	ID                        string     `json:"id"`
+	// The four project statuses, in order.
+	ProjectStatuses                  []ProjectStatus                `json:"projectStatuses"`
+	Name                             string                         `json:"name"`
+	Subscription                     *PaidSubscription              `json:"subscription,omitempty"`
+	URLKey                           string                         `json:"urlKey"`
+	FiscalYearStartMonth             float64                        `json:"fiscalYearStartMonth"`
+	HipaaComplianceEnabled           bool                           `json:"hipaaComplianceEnabled"`
+	SamlEnabled                      bool                           `json:"samlEnabled"`
+	ScimEnabled                      bool                           `json:"scimEnabled"`
+	GitLinkbackDescriptionsEnabled   bool                           `json:"gitLinkbackDescriptionsEnabled"`
+	ReleasesEnabled                  bool                           `json:"releasesEnabled"`
+	CustomersEnabled                 bool                           `json:"customersEnabled"`
+	GitLinkbackMessagesEnabled       bool                           `json:"gitLinkbackMessagesEnabled"`
+	GitPublicLinkbackMessagesEnabled bool                           `json:"gitPublicLinkbackMessagesEnabled"`
+	FeedEnabled                      bool                           `json:"feedEnabled"`
+	SuggestedBranchNameEnabled       bool                           `json:"suggestedBranchNameEnabled"`
+	RoadmapEnabled                   bool                           `json:"roadmapEnabled"`
+	PullRequestTourEnabled           bool                           `json:"pullRequestTourEnabled"`
+	AiDiscussionSummariesEnabled     bool                           `json:"aiDiscussionSummariesEnabled"`
+	AiThreadSummariesEnabled         bool                           `json:"aiThreadSummariesEnabled"`
+	HideNonPrimaryOrganizations      bool                           `json:"hideNonPrimaryOrganizations"`
+	ProjectUpdatesReminderFrequency  ProjectUpdateReminderFrequency `json:"projectUpdatesReminderFrequency"`
+	AllowMembersToInvite             *bool                          `json:"allowMembersToInvite,omitempty"`
+	RestrictTeamCreationToAdmins     *bool                          `json:"restrictTeamCreationToAdmins,omitempty"`
+	RestrictLabelManagementToAdmins  *bool                          `json:"restrictLabelManagementToAdmins,omitempty"`
+	SLADayCount                      SLADayCountType                `json:"slaDayCount"`
+}
+
 type PageInfo struct {
 	StartCursor     *string `json:"startCursor,omitempty"`
 	EndCursor       *string `json:"endCursor,omitempty"`
@@ -267,6 +334,20 @@ type Project struct {
 
 type ProjectMilestone struct {
 	ID string `json:"id"`
+}
+
+// A project status: planned, in progress, done or canceled.
+type ProjectStatus struct {
+	Description *string           `json:"description,omitempty"`
+	Type        ProjectStatusType `json:"type"`
+	Color       string            `json:"color"`
+	UpdatedAt   time.Time         `json:"updatedAt"`
+	Name        string            `json:"name"`
+	Position    float64           `json:"position"`
+	ArchivedAt  *time.Time        `json:"archivedAt,omitempty"`
+	CreatedAt   time.Time         `json:"createdAt"`
+	ID          string            `json:"id"`
+	Indefinite  bool              `json:"indefinite"`
 }
 
 type ProjectUpdate struct {
@@ -318,6 +399,101 @@ type SyncedExternalThread struct {
 	IsPersonalIntegrationRequired  bool    `json:"isPersonalIntegrationRequired"`
 	IsPersonalIntegrationConnected bool    `json:"isPersonalIntegrationConnected"`
 	IsConnected                    bool    `json:"isConnected"`
+}
+
+// A team is a Yalkos project.
+type Team struct {
+	CycleIssueAutoAssignCompleted  bool                  `json:"cycleIssueAutoAssignCompleted"`
+	CycleLockToActive              bool                  `json:"cycleLockToActive"`
+	CycleIssueAutoAssignStarted    bool                  `json:"cycleIssueAutoAssignStarted"`
+	CycleCalenderURL               string                `json:"cycleCalenderUrl"`
+	UpcomingCycleCount             float64               `json:"upcomingCycleCount"`
+	AutoArchivePeriod              float64               `json:"autoArchivePeriod"`
+	AutoClosePeriod                *float64              `json:"autoClosePeriod,omitempty"`
+	SecuritySettings               JSONObject            `json:"securitySettings"`
+	IntegrationsSettings           *IntegrationsSettings `json:"integrationsSettings,omitempty"`
+	ActiveCycle                    *Cycle                `json:"activeCycle,omitempty"`
+	TriageResponsibility           *TriageResponsibility `json:"triageResponsibility,omitempty"`
+	ScimGroupName                  *string               `json:"scimGroupName,omitempty"`
+	AutoCloseStateID               *string               `json:"autoCloseStateId,omitempty"`
+	CycleCooldownTime              float64               `json:"cycleCooldownTime"`
+	CycleStartDay                  float64               `json:"cycleStartDay"`
+	DefaultTemplateForMembers      *Template             `json:"defaultTemplateForMembers,omitempty"`
+	DefaultTemplateForNonMembers   *Template             `json:"defaultTemplateForNonMembers,omitempty"`
+	DefaultProjectTemplate         *Template             `json:"defaultProjectTemplate,omitempty"`
+	CycleDuration                  float64               `json:"cycleDuration"`
+	Icon                           *string               `json:"icon,omitempty"`
+	DefaultTemplateForMembersID    *string               `json:"defaultTemplateForMembersId,omitempty"`
+	DefaultTemplateForNonMembersID *string               `json:"defaultTemplateForNonMembersId,omitempty"`
+	IssueEstimationType            string                `json:"issueEstimationType"`
+	UpdatedAt                      time.Time             `json:"updatedAt"`
+	DisplayName                    string                `json:"displayName"`
+	LedInitiativeCount             int                   `json:"ledInitiativeCount"`
+	Color                          *string               `json:"color,omitempty"`
+	Description                    *string               `json:"description,omitempty"`
+	Name                           string                `json:"name"`
+	Parent                         *Team                 `json:"parent,omitempty"`
+	ID                             string                `json:"id"`
+	Key                            string                `json:"key"`
+	ArchivedAt                     *time.Time            `json:"archivedAt,omitempty"`
+	CreatedAt                      time.Time             `json:"createdAt"`
+	RetiredAt                      *time.Time            `json:"retiredAt,omitempty"`
+	Timezone                       string                `json:"timezone"`
+	ViewerMembership               *TeamMembership       `json:"viewerMembership,omitempty"`
+	Visibility                     TeamVisibility        `json:"visibility"`
+	MergeWorkflowState             *WorkflowState        `json:"mergeWorkflowState,omitempty"`
+	DraftWorkflowState             *WorkflowState        `json:"draftWorkflowState,omitempty"`
+	StartWorkflowState             *WorkflowState        `json:"startWorkflowState,omitempty"`
+	MergeableWorkflowState         *WorkflowState        `json:"mergeableWorkflowState,omitempty"`
+	ReviewWorkflowState            *WorkflowState        `json:"reviewWorkflowState,omitempty"`
+	TriageIssueState               *WorkflowState        `json:"triageIssueState,omitempty"`
+	DefaultIssueEstimate           float64               `json:"defaultIssueEstimate"`
+	SetIssueSortOrderOnStateChange string                `json:"setIssueSortOrderOnStateChange"`
+	AllMembersCanJoin              *bool                 `json:"allMembersCanJoin,omitempty"`
+	RequirePriorityToLeaveTriage   bool                  `json:"requirePriorityToLeaveTriage"`
+	AutoCloseChildIssues           *bool                 `json:"autoCloseChildIssues,omitempty"`
+	AutoCloseParentIssues          *bool                 `json:"autoCloseParentIssues,omitempty"`
+	InitiativesEnabled             bool                  `json:"initiativesEnabled"`
+	ScimManaged                    bool                  `json:"scimManaged"`
+	Private                        bool                  `json:"private"`
+	InheritIssueEstimation         bool                  `json:"inheritIssueEstimation"`
+	InheritWorkflowStatuses        bool                  `json:"inheritWorkflowStatuses"`
+	CyclesEnabled                  bool                  `json:"cyclesEnabled"`
+	ViewerCanJoin                  bool                  `json:"viewerCanJoin"`
+	ViewerCanLeave                 bool                  `json:"viewerCanLeave"`
+	IssueEstimationExtended        bool                  `json:"issueEstimationExtended"`
+	IssueEstimationAllowZero       bool                  `json:"issueEstimationAllowZero"`
+	AiDiscussionSummariesEnabled   bool                  `json:"aiDiscussionSummariesEnabled"`
+	AiThreadSummariesEnabled       bool                  `json:"aiThreadSummariesEnabled"`
+	GroupIssueHistory              bool                  `json:"groupIssueHistory"`
+	SlackIssueComments             bool                  `json:"slackIssueComments"`
+	SlackNewIssue                  bool                  `json:"slackNewIssue"`
+	SlackIssueStatuses             bool                  `json:"slackIssueStatuses"`
+	TriageEnabled                  bool                  `json:"triageEnabled"`
+	MarkedAsDuplicateWorkflowState *WorkflowState        `json:"markedAsDuplicateWorkflowState,omitempty"`
+	InviteHash                     string                `json:"inviteHash"`
+	IssueOrderingNoPriorityFirst   bool                  `json:"issueOrderingNoPriorityFirst"`
+	IssueSortOrderDefaultToBottom  bool                  `json:"issueSortOrderDefaultToBottom"`
+	Src                            project.Project       `json:"-"`
+}
+
+type TeamConnection struct {
+	Nodes    []Team     `json:"nodes"`
+	Edges    []TeamEdge `json:"edges"`
+	PageInfo *PageInfo  `json:"pageInfo"`
+}
+
+type TeamEdge struct {
+	Node   *Team  `json:"node"`
+	Cursor string `json:"cursor"`
+}
+
+type TeamFilter struct {
+	And  []TeamFilter      `json:"and,omitempty"`
+	Or   []TeamFilter      `json:"or,omitempty"`
+	ID   *IDComparator     `json:"id,omitempty"`
+	Key  *StringComparator `json:"key,omitempty"`
+	Name *StringComparator `json:"name,omitempty"`
 }
 
 type TeamMembership struct {
@@ -419,6 +595,42 @@ type WelcomeMessage struct {
 	ID         string     `json:"id"`
 	UpdatedBy  *User      `json:"updatedBy,omitempty"`
 	Enabled    bool       `json:"enabled"`
+}
+
+// An issue state of a team.
+type WorkflowState struct {
+	ID            string         `json:"id"`
+	Description   *string        `json:"description,omitempty"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	InheritedFrom *WorkflowState `json:"inheritedFrom,omitempty"`
+	Position      float64        `json:"position"`
+	Color         string         `json:"color"`
+	Name          string         `json:"name"`
+	ArchivedAt    *time.Time     `json:"archivedAt,omitempty"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	// backlog, unstarted, started, completed or canceled.
+	Type      string    `json:"type"`
+	ProjectID uuid.UUID `json:"-"`
+}
+
+type WorkflowStateConnection struct {
+	Nodes    []WorkflowState     `json:"nodes"`
+	Edges    []WorkflowStateEdge `json:"edges"`
+	PageInfo *PageInfo           `json:"pageInfo"`
+}
+
+type WorkflowStateEdge struct {
+	Node   *WorkflowState `json:"node"`
+	Cursor string         `json:"cursor"`
+}
+
+type WorkflowStateFilter struct {
+	And  []WorkflowStateFilter `json:"and,omitempty"`
+	Or   []WorkflowStateFilter `json:"or,omitempty"`
+	ID   *IDComparator         `json:"id,omitempty"`
+	Name *StringComparator     `json:"name,omitempty"`
+	Type *StringComparator     `json:"type,omitempty"`
+	Team *TeamFilter           `json:"team,omitempty"`
 }
 
 type DateResolutionType string

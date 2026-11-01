@@ -10,4 +10,14 @@ type Query {
   users(after: String, before: String, filter: UserFilter, first: Int, includeArchived: Boolean, includeDisabled: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [UserSortInput!]): UserConnection!
   "A user by id."
   user(id: String!): User!
+  "The workspace."
+  organization: Organization!
+  "Teams; archived ones only with includeArchived."
+  teams(after: String, before: String, filter: TeamFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): TeamConnection!
+  "A team by id or key (current or former)."
+  team(id: String!): Team!
+  "States of all teams (of archived teams only with includeArchived)."
+  workflowStates(after: String, before: String, filter: WorkflowStateFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): WorkflowStateConnection!
+  "A state by id."
+  workflowState(id: String!): WorkflowState!
 }

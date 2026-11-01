@@ -1,0 +1,217 @@
+"A team is a Yalkos project."
+type Team {
+  cycleIssueAutoAssignCompleted: Boolean!
+  cycleLockToActive: Boolean!
+  cycleIssueAutoAssignStarted: Boolean!
+  cycleCalenderUrl: String!
+  upcomingCycleCount: Float!
+  autoArchivePeriod: Float!
+  autoClosePeriod: Float
+  securitySettings: JSONObject!
+  integrationsSettings: IntegrationsSettings
+  activeCycle: Cycle
+  triageResponsibility: TriageResponsibility
+  scimGroupName: String
+  autoCloseStateId: String
+  cycleCooldownTime: Float!
+  cycleStartDay: Float!
+  defaultTemplateForMembers: Template
+  defaultTemplateForNonMembers: Template
+  defaultProjectTemplate: Template
+  "The state new issues get."
+  defaultIssueState: WorkflowState
+  cycleDuration: Float!
+  icon: String
+  defaultTemplateForMembersId: String
+  defaultTemplateForNonMembersId: String
+  issueEstimationType: String!
+  updatedAt: DateTime!
+  displayName: String!
+  ledInitiativeCount: Int!
+  color: String
+  description: String
+  name: String!
+  parent: Team
+  id: ID!
+  key: String!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  retiredAt: DateTime
+  timezone: String!
+  "Live issues of the team."
+  issueCount: Int!
+  viewerMembership: TeamMembership
+  visibility: TeamVisibility!
+  mergeWorkflowState: WorkflowState
+  draftWorkflowState: WorkflowState
+  startWorkflowState: WorkflowState
+  mergeableWorkflowState: WorkflowState
+  reviewWorkflowState: WorkflowState
+  triageIssueState: WorkflowState
+  defaultIssueEstimate: Float!
+  setIssueSortOrderOnStateChange: String!
+  allMembersCanJoin: Boolean
+  requirePriorityToLeaveTriage: Boolean!
+  autoCloseChildIssues: Boolean
+  autoCloseParentIssues: Boolean
+  initiativesEnabled: Boolean!
+  scimManaged: Boolean!
+  private: Boolean!
+  inheritIssueEstimation: Boolean!
+  inheritWorkflowStatuses: Boolean!
+  cyclesEnabled: Boolean!
+  viewerCanJoin: Boolean!
+  viewerCanLeave: Boolean!
+  issueEstimationExtended: Boolean!
+  issueEstimationAllowZero: Boolean!
+  aiDiscussionSummariesEnabled: Boolean!
+  aiThreadSummariesEnabled: Boolean!
+  groupIssueHistory: Boolean!
+  slackIssueComments: Boolean!
+  slackNewIssue: Boolean!
+  slackIssueStatuses: Boolean!
+  triageEnabled: Boolean!
+  markedAsDuplicateWorkflowState: WorkflowState
+  inviteHash: String!
+  issueOrderingNoPriorityFirst: Boolean!
+  issueSortOrderDefaultToBottom: Boolean!
+  "The team's states."
+  states(after: String, before: String, filter: WorkflowStateFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): WorkflowStateConnection!
+  "Members of the team."
+  members(after: String, before: String, filter: UserFilter, first: Int, includeArchived: Boolean, includeDisabled: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [UserSortInput!]): UserConnection!
+}
+
+type TeamConnection {
+  nodes: [Team!]!
+  edges: [TeamEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TeamEdge {
+  node: Team!
+  cursor: String!
+}
+
+input TeamFilter {
+  and: [TeamFilter!]
+  or: [TeamFilter!]
+  id: IDComparator
+  key: StringComparator
+  name: StringComparator
+}
+
+"An issue state of a team."
+type WorkflowState {
+  id: ID!
+  description: String
+  updatedAt: DateTime!
+  inheritedFrom: WorkflowState
+  position: Float!
+  color: String!
+  name: String!
+  team: Team!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  "backlog, unstarted, started, completed or canceled."
+  type: String!
+}
+
+type WorkflowStateConnection {
+  nodes: [WorkflowState!]!
+  edges: [WorkflowStateEdge!]!
+  pageInfo: PageInfo!
+}
+
+type WorkflowStateEdge {
+  node: WorkflowState!
+  cursor: String!
+}
+
+input WorkflowStateFilter {
+  and: [WorkflowStateFilter!]
+  or: [WorkflowStateFilter!]
+  id: IDComparator
+  name: StringComparator
+  type: StringComparator
+  team: TeamFilter
+}
+
+"The workspace."
+type Organization {
+  allowedAuthServices: [String!]!
+  allowedFileUploadContentTypes: [String!]
+  "Live issues of all teams."
+  createdIssueCount: Int!
+  authSettings: JSONObject!
+  customersConfiguration: JSONObject!
+  defaultFeedSummarySchedule: FeedSummarySchedule
+  pullRequestIssueMode: String!
+  previousUrlKeys: [String!]!
+  periodUploadVolume: Float!
+  securitySettings: JSONObject!
+  slackProjectChannelIntegration: Integration
+  logoUrl: String
+  initiativeUpdateRemindersDay: Day!
+  projectUpdateRemindersDay: Day!
+  defaultHomeView: String
+  releaseChannel: ReleaseChannel!
+  initiativeUpdateReminderFrequencyInWeeks: Float
+  projectUpdateReminderFrequencyInWeeks: Float
+  initiativeUpdateRemindersHour: Float!
+  projectUpdateRemindersHour: Float!
+  defaultHomeViewTargetId: String
+  updatedAt: DateTime!
+  customerCount: Int!
+  "Active users."
+  userCount: Int!
+  slackProjectChannelPrefix: String!
+  gitBranchFormat: String
+  deletionRequestedAt: DateTime
+  trialStartsAt: DateTime
+  trialEndsAt: DateTime
+  archivedAt: DateTime
+  createdAt: DateTime!
+  id: ID!
+  "The four project statuses, in order."
+  projectStatuses: [ProjectStatus!]!
+  name: String!
+  subscription: PaidSubscription
+  urlKey: String!
+  fiscalYearStartMonth: Float!
+  hipaaComplianceEnabled: Boolean!
+  samlEnabled: Boolean!
+  scimEnabled: Boolean!
+  gitLinkbackDescriptionsEnabled: Boolean!
+  releasesEnabled: Boolean!
+  customersEnabled: Boolean!
+  gitLinkbackMessagesEnabled: Boolean!
+  gitPublicLinkbackMessagesEnabled: Boolean!
+  feedEnabled: Boolean!
+  suggestedBranchNameEnabled: Boolean!
+  roadmapEnabled: Boolean!
+  pullRequestTourEnabled: Boolean!
+  aiDiscussionSummariesEnabled: Boolean!
+  aiThreadSummariesEnabled: Boolean!
+  hideNonPrimaryOrganizations: Boolean!
+  projectUpdatesReminderFrequency: ProjectUpdateReminderFrequency!
+  allowMembersToInvite: Boolean
+  restrictTeamCreationToAdmins: Boolean
+  restrictLabelManagementToAdmins: Boolean
+  slaDayCount: SLADayCountType!
+  "Same as the root teams field."
+  teams(after: String, before: String, filter: TeamFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): TeamConnection!
+}
+
+"A project status: planned, in progress, done or canceled."
+type ProjectStatus {
+  description: String
+  type: ProjectStatusType!
+  color: String!
+  updatedAt: DateTime!
+  name: String!
+  position: Float!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  id: ID!
+  indefinite: Boolean!
+}

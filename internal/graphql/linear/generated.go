@@ -27,8 +27,11 @@ func NewExecutableSchema(cfg Config) graphql.ExecutableSchema {
 type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
 type ResolverRoot interface {
+	Organization() OrganizationResolver
 	Query() QueryResolver
+	Team() TeamResolver
 	User() UserResolver
+	WorkflowState() WorkflowStateResolver
 }
 
 type DirectiveRoot struct {
@@ -146,6 +149,67 @@ type ComplexityRoot struct {
 		ViewerHasOnlySharedAccess func(childComplexity int) int
 	}
 
+	Organization struct {
+		AiDiscussionSummariesEnabled             func(childComplexity int) int
+		AiThreadSummariesEnabled                 func(childComplexity int) int
+		AllowMembersToInvite                     func(childComplexity int) int
+		AllowedAuthServices                      func(childComplexity int) int
+		AllowedFileUploadContentTypes            func(childComplexity int) int
+		ArchivedAt                               func(childComplexity int) int
+		AuthSettings                             func(childComplexity int) int
+		CreatedAt                                func(childComplexity int) int
+		CreatedIssueCount                        func(childComplexity int) int
+		CustomerCount                            func(childComplexity int) int
+		CustomersConfiguration                   func(childComplexity int) int
+		CustomersEnabled                         func(childComplexity int) int
+		DefaultFeedSummarySchedule               func(childComplexity int) int
+		DefaultHomeView                          func(childComplexity int) int
+		DefaultHomeViewTargetID                  func(childComplexity int) int
+		DeletionRequestedAt                      func(childComplexity int) int
+		FeedEnabled                              func(childComplexity int) int
+		FiscalYearStartMonth                     func(childComplexity int) int
+		GitBranchFormat                          func(childComplexity int) int
+		GitLinkbackDescriptionsEnabled           func(childComplexity int) int
+		GitLinkbackMessagesEnabled               func(childComplexity int) int
+		GitPublicLinkbackMessagesEnabled         func(childComplexity int) int
+		HideNonPrimaryOrganizations              func(childComplexity int) int
+		HipaaComplianceEnabled                   func(childComplexity int) int
+		ID                                       func(childComplexity int) int
+		InitiativeUpdateReminderFrequencyInWeeks func(childComplexity int) int
+		InitiativeUpdateRemindersDay             func(childComplexity int) int
+		InitiativeUpdateRemindersHour            func(childComplexity int) int
+		LogoURL                                  func(childComplexity int) int
+		Name                                     func(childComplexity int) int
+		PeriodUploadVolume                       func(childComplexity int) int
+		PreviousURLKeys                          func(childComplexity int) int
+		ProjectStatuses                          func(childComplexity int) int
+		ProjectUpdateReminderFrequencyInWeeks    func(childComplexity int) int
+		ProjectUpdateRemindersDay                func(childComplexity int) int
+		ProjectUpdateRemindersHour               func(childComplexity int) int
+		ProjectUpdatesReminderFrequency          func(childComplexity int) int
+		PullRequestIssueMode                     func(childComplexity int) int
+		PullRequestTourEnabled                   func(childComplexity int) int
+		ReleaseChannel                           func(childComplexity int) int
+		ReleasesEnabled                          func(childComplexity int) int
+		RestrictLabelManagementToAdmins          func(childComplexity int) int
+		RestrictTeamCreationToAdmins             func(childComplexity int) int
+		RoadmapEnabled                           func(childComplexity int) int
+		SLADayCount                              func(childComplexity int) int
+		SamlEnabled                              func(childComplexity int) int
+		ScimEnabled                              func(childComplexity int) int
+		SecuritySettings                         func(childComplexity int) int
+		SlackProjectChannelIntegration           func(childComplexity int) int
+		SlackProjectChannelPrefix                func(childComplexity int) int
+		Subscription                             func(childComplexity int) int
+		SuggestedBranchNameEnabled               func(childComplexity int) int
+		Teams                                    func(childComplexity int, after *string, before *string, filter *TeamFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
+		TrialEndsAt                              func(childComplexity int) int
+		TrialStartsAt                            func(childComplexity int) int
+		URLKey                                   func(childComplexity int) int
+		UpdatedAt                                func(childComplexity int) int
+		UserCount                                func(childComplexity int) int
+	}
+
 	PageInfo struct {
 		EndCursor       func(childComplexity int) int
 		HasNextPage     func(childComplexity int) int
@@ -178,14 +242,32 @@ type ComplexityRoot struct {
 		ID func(childComplexity int) int
 	}
 
+	ProjectStatus struct {
+		ArchivedAt  func(childComplexity int) int
+		Color       func(childComplexity int) int
+		CreatedAt   func(childComplexity int) int
+		Description func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Indefinite  func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Position    func(childComplexity int) int
+		Type        func(childComplexity int) int
+		UpdatedAt   func(childComplexity int) int
+	}
+
 	ProjectUpdate struct {
 		ID func(childComplexity int) int
 	}
 
 	Query struct {
-		User   func(childComplexity int, id string) int
-		Users  func(childComplexity int, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) int
-		Viewer func(childComplexity int) int
+		Organization   func(childComplexity int) int
+		Team           func(childComplexity int, id string) int
+		Teams          func(childComplexity int, after *string, before *string, filter *TeamFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
+		User           func(childComplexity int, id string) int
+		Users          func(childComplexity int, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) int
+		Viewer         func(childComplexity int) int
+		WorkflowState  func(childComplexity int, id string) int
+		WorkflowStates func(childComplexity int, after *string, before *string, filter *WorkflowStateFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
 	}
 
 	Reaction struct {
@@ -212,6 +294,95 @@ type ComplexityRoot struct {
 		SubType                        func(childComplexity int) int
 		Type                           func(childComplexity int) int
 		URL                            func(childComplexity int) int
+	}
+
+	Team struct {
+		ActiveCycle                    func(childComplexity int) int
+		AiDiscussionSummariesEnabled   func(childComplexity int) int
+		AiThreadSummariesEnabled       func(childComplexity int) int
+		AllMembersCanJoin              func(childComplexity int) int
+		ArchivedAt                     func(childComplexity int) int
+		AutoArchivePeriod              func(childComplexity int) int
+		AutoCloseChildIssues           func(childComplexity int) int
+		AutoCloseParentIssues          func(childComplexity int) int
+		AutoClosePeriod                func(childComplexity int) int
+		AutoCloseStateID               func(childComplexity int) int
+		Color                          func(childComplexity int) int
+		CreatedAt                      func(childComplexity int) int
+		CycleCalenderURL               func(childComplexity int) int
+		CycleCooldownTime              func(childComplexity int) int
+		CycleDuration                  func(childComplexity int) int
+		CycleIssueAutoAssignCompleted  func(childComplexity int) int
+		CycleIssueAutoAssignStarted    func(childComplexity int) int
+		CycleLockToActive              func(childComplexity int) int
+		CycleStartDay                  func(childComplexity int) int
+		CyclesEnabled                  func(childComplexity int) int
+		DefaultIssueEstimate           func(childComplexity int) int
+		DefaultIssueState              func(childComplexity int) int
+		DefaultProjectTemplate         func(childComplexity int) int
+		DefaultTemplateForMembers      func(childComplexity int) int
+		DefaultTemplateForMembersID    func(childComplexity int) int
+		DefaultTemplateForNonMembers   func(childComplexity int) int
+		DefaultTemplateForNonMembersID func(childComplexity int) int
+		Description                    func(childComplexity int) int
+		DisplayName                    func(childComplexity int) int
+		DraftWorkflowState             func(childComplexity int) int
+		GroupIssueHistory              func(childComplexity int) int
+		ID                             func(childComplexity int) int
+		Icon                           func(childComplexity int) int
+		InheritIssueEstimation         func(childComplexity int) int
+		InheritWorkflowStatuses        func(childComplexity int) int
+		InitiativesEnabled             func(childComplexity int) int
+		IntegrationsSettings           func(childComplexity int) int
+		InviteHash                     func(childComplexity int) int
+		IssueCount                     func(childComplexity int) int
+		IssueEstimationAllowZero       func(childComplexity int) int
+		IssueEstimationExtended        func(childComplexity int) int
+		IssueEstimationType            func(childComplexity int) int
+		IssueOrderingNoPriorityFirst   func(childComplexity int) int
+		IssueSortOrderDefaultToBottom  func(childComplexity int) int
+		Key                            func(childComplexity int) int
+		LedInitiativeCount             func(childComplexity int) int
+		MarkedAsDuplicateWorkflowState func(childComplexity int) int
+		Members                        func(childComplexity int, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) int
+		MergeWorkflowState             func(childComplexity int) int
+		MergeableWorkflowState         func(childComplexity int) int
+		Name                           func(childComplexity int) int
+		Parent                         func(childComplexity int) int
+		Private                        func(childComplexity int) int
+		RequirePriorityToLeaveTriage   func(childComplexity int) int
+		RetiredAt                      func(childComplexity int) int
+		ReviewWorkflowState            func(childComplexity int) int
+		ScimGroupName                  func(childComplexity int) int
+		ScimManaged                    func(childComplexity int) int
+		SecuritySettings               func(childComplexity int) int
+		SetIssueSortOrderOnStateChange func(childComplexity int) int
+		SlackIssueComments             func(childComplexity int) int
+		SlackIssueStatuses             func(childComplexity int) int
+		SlackNewIssue                  func(childComplexity int) int
+		StartWorkflowState             func(childComplexity int) int
+		States                         func(childComplexity int, after *string, before *string, filter *WorkflowStateFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
+		Timezone                       func(childComplexity int) int
+		TriageEnabled                  func(childComplexity int) int
+		TriageIssueState               func(childComplexity int) int
+		TriageResponsibility           func(childComplexity int) int
+		UpcomingCycleCount             func(childComplexity int) int
+		UpdatedAt                      func(childComplexity int) int
+		ViewerCanJoin                  func(childComplexity int) int
+		ViewerCanLeave                 func(childComplexity int) int
+		ViewerMembership               func(childComplexity int) int
+		Visibility                     func(childComplexity int) int
+	}
+
+	TeamConnection struct {
+		Edges    func(childComplexity int) int
+		Nodes    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	TeamEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	TeamMembership struct {
@@ -282,19 +453,63 @@ type ComplexityRoot struct {
 		UpdatedAt  func(childComplexity int) int
 		UpdatedBy  func(childComplexity int) int
 	}
+
+	WorkflowState struct {
+		ArchivedAt    func(childComplexity int) int
+		Color         func(childComplexity int) int
+		CreatedAt     func(childComplexity int) int
+		Description   func(childComplexity int) int
+		ID            func(childComplexity int) int
+		InheritedFrom func(childComplexity int) int
+		Name          func(childComplexity int) int
+		Position      func(childComplexity int) int
+		Team          func(childComplexity int) int
+		Type          func(childComplexity int) int
+		UpdatedAt     func(childComplexity int) int
+	}
+
+	WorkflowStateConnection struct {
+		Edges    func(childComplexity int) int
+		Nodes    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	WorkflowStateEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
 }
 
 // endregion ***************************** api!.gotpl *****************************
 
 // region    ************************** generated!.gotpl **************************
 
+type OrganizationResolver interface {
+	Teams(ctx context.Context, obj *Organization, after *string, before *string, filter *TeamFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*TeamConnection, error)
+}
 type QueryResolver interface {
 	Viewer(ctx context.Context) (*User, error)
 	Users(ctx context.Context, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) (*UserConnection, error)
 	User(ctx context.Context, id string) (*User, error)
+	Organization(ctx context.Context) (*Organization, error)
+	Teams(ctx context.Context, after *string, before *string, filter *TeamFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*TeamConnection, error)
+	Team(ctx context.Context, id string) (*Team, error)
+	WorkflowStates(ctx context.Context, after *string, before *string, filter *WorkflowStateFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*WorkflowStateConnection, error)
+	WorkflowState(ctx context.Context, id string) (*WorkflowState, error)
+}
+type TeamResolver interface {
+	DefaultIssueState(ctx context.Context, obj *Team) (*WorkflowState, error)
+
+	IssueCount(ctx context.Context, obj *Team) (int, error)
+
+	States(ctx context.Context, obj *Team, after *string, before *string, filter *WorkflowStateFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*WorkflowStateConnection, error)
+	Members(ctx context.Context, obj *Team, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) (*UserConnection, error)
 }
 type UserResolver interface {
 	CreatedIssueCount(ctx context.Context, obj *User) (int, error)
+}
+type WorkflowStateResolver interface {
+	Team(ctx context.Context, obj *WorkflowState) (*Team, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -658,6 +873,360 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.IssueSharedAccess.ViewerHasOnlySharedAccess(childComplexity), true
 
+	case "Organization.aiDiscussionSummariesEnabled":
+		if e.ComplexityRoot.Organization.AiDiscussionSummariesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.AiDiscussionSummariesEnabled(childComplexity), true
+	case "Organization.aiThreadSummariesEnabled":
+		if e.ComplexityRoot.Organization.AiThreadSummariesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.AiThreadSummariesEnabled(childComplexity), true
+	case "Organization.allowMembersToInvite":
+		if e.ComplexityRoot.Organization.AllowMembersToInvite == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.AllowMembersToInvite(childComplexity), true
+	case "Organization.allowedAuthServices":
+		if e.ComplexityRoot.Organization.AllowedAuthServices == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.AllowedAuthServices(childComplexity), true
+	case "Organization.allowedFileUploadContentTypes":
+		if e.ComplexityRoot.Organization.AllowedFileUploadContentTypes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.AllowedFileUploadContentTypes(childComplexity), true
+	case "Organization.archivedAt":
+		if e.ComplexityRoot.Organization.ArchivedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ArchivedAt(childComplexity), true
+	case "Organization.authSettings":
+		if e.ComplexityRoot.Organization.AuthSettings == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.AuthSettings(childComplexity), true
+	case "Organization.createdAt":
+		if e.ComplexityRoot.Organization.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.CreatedAt(childComplexity), true
+	case "Organization.createdIssueCount":
+		if e.ComplexityRoot.Organization.CreatedIssueCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.CreatedIssueCount(childComplexity), true
+	case "Organization.customerCount":
+		if e.ComplexityRoot.Organization.CustomerCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.CustomerCount(childComplexity), true
+	case "Organization.customersConfiguration":
+		if e.ComplexityRoot.Organization.CustomersConfiguration == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.CustomersConfiguration(childComplexity), true
+	case "Organization.customersEnabled":
+		if e.ComplexityRoot.Organization.CustomersEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.CustomersEnabled(childComplexity), true
+	case "Organization.defaultFeedSummarySchedule":
+		if e.ComplexityRoot.Organization.DefaultFeedSummarySchedule == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.DefaultFeedSummarySchedule(childComplexity), true
+	case "Organization.defaultHomeView":
+		if e.ComplexityRoot.Organization.DefaultHomeView == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.DefaultHomeView(childComplexity), true
+	case "Organization.defaultHomeViewTargetId":
+		if e.ComplexityRoot.Organization.DefaultHomeViewTargetID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.DefaultHomeViewTargetID(childComplexity), true
+	case "Organization.deletionRequestedAt":
+		if e.ComplexityRoot.Organization.DeletionRequestedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.DeletionRequestedAt(childComplexity), true
+	case "Organization.feedEnabled":
+		if e.ComplexityRoot.Organization.FeedEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.FeedEnabled(childComplexity), true
+	case "Organization.fiscalYearStartMonth":
+		if e.ComplexityRoot.Organization.FiscalYearStartMonth == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.FiscalYearStartMonth(childComplexity), true
+	case "Organization.gitBranchFormat":
+		if e.ComplexityRoot.Organization.GitBranchFormat == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.GitBranchFormat(childComplexity), true
+	case "Organization.gitLinkbackDescriptionsEnabled":
+		if e.ComplexityRoot.Organization.GitLinkbackDescriptionsEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.GitLinkbackDescriptionsEnabled(childComplexity), true
+	case "Organization.gitLinkbackMessagesEnabled":
+		if e.ComplexityRoot.Organization.GitLinkbackMessagesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.GitLinkbackMessagesEnabled(childComplexity), true
+	case "Organization.gitPublicLinkbackMessagesEnabled":
+		if e.ComplexityRoot.Organization.GitPublicLinkbackMessagesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.GitPublicLinkbackMessagesEnabled(childComplexity), true
+	case "Organization.hideNonPrimaryOrganizations":
+		if e.ComplexityRoot.Organization.HideNonPrimaryOrganizations == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.HideNonPrimaryOrganizations(childComplexity), true
+	case "Organization.hipaaComplianceEnabled":
+		if e.ComplexityRoot.Organization.HipaaComplianceEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.HipaaComplianceEnabled(childComplexity), true
+	case "Organization.id":
+		if e.ComplexityRoot.Organization.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ID(childComplexity), true
+	case "Organization.initiativeUpdateReminderFrequencyInWeeks":
+		if e.ComplexityRoot.Organization.InitiativeUpdateReminderFrequencyInWeeks == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.InitiativeUpdateReminderFrequencyInWeeks(childComplexity), true
+	case "Organization.initiativeUpdateRemindersDay":
+		if e.ComplexityRoot.Organization.InitiativeUpdateRemindersDay == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.InitiativeUpdateRemindersDay(childComplexity), true
+	case "Organization.initiativeUpdateRemindersHour":
+		if e.ComplexityRoot.Organization.InitiativeUpdateRemindersHour == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.InitiativeUpdateRemindersHour(childComplexity), true
+	case "Organization.logoUrl":
+		if e.ComplexityRoot.Organization.LogoURL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.LogoURL(childComplexity), true
+	case "Organization.name":
+		if e.ComplexityRoot.Organization.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.Name(childComplexity), true
+	case "Organization.periodUploadVolume":
+		if e.ComplexityRoot.Organization.PeriodUploadVolume == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.PeriodUploadVolume(childComplexity), true
+	case "Organization.previousUrlKeys":
+		if e.ComplexityRoot.Organization.PreviousURLKeys == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.PreviousURLKeys(childComplexity), true
+	case "Organization.projectStatuses":
+		if e.ComplexityRoot.Organization.ProjectStatuses == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ProjectStatuses(childComplexity), true
+	case "Organization.projectUpdateReminderFrequencyInWeeks":
+		if e.ComplexityRoot.Organization.ProjectUpdateReminderFrequencyInWeeks == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ProjectUpdateReminderFrequencyInWeeks(childComplexity), true
+	case "Organization.projectUpdateRemindersDay":
+		if e.ComplexityRoot.Organization.ProjectUpdateRemindersDay == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ProjectUpdateRemindersDay(childComplexity), true
+	case "Organization.projectUpdateRemindersHour":
+		if e.ComplexityRoot.Organization.ProjectUpdateRemindersHour == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ProjectUpdateRemindersHour(childComplexity), true
+	case "Organization.projectUpdatesReminderFrequency":
+		if e.ComplexityRoot.Organization.ProjectUpdatesReminderFrequency == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ProjectUpdatesReminderFrequency(childComplexity), true
+	case "Organization.pullRequestIssueMode":
+		if e.ComplexityRoot.Organization.PullRequestIssueMode == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.PullRequestIssueMode(childComplexity), true
+	case "Organization.pullRequestTourEnabled":
+		if e.ComplexityRoot.Organization.PullRequestTourEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.PullRequestTourEnabled(childComplexity), true
+	case "Organization.releaseChannel":
+		if e.ComplexityRoot.Organization.ReleaseChannel == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ReleaseChannel(childComplexity), true
+	case "Organization.releasesEnabled":
+		if e.ComplexityRoot.Organization.ReleasesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ReleasesEnabled(childComplexity), true
+	case "Organization.restrictLabelManagementToAdmins":
+		if e.ComplexityRoot.Organization.RestrictLabelManagementToAdmins == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.RestrictLabelManagementToAdmins(childComplexity), true
+	case "Organization.restrictTeamCreationToAdmins":
+		if e.ComplexityRoot.Organization.RestrictTeamCreationToAdmins == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.RestrictTeamCreationToAdmins(childComplexity), true
+	case "Organization.roadmapEnabled":
+		if e.ComplexityRoot.Organization.RoadmapEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.RoadmapEnabled(childComplexity), true
+	case "Organization.slaDayCount":
+		if e.ComplexityRoot.Organization.SLADayCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.SLADayCount(childComplexity), true
+	case "Organization.samlEnabled":
+		if e.ComplexityRoot.Organization.SamlEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.SamlEnabled(childComplexity), true
+	case "Organization.scimEnabled":
+		if e.ComplexityRoot.Organization.ScimEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.ScimEnabled(childComplexity), true
+	case "Organization.securitySettings":
+		if e.ComplexityRoot.Organization.SecuritySettings == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.SecuritySettings(childComplexity), true
+	case "Organization.slackProjectChannelIntegration":
+		if e.ComplexityRoot.Organization.SlackProjectChannelIntegration == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.SlackProjectChannelIntegration(childComplexity), true
+	case "Organization.slackProjectChannelPrefix":
+		if e.ComplexityRoot.Organization.SlackProjectChannelPrefix == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.SlackProjectChannelPrefix(childComplexity), true
+	case "Organization.subscription":
+		if e.ComplexityRoot.Organization.Subscription == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.Subscription(childComplexity), true
+	case "Organization.suggestedBranchNameEnabled":
+		if e.ComplexityRoot.Organization.SuggestedBranchNameEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.SuggestedBranchNameEnabled(childComplexity), true
+	case "Organization.teams":
+		if e.ComplexityRoot.Organization.Teams == nil {
+			break
+		}
+
+		args, err := ec.field_Organization_teams_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Organization.Teams(childComplexity, args["after"].(*string), args["before"].(*string), args["filter"].(*TeamFilter), args["first"].(*int), args["includeArchived"].(*bool), args["last"].(*int), args["orderBy"].(*PaginationOrderBy)), true
+	case "Organization.trialEndsAt":
+		if e.ComplexityRoot.Organization.TrialEndsAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.TrialEndsAt(childComplexity), true
+	case "Organization.trialStartsAt":
+		if e.ComplexityRoot.Organization.TrialStartsAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.TrialStartsAt(childComplexity), true
+	case "Organization.urlKey":
+		if e.ComplexityRoot.Organization.URLKey == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.URLKey(childComplexity), true
+	case "Organization.updatedAt":
+		if e.ComplexityRoot.Organization.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.UpdatedAt(childComplexity), true
+	case "Organization.userCount":
+		if e.ComplexityRoot.Organization.UserCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Organization.UserCount(childComplexity), true
+
 	case "PageInfo.endCursor":
 		if e.ComplexityRoot.PageInfo.EndCursor == nil {
 			break
@@ -782,6 +1351,67 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ProjectMilestone.ID(childComplexity), true
 
+	case "ProjectStatus.archivedAt":
+		if e.ComplexityRoot.ProjectStatus.ArchivedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.ArchivedAt(childComplexity), true
+	case "ProjectStatus.color":
+		if e.ComplexityRoot.ProjectStatus.Color == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.Color(childComplexity), true
+	case "ProjectStatus.createdAt":
+		if e.ComplexityRoot.ProjectStatus.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.CreatedAt(childComplexity), true
+	case "ProjectStatus.description":
+		if e.ComplexityRoot.ProjectStatus.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.Description(childComplexity), true
+	case "ProjectStatus.id":
+		if e.ComplexityRoot.ProjectStatus.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.ID(childComplexity), true
+	case "ProjectStatus.indefinite":
+		if e.ComplexityRoot.ProjectStatus.Indefinite == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.Indefinite(childComplexity), true
+	case "ProjectStatus.name":
+		if e.ComplexityRoot.ProjectStatus.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.Name(childComplexity), true
+	case "ProjectStatus.position":
+		if e.ComplexityRoot.ProjectStatus.Position == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.Position(childComplexity), true
+	case "ProjectStatus.type":
+		if e.ComplexityRoot.ProjectStatus.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.Type(childComplexity), true
+	case "ProjectStatus.updatedAt":
+		if e.ComplexityRoot.ProjectStatus.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStatus.UpdatedAt(childComplexity), true
+
 	case "ProjectUpdate.id":
 		if e.ComplexityRoot.ProjectUpdate.ID == nil {
 			break
@@ -789,6 +1419,34 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ProjectUpdate.ID(childComplexity), true
 
+	case "Query.organization":
+		if e.ComplexityRoot.Query.Organization == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Query.Organization(childComplexity), true
+	case "Query.team":
+		if e.ComplexityRoot.Query.Team == nil {
+			break
+		}
+
+		args, err := ec.field_Query_team_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Team(childComplexity, args["id"].(string)), true
+	case "Query.teams":
+		if e.ComplexityRoot.Query.Teams == nil {
+			break
+		}
+
+		args, err := ec.field_Query_teams_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Teams(childComplexity, args["after"].(*string), args["before"].(*string), args["filter"].(*TeamFilter), args["first"].(*int), args["includeArchived"].(*bool), args["last"].(*int), args["orderBy"].(*PaginationOrderBy)), true
 	case "Query.user":
 		if e.ComplexityRoot.Query.User == nil {
 			break
@@ -817,6 +1475,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Viewer(childComplexity), true
+	case "Query.workflowState":
+		if e.ComplexityRoot.Query.WorkflowState == nil {
+			break
+		}
+
+		args, err := ec.field_Query_workflowState_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.WorkflowState(childComplexity, args["id"].(string)), true
+	case "Query.workflowStates":
+		if e.ComplexityRoot.Query.WorkflowStates == nil {
+			break
+		}
+
+		args, err := ec.field_Query_workflowStates_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.WorkflowStates(childComplexity, args["after"].(*string), args["before"].(*string), args["filter"].(*WorkflowStateFilter), args["first"].(*int), args["includeArchived"].(*bool), args["last"].(*int), args["orderBy"].(*PaginationOrderBy)), true
 
 	case "Reaction.archivedAt":
 		if e.ComplexityRoot.Reaction.ArchivedAt == nil {
@@ -939,6 +1619,499 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.SyncedExternalThread.URL(childComplexity), true
+
+	case "Team.activeCycle":
+		if e.ComplexityRoot.Team.ActiveCycle == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.ActiveCycle(childComplexity), true
+	case "Team.aiDiscussionSummariesEnabled":
+		if e.ComplexityRoot.Team.AiDiscussionSummariesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.AiDiscussionSummariesEnabled(childComplexity), true
+	case "Team.aiThreadSummariesEnabled":
+		if e.ComplexityRoot.Team.AiThreadSummariesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.AiThreadSummariesEnabled(childComplexity), true
+	case "Team.allMembersCanJoin":
+		if e.ComplexityRoot.Team.AllMembersCanJoin == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.AllMembersCanJoin(childComplexity), true
+	case "Team.archivedAt":
+		if e.ComplexityRoot.Team.ArchivedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.ArchivedAt(childComplexity), true
+	case "Team.autoArchivePeriod":
+		if e.ComplexityRoot.Team.AutoArchivePeriod == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.AutoArchivePeriod(childComplexity), true
+	case "Team.autoCloseChildIssues":
+		if e.ComplexityRoot.Team.AutoCloseChildIssues == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.AutoCloseChildIssues(childComplexity), true
+	case "Team.autoCloseParentIssues":
+		if e.ComplexityRoot.Team.AutoCloseParentIssues == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.AutoCloseParentIssues(childComplexity), true
+	case "Team.autoClosePeriod":
+		if e.ComplexityRoot.Team.AutoClosePeriod == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.AutoClosePeriod(childComplexity), true
+	case "Team.autoCloseStateId":
+		if e.ComplexityRoot.Team.AutoCloseStateID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.AutoCloseStateID(childComplexity), true
+	case "Team.color":
+		if e.ComplexityRoot.Team.Color == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.Color(childComplexity), true
+	case "Team.createdAt":
+		if e.ComplexityRoot.Team.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.CreatedAt(childComplexity), true
+	case "Team.cycleCalenderUrl":
+		if e.ComplexityRoot.Team.CycleCalenderURL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.CycleCalenderURL(childComplexity), true
+	case "Team.cycleCooldownTime":
+		if e.ComplexityRoot.Team.CycleCooldownTime == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.CycleCooldownTime(childComplexity), true
+	case "Team.cycleDuration":
+		if e.ComplexityRoot.Team.CycleDuration == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.CycleDuration(childComplexity), true
+	case "Team.cycleIssueAutoAssignCompleted":
+		if e.ComplexityRoot.Team.CycleIssueAutoAssignCompleted == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.CycleIssueAutoAssignCompleted(childComplexity), true
+	case "Team.cycleIssueAutoAssignStarted":
+		if e.ComplexityRoot.Team.CycleIssueAutoAssignStarted == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.CycleIssueAutoAssignStarted(childComplexity), true
+	case "Team.cycleLockToActive":
+		if e.ComplexityRoot.Team.CycleLockToActive == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.CycleLockToActive(childComplexity), true
+	case "Team.cycleStartDay":
+		if e.ComplexityRoot.Team.CycleStartDay == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.CycleStartDay(childComplexity), true
+	case "Team.cyclesEnabled":
+		if e.ComplexityRoot.Team.CyclesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.CyclesEnabled(childComplexity), true
+	case "Team.defaultIssueEstimate":
+		if e.ComplexityRoot.Team.DefaultIssueEstimate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.DefaultIssueEstimate(childComplexity), true
+	case "Team.defaultIssueState":
+		if e.ComplexityRoot.Team.DefaultIssueState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.DefaultIssueState(childComplexity), true
+	case "Team.defaultProjectTemplate":
+		if e.ComplexityRoot.Team.DefaultProjectTemplate == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.DefaultProjectTemplate(childComplexity), true
+	case "Team.defaultTemplateForMembers":
+		if e.ComplexityRoot.Team.DefaultTemplateForMembers == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.DefaultTemplateForMembers(childComplexity), true
+	case "Team.defaultTemplateForMembersId":
+		if e.ComplexityRoot.Team.DefaultTemplateForMembersID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.DefaultTemplateForMembersID(childComplexity), true
+	case "Team.defaultTemplateForNonMembers":
+		if e.ComplexityRoot.Team.DefaultTemplateForNonMembers == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.DefaultTemplateForNonMembers(childComplexity), true
+	case "Team.defaultTemplateForNonMembersId":
+		if e.ComplexityRoot.Team.DefaultTemplateForNonMembersID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.DefaultTemplateForNonMembersID(childComplexity), true
+	case "Team.description":
+		if e.ComplexityRoot.Team.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.Description(childComplexity), true
+	case "Team.displayName":
+		if e.ComplexityRoot.Team.DisplayName == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.DisplayName(childComplexity), true
+	case "Team.draftWorkflowState":
+		if e.ComplexityRoot.Team.DraftWorkflowState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.DraftWorkflowState(childComplexity), true
+	case "Team.groupIssueHistory":
+		if e.ComplexityRoot.Team.GroupIssueHistory == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.GroupIssueHistory(childComplexity), true
+	case "Team.id":
+		if e.ComplexityRoot.Team.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.ID(childComplexity), true
+	case "Team.icon":
+		if e.ComplexityRoot.Team.Icon == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.Icon(childComplexity), true
+	case "Team.inheritIssueEstimation":
+		if e.ComplexityRoot.Team.InheritIssueEstimation == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.InheritIssueEstimation(childComplexity), true
+	case "Team.inheritWorkflowStatuses":
+		if e.ComplexityRoot.Team.InheritWorkflowStatuses == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.InheritWorkflowStatuses(childComplexity), true
+	case "Team.initiativesEnabled":
+		if e.ComplexityRoot.Team.InitiativesEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.InitiativesEnabled(childComplexity), true
+	case "Team.integrationsSettings":
+		if e.ComplexityRoot.Team.IntegrationsSettings == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.IntegrationsSettings(childComplexity), true
+	case "Team.inviteHash":
+		if e.ComplexityRoot.Team.InviteHash == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.InviteHash(childComplexity), true
+	case "Team.issueCount":
+		if e.ComplexityRoot.Team.IssueCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.IssueCount(childComplexity), true
+	case "Team.issueEstimationAllowZero":
+		if e.ComplexityRoot.Team.IssueEstimationAllowZero == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.IssueEstimationAllowZero(childComplexity), true
+	case "Team.issueEstimationExtended":
+		if e.ComplexityRoot.Team.IssueEstimationExtended == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.IssueEstimationExtended(childComplexity), true
+	case "Team.issueEstimationType":
+		if e.ComplexityRoot.Team.IssueEstimationType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.IssueEstimationType(childComplexity), true
+	case "Team.issueOrderingNoPriorityFirst":
+		if e.ComplexityRoot.Team.IssueOrderingNoPriorityFirst == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.IssueOrderingNoPriorityFirst(childComplexity), true
+	case "Team.issueSortOrderDefaultToBottom":
+		if e.ComplexityRoot.Team.IssueSortOrderDefaultToBottom == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.IssueSortOrderDefaultToBottom(childComplexity), true
+	case "Team.key":
+		if e.ComplexityRoot.Team.Key == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.Key(childComplexity), true
+	case "Team.ledInitiativeCount":
+		if e.ComplexityRoot.Team.LedInitiativeCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.LedInitiativeCount(childComplexity), true
+	case "Team.markedAsDuplicateWorkflowState":
+		if e.ComplexityRoot.Team.MarkedAsDuplicateWorkflowState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.MarkedAsDuplicateWorkflowState(childComplexity), true
+	case "Team.members":
+		if e.ComplexityRoot.Team.Members == nil {
+			break
+		}
+
+		args, err := ec.field_Team_members_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Team.Members(childComplexity, args["after"].(*string), args["before"].(*string), args["filter"].(*UserFilter), args["first"].(*int), args["includeArchived"].(*bool), args["includeDisabled"].(*bool), args["last"].(*int), args["orderBy"].(*PaginationOrderBy), args["sort"].([]UserSortInput)), true
+	case "Team.mergeWorkflowState":
+		if e.ComplexityRoot.Team.MergeWorkflowState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.MergeWorkflowState(childComplexity), true
+	case "Team.mergeableWorkflowState":
+		if e.ComplexityRoot.Team.MergeableWorkflowState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.MergeableWorkflowState(childComplexity), true
+	case "Team.name":
+		if e.ComplexityRoot.Team.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.Name(childComplexity), true
+	case "Team.parent":
+		if e.ComplexityRoot.Team.Parent == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.Parent(childComplexity), true
+	case "Team.private":
+		if e.ComplexityRoot.Team.Private == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.Private(childComplexity), true
+	case "Team.requirePriorityToLeaveTriage":
+		if e.ComplexityRoot.Team.RequirePriorityToLeaveTriage == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.RequirePriorityToLeaveTriage(childComplexity), true
+	case "Team.retiredAt":
+		if e.ComplexityRoot.Team.RetiredAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.RetiredAt(childComplexity), true
+	case "Team.reviewWorkflowState":
+		if e.ComplexityRoot.Team.ReviewWorkflowState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.ReviewWorkflowState(childComplexity), true
+	case "Team.scimGroupName":
+		if e.ComplexityRoot.Team.ScimGroupName == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.ScimGroupName(childComplexity), true
+	case "Team.scimManaged":
+		if e.ComplexityRoot.Team.ScimManaged == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.ScimManaged(childComplexity), true
+	case "Team.securitySettings":
+		if e.ComplexityRoot.Team.SecuritySettings == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.SecuritySettings(childComplexity), true
+	case "Team.setIssueSortOrderOnStateChange":
+		if e.ComplexityRoot.Team.SetIssueSortOrderOnStateChange == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.SetIssueSortOrderOnStateChange(childComplexity), true
+	case "Team.slackIssueComments":
+		if e.ComplexityRoot.Team.SlackIssueComments == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.SlackIssueComments(childComplexity), true
+	case "Team.slackIssueStatuses":
+		if e.ComplexityRoot.Team.SlackIssueStatuses == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.SlackIssueStatuses(childComplexity), true
+	case "Team.slackNewIssue":
+		if e.ComplexityRoot.Team.SlackNewIssue == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.SlackNewIssue(childComplexity), true
+	case "Team.startWorkflowState":
+		if e.ComplexityRoot.Team.StartWorkflowState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.StartWorkflowState(childComplexity), true
+	case "Team.states":
+		if e.ComplexityRoot.Team.States == nil {
+			break
+		}
+
+		args, err := ec.field_Team_states_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Team.States(childComplexity, args["after"].(*string), args["before"].(*string), args["filter"].(*WorkflowStateFilter), args["first"].(*int), args["includeArchived"].(*bool), args["last"].(*int), args["orderBy"].(*PaginationOrderBy)), true
+	case "Team.timezone":
+		if e.ComplexityRoot.Team.Timezone == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.Timezone(childComplexity), true
+	case "Team.triageEnabled":
+		if e.ComplexityRoot.Team.TriageEnabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.TriageEnabled(childComplexity), true
+	case "Team.triageIssueState":
+		if e.ComplexityRoot.Team.TriageIssueState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.TriageIssueState(childComplexity), true
+	case "Team.triageResponsibility":
+		if e.ComplexityRoot.Team.TriageResponsibility == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.TriageResponsibility(childComplexity), true
+	case "Team.upcomingCycleCount":
+		if e.ComplexityRoot.Team.UpcomingCycleCount == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.UpcomingCycleCount(childComplexity), true
+	case "Team.updatedAt":
+		if e.ComplexityRoot.Team.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.UpdatedAt(childComplexity), true
+	case "Team.viewerCanJoin":
+		if e.ComplexityRoot.Team.ViewerCanJoin == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.ViewerCanJoin(childComplexity), true
+	case "Team.viewerCanLeave":
+		if e.ComplexityRoot.Team.ViewerCanLeave == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.ViewerCanLeave(childComplexity), true
+	case "Team.viewerMembership":
+		if e.ComplexityRoot.Team.ViewerMembership == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.ViewerMembership(childComplexity), true
+	case "Team.visibility":
+		if e.ComplexityRoot.Team.Visibility == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Team.Visibility(childComplexity), true
+
+	case "TeamConnection.edges":
+		if e.ComplexityRoot.TeamConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TeamConnection.Edges(childComplexity), true
+	case "TeamConnection.nodes":
+		if e.ComplexityRoot.TeamConnection.Nodes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TeamConnection.Nodes(childComplexity), true
+	case "TeamConnection.pageInfo":
+		if e.ComplexityRoot.TeamConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TeamConnection.PageInfo(childComplexity), true
+
+	case "TeamEdge.cursor":
+		if e.ComplexityRoot.TeamEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TeamEdge.Cursor(childComplexity), true
+	case "TeamEdge.node":
+		if e.ComplexityRoot.TeamEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TeamEdge.Node(childComplexity), true
 
 	case "TeamMembership.id":
 		if e.ComplexityRoot.TeamMembership.ID == nil {
@@ -1235,6 +2408,105 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.WelcomeMessage.UpdatedBy(childComplexity), true
 
+	case "WorkflowState.archivedAt":
+		if e.ComplexityRoot.WorkflowState.ArchivedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.ArchivedAt(childComplexity), true
+	case "WorkflowState.color":
+		if e.ComplexityRoot.WorkflowState.Color == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.Color(childComplexity), true
+	case "WorkflowState.createdAt":
+		if e.ComplexityRoot.WorkflowState.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.CreatedAt(childComplexity), true
+	case "WorkflowState.description":
+		if e.ComplexityRoot.WorkflowState.Description == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.Description(childComplexity), true
+	case "WorkflowState.id":
+		if e.ComplexityRoot.WorkflowState.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.ID(childComplexity), true
+	case "WorkflowState.inheritedFrom":
+		if e.ComplexityRoot.WorkflowState.InheritedFrom == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.InheritedFrom(childComplexity), true
+	case "WorkflowState.name":
+		if e.ComplexityRoot.WorkflowState.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.Name(childComplexity), true
+	case "WorkflowState.position":
+		if e.ComplexityRoot.WorkflowState.Position == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.Position(childComplexity), true
+	case "WorkflowState.team":
+		if e.ComplexityRoot.WorkflowState.Team == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.Team(childComplexity), true
+	case "WorkflowState.type":
+		if e.ComplexityRoot.WorkflowState.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.Type(childComplexity), true
+	case "WorkflowState.updatedAt":
+		if e.ComplexityRoot.WorkflowState.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowState.UpdatedAt(childComplexity), true
+
+	case "WorkflowStateConnection.edges":
+		if e.ComplexityRoot.WorkflowStateConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowStateConnection.Edges(childComplexity), true
+	case "WorkflowStateConnection.nodes":
+		if e.ComplexityRoot.WorkflowStateConnection.Nodes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowStateConnection.Nodes(childComplexity), true
+	case "WorkflowStateConnection.pageInfo":
+		if e.ComplexityRoot.WorkflowStateConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowStateConnection.PageInfo(childComplexity), true
+
+	case "WorkflowStateEdge.cursor":
+		if e.ComplexityRoot.WorkflowStateEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowStateEdge.Cursor(childComplexity), true
+	case "WorkflowStateEdge.node":
+		if e.ComplexityRoot.WorkflowStateEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WorkflowStateEdge.Node(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -1254,10 +2526,12 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("NullableUserFilter", ec.unmarshalInputNullableUserFilter),
 			graphql.NewInputUnmarshaler("NumberComparator", ec.unmarshalInputNumberComparator),
 			graphql.NewInputUnmarshaler("StringComparator", ec.unmarshalInputStringComparator),
+			graphql.NewInputUnmarshaler("TeamFilter", ec.unmarshalInputTeamFilter),
 			graphql.NewInputUnmarshaler("UserDisplayNameSort", ec.unmarshalInputUserDisplayNameSort),
 			graphql.NewInputUnmarshaler("UserFilter", ec.unmarshalInputUserFilter),
 			graphql.NewInputUnmarshaler("UserNameSort", ec.unmarshalInputUserNameSort),
 			graphql.NewInputUnmarshaler("UserSortInput", ec.unmarshalInputUserSortInput),
+			graphql.NewInputUnmarshaler("WorkflowStateFilter", ec.unmarshalInputWorkflowStateFilter),
 		)
 	}
 	first := true
@@ -1760,6 +3034,234 @@ type Query {
   users(after: String, before: String, filter: UserFilter, first: Int, includeArchived: Boolean, includeDisabled: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [UserSortInput!]): UserConnection!
   "A user by id."
   user(id: String!): User!
+  "The workspace."
+  organization: Organization!
+  "Teams; archived ones only with includeArchived."
+  teams(after: String, before: String, filter: TeamFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): TeamConnection!
+  "A team by id or key (current or former)."
+  team(id: String!): Team!
+  "States of all teams (of archived teams only with includeArchived)."
+  workflowStates(after: String, before: String, filter: WorkflowStateFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): WorkflowStateConnection!
+  "A state by id."
+  workflowState(id: String!): WorkflowState!
+}
+`, BuiltIn: false},
+	{Name: "../../../api/graphql/linear/teams.graphqls", Input: `"A team is a Yalkos project."
+type Team {
+  cycleIssueAutoAssignCompleted: Boolean!
+  cycleLockToActive: Boolean!
+  cycleIssueAutoAssignStarted: Boolean!
+  cycleCalenderUrl: String!
+  upcomingCycleCount: Float!
+  autoArchivePeriod: Float!
+  autoClosePeriod: Float
+  securitySettings: JSONObject!
+  integrationsSettings: IntegrationsSettings
+  activeCycle: Cycle
+  triageResponsibility: TriageResponsibility
+  scimGroupName: String
+  autoCloseStateId: String
+  cycleCooldownTime: Float!
+  cycleStartDay: Float!
+  defaultTemplateForMembers: Template
+  defaultTemplateForNonMembers: Template
+  defaultProjectTemplate: Template
+  "The state new issues get."
+  defaultIssueState: WorkflowState
+  cycleDuration: Float!
+  icon: String
+  defaultTemplateForMembersId: String
+  defaultTemplateForNonMembersId: String
+  issueEstimationType: String!
+  updatedAt: DateTime!
+  displayName: String!
+  ledInitiativeCount: Int!
+  color: String
+  description: String
+  name: String!
+  parent: Team
+  id: ID!
+  key: String!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  retiredAt: DateTime
+  timezone: String!
+  "Live issues of the team."
+  issueCount: Int!
+  viewerMembership: TeamMembership
+  visibility: TeamVisibility!
+  mergeWorkflowState: WorkflowState
+  draftWorkflowState: WorkflowState
+  startWorkflowState: WorkflowState
+  mergeableWorkflowState: WorkflowState
+  reviewWorkflowState: WorkflowState
+  triageIssueState: WorkflowState
+  defaultIssueEstimate: Float!
+  setIssueSortOrderOnStateChange: String!
+  allMembersCanJoin: Boolean
+  requirePriorityToLeaveTriage: Boolean!
+  autoCloseChildIssues: Boolean
+  autoCloseParentIssues: Boolean
+  initiativesEnabled: Boolean!
+  scimManaged: Boolean!
+  private: Boolean!
+  inheritIssueEstimation: Boolean!
+  inheritWorkflowStatuses: Boolean!
+  cyclesEnabled: Boolean!
+  viewerCanJoin: Boolean!
+  viewerCanLeave: Boolean!
+  issueEstimationExtended: Boolean!
+  issueEstimationAllowZero: Boolean!
+  aiDiscussionSummariesEnabled: Boolean!
+  aiThreadSummariesEnabled: Boolean!
+  groupIssueHistory: Boolean!
+  slackIssueComments: Boolean!
+  slackNewIssue: Boolean!
+  slackIssueStatuses: Boolean!
+  triageEnabled: Boolean!
+  markedAsDuplicateWorkflowState: WorkflowState
+  inviteHash: String!
+  issueOrderingNoPriorityFirst: Boolean!
+  issueSortOrderDefaultToBottom: Boolean!
+  "The team's states."
+  states(after: String, before: String, filter: WorkflowStateFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): WorkflowStateConnection!
+  "Members of the team."
+  members(after: String, before: String, filter: UserFilter, first: Int, includeArchived: Boolean, includeDisabled: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [UserSortInput!]): UserConnection!
+}
+
+type TeamConnection {
+  nodes: [Team!]!
+  edges: [TeamEdge!]!
+  pageInfo: PageInfo!
+}
+
+type TeamEdge {
+  node: Team!
+  cursor: String!
+}
+
+input TeamFilter {
+  and: [TeamFilter!]
+  or: [TeamFilter!]
+  id: IDComparator
+  key: StringComparator
+  name: StringComparator
+}
+
+"An issue state of a team."
+type WorkflowState {
+  id: ID!
+  description: String
+  updatedAt: DateTime!
+  inheritedFrom: WorkflowState
+  position: Float!
+  color: String!
+  name: String!
+  team: Team!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  "backlog, unstarted, started, completed or canceled."
+  type: String!
+}
+
+type WorkflowStateConnection {
+  nodes: [WorkflowState!]!
+  edges: [WorkflowStateEdge!]!
+  pageInfo: PageInfo!
+}
+
+type WorkflowStateEdge {
+  node: WorkflowState!
+  cursor: String!
+}
+
+input WorkflowStateFilter {
+  and: [WorkflowStateFilter!]
+  or: [WorkflowStateFilter!]
+  id: IDComparator
+  name: StringComparator
+  type: StringComparator
+  team: TeamFilter
+}
+
+"The workspace."
+type Organization {
+  allowedAuthServices: [String!]!
+  allowedFileUploadContentTypes: [String!]
+  "Live issues of all teams."
+  createdIssueCount: Int!
+  authSettings: JSONObject!
+  customersConfiguration: JSONObject!
+  defaultFeedSummarySchedule: FeedSummarySchedule
+  pullRequestIssueMode: String!
+  previousUrlKeys: [String!]!
+  periodUploadVolume: Float!
+  securitySettings: JSONObject!
+  slackProjectChannelIntegration: Integration
+  logoUrl: String
+  initiativeUpdateRemindersDay: Day!
+  projectUpdateRemindersDay: Day!
+  defaultHomeView: String
+  releaseChannel: ReleaseChannel!
+  initiativeUpdateReminderFrequencyInWeeks: Float
+  projectUpdateReminderFrequencyInWeeks: Float
+  initiativeUpdateRemindersHour: Float!
+  projectUpdateRemindersHour: Float!
+  defaultHomeViewTargetId: String
+  updatedAt: DateTime!
+  customerCount: Int!
+  "Active users."
+  userCount: Int!
+  slackProjectChannelPrefix: String!
+  gitBranchFormat: String
+  deletionRequestedAt: DateTime
+  trialStartsAt: DateTime
+  trialEndsAt: DateTime
+  archivedAt: DateTime
+  createdAt: DateTime!
+  id: ID!
+  "The four project statuses, in order."
+  projectStatuses: [ProjectStatus!]!
+  name: String!
+  subscription: PaidSubscription
+  urlKey: String!
+  fiscalYearStartMonth: Float!
+  hipaaComplianceEnabled: Boolean!
+  samlEnabled: Boolean!
+  scimEnabled: Boolean!
+  gitLinkbackDescriptionsEnabled: Boolean!
+  releasesEnabled: Boolean!
+  customersEnabled: Boolean!
+  gitLinkbackMessagesEnabled: Boolean!
+  gitPublicLinkbackMessagesEnabled: Boolean!
+  feedEnabled: Boolean!
+  suggestedBranchNameEnabled: Boolean!
+  roadmapEnabled: Boolean!
+  pullRequestTourEnabled: Boolean!
+  aiDiscussionSummariesEnabled: Boolean!
+  aiThreadSummariesEnabled: Boolean!
+  hideNonPrimaryOrganizations: Boolean!
+  projectUpdatesReminderFrequency: ProjectUpdateReminderFrequency!
+  allowMembersToInvite: Boolean
+  restrictTeamCreationToAdmins: Boolean
+  restrictLabelManagementToAdmins: Boolean
+  slaDayCount: SLADayCountType!
+  "Same as the root teams field."
+  teams(after: String, before: String, filter: TeamFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): TeamConnection!
+}
+
+"A project status: planned, in progress, done or canceled."
+type ProjectStatus {
+  description: String
+  type: ProjectStatusType!
+  color: String!
+  updatedAt: DateTime!
+  name: String!
+  position: Float!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  id: ID!
+  indefinite: Boolean!
 }
 `, BuiltIn: false},
 	{Name: "../../../api/graphql/linear/users.graphqls", Input: `"A workspace user."
@@ -1889,6 +3391,14 @@ func (ec *executionContext) childFields_Comment(ctx context.Context, field graph
 	return nil, fmt.Errorf("no field named %q was found under type Comment", field.Name)
 }
 
+func (ec *executionContext) childFields_Cycle(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Cycle_id(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Cycle", field.Name)
+}
+
 func (ec *executionContext) childFields_Document(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -1921,12 +3431,150 @@ func (ec *executionContext) childFields_InitiativeUpdate(ctx context.Context, fi
 	return nil, fmt.Errorf("no field named %q was found under type InitiativeUpdate", field.Name)
 }
 
+func (ec *executionContext) childFields_Integration(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Integration_id(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Integration", field.Name)
+}
+
+func (ec *executionContext) childFields_IntegrationsSettings(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_IntegrationsSettings_id(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type IntegrationsSettings", field.Name)
+}
+
 func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_Issue_id(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Issue", field.Name)
+}
+
+func (ec *executionContext) childFields_Organization(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "allowedAuthServices":
+		return ec.fieldContext_Organization_allowedAuthServices(ctx, field)
+	case "allowedFileUploadContentTypes":
+		return ec.fieldContext_Organization_allowedFileUploadContentTypes(ctx, field)
+	case "createdIssueCount":
+		return ec.fieldContext_Organization_createdIssueCount(ctx, field)
+	case "authSettings":
+		return ec.fieldContext_Organization_authSettings(ctx, field)
+	case "customersConfiguration":
+		return ec.fieldContext_Organization_customersConfiguration(ctx, field)
+	case "defaultFeedSummarySchedule":
+		return ec.fieldContext_Organization_defaultFeedSummarySchedule(ctx, field)
+	case "pullRequestIssueMode":
+		return ec.fieldContext_Organization_pullRequestIssueMode(ctx, field)
+	case "previousUrlKeys":
+		return ec.fieldContext_Organization_previousUrlKeys(ctx, field)
+	case "periodUploadVolume":
+		return ec.fieldContext_Organization_periodUploadVolume(ctx, field)
+	case "securitySettings":
+		return ec.fieldContext_Organization_securitySettings(ctx, field)
+	case "slackProjectChannelIntegration":
+		return ec.fieldContext_Organization_slackProjectChannelIntegration(ctx, field)
+	case "logoUrl":
+		return ec.fieldContext_Organization_logoUrl(ctx, field)
+	case "initiativeUpdateRemindersDay":
+		return ec.fieldContext_Organization_initiativeUpdateRemindersDay(ctx, field)
+	case "projectUpdateRemindersDay":
+		return ec.fieldContext_Organization_projectUpdateRemindersDay(ctx, field)
+	case "defaultHomeView":
+		return ec.fieldContext_Organization_defaultHomeView(ctx, field)
+	case "releaseChannel":
+		return ec.fieldContext_Organization_releaseChannel(ctx, field)
+	case "initiativeUpdateReminderFrequencyInWeeks":
+		return ec.fieldContext_Organization_initiativeUpdateReminderFrequencyInWeeks(ctx, field)
+	case "projectUpdateReminderFrequencyInWeeks":
+		return ec.fieldContext_Organization_projectUpdateReminderFrequencyInWeeks(ctx, field)
+	case "initiativeUpdateRemindersHour":
+		return ec.fieldContext_Organization_initiativeUpdateRemindersHour(ctx, field)
+	case "projectUpdateRemindersHour":
+		return ec.fieldContext_Organization_projectUpdateRemindersHour(ctx, field)
+	case "defaultHomeViewTargetId":
+		return ec.fieldContext_Organization_defaultHomeViewTargetId(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Organization_updatedAt(ctx, field)
+	case "customerCount":
+		return ec.fieldContext_Organization_customerCount(ctx, field)
+	case "userCount":
+		return ec.fieldContext_Organization_userCount(ctx, field)
+	case "slackProjectChannelPrefix":
+		return ec.fieldContext_Organization_slackProjectChannelPrefix(ctx, field)
+	case "gitBranchFormat":
+		return ec.fieldContext_Organization_gitBranchFormat(ctx, field)
+	case "deletionRequestedAt":
+		return ec.fieldContext_Organization_deletionRequestedAt(ctx, field)
+	case "trialStartsAt":
+		return ec.fieldContext_Organization_trialStartsAt(ctx, field)
+	case "trialEndsAt":
+		return ec.fieldContext_Organization_trialEndsAt(ctx, field)
+	case "archivedAt":
+		return ec.fieldContext_Organization_archivedAt(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Organization_createdAt(ctx, field)
+	case "id":
+		return ec.fieldContext_Organization_id(ctx, field)
+	case "projectStatuses":
+		return ec.fieldContext_Organization_projectStatuses(ctx, field)
+	case "name":
+		return ec.fieldContext_Organization_name(ctx, field)
+	case "subscription":
+		return ec.fieldContext_Organization_subscription(ctx, field)
+	case "urlKey":
+		return ec.fieldContext_Organization_urlKey(ctx, field)
+	case "fiscalYearStartMonth":
+		return ec.fieldContext_Organization_fiscalYearStartMonth(ctx, field)
+	case "hipaaComplianceEnabled":
+		return ec.fieldContext_Organization_hipaaComplianceEnabled(ctx, field)
+	case "samlEnabled":
+		return ec.fieldContext_Organization_samlEnabled(ctx, field)
+	case "scimEnabled":
+		return ec.fieldContext_Organization_scimEnabled(ctx, field)
+	case "gitLinkbackDescriptionsEnabled":
+		return ec.fieldContext_Organization_gitLinkbackDescriptionsEnabled(ctx, field)
+	case "releasesEnabled":
+		return ec.fieldContext_Organization_releasesEnabled(ctx, field)
+	case "customersEnabled":
+		return ec.fieldContext_Organization_customersEnabled(ctx, field)
+	case "gitLinkbackMessagesEnabled":
+		return ec.fieldContext_Organization_gitLinkbackMessagesEnabled(ctx, field)
+	case "gitPublicLinkbackMessagesEnabled":
+		return ec.fieldContext_Organization_gitPublicLinkbackMessagesEnabled(ctx, field)
+	case "feedEnabled":
+		return ec.fieldContext_Organization_feedEnabled(ctx, field)
+	case "suggestedBranchNameEnabled":
+		return ec.fieldContext_Organization_suggestedBranchNameEnabled(ctx, field)
+	case "roadmapEnabled":
+		return ec.fieldContext_Organization_roadmapEnabled(ctx, field)
+	case "pullRequestTourEnabled":
+		return ec.fieldContext_Organization_pullRequestTourEnabled(ctx, field)
+	case "aiDiscussionSummariesEnabled":
+		return ec.fieldContext_Organization_aiDiscussionSummariesEnabled(ctx, field)
+	case "aiThreadSummariesEnabled":
+		return ec.fieldContext_Organization_aiThreadSummariesEnabled(ctx, field)
+	case "hideNonPrimaryOrganizations":
+		return ec.fieldContext_Organization_hideNonPrimaryOrganizations(ctx, field)
+	case "projectUpdatesReminderFrequency":
+		return ec.fieldContext_Organization_projectUpdatesReminderFrequency(ctx, field)
+	case "allowMembersToInvite":
+		return ec.fieldContext_Organization_allowMembersToInvite(ctx, field)
+	case "restrictTeamCreationToAdmins":
+		return ec.fieldContext_Organization_restrictTeamCreationToAdmins(ctx, field)
+	case "restrictLabelManagementToAdmins":
+		return ec.fieldContext_Organization_restrictLabelManagementToAdmins(ctx, field)
+	case "slaDayCount":
+		return ec.fieldContext_Organization_slaDayCount(ctx, field)
+	case "teams":
+		return ec.fieldContext_Organization_teams(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Organization", field.Name)
 }
 
 func (ec *executionContext) childFields_PageInfo(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1941,6 +3589,40 @@ func (ec *executionContext) childFields_PageInfo(ctx context.Context, field grap
 		return ec.fieldContext_PageInfo_hasNextPage(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PageInfo", field.Name)
+}
+
+func (ec *executionContext) childFields_PaidSubscription(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "collectionMethod":
+		return ec.fieldContext_PaidSubscription_collectionMethod(ctx, field)
+	case "cancelAt":
+		return ec.fieldContext_PaidSubscription_cancelAt(ctx, field)
+	case "canceledAt":
+		return ec.fieldContext_PaidSubscription_canceledAt(ctx, field)
+	case "nextBillingAt":
+		return ec.fieldContext_PaidSubscription_nextBillingAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_PaidSubscription_updatedAt(ctx, field)
+	case "seatsMaximum":
+		return ec.fieldContext_PaidSubscription_seatsMaximum(ctx, field)
+	case "seatsMinimum":
+		return ec.fieldContext_PaidSubscription_seatsMinimum(ctx, field)
+	case "seats":
+		return ec.fieldContext_PaidSubscription_seats(ctx, field)
+	case "type":
+		return ec.fieldContext_PaidSubscription_type(ctx, field)
+	case "pendingChangeType":
+		return ec.fieldContext_PaidSubscription_pendingChangeType(ctx, field)
+	case "archivedAt":
+		return ec.fieldContext_PaidSubscription_archivedAt(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_PaidSubscription_createdAt(ctx, field)
+	case "id":
+		return ec.fieldContext_PaidSubscription_id(ctx, field)
+	case "creator":
+		return ec.fieldContext_PaidSubscription_creator(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PaidSubscription", field.Name)
 }
 
 func (ec *executionContext) childFields_Project(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1959,12 +3641,240 @@ func (ec *executionContext) childFields_ProjectMilestone(ctx context.Context, fi
 	return nil, fmt.Errorf("no field named %q was found under type ProjectMilestone", field.Name)
 }
 
+func (ec *executionContext) childFields_ProjectStatus(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "description":
+		return ec.fieldContext_ProjectStatus_description(ctx, field)
+	case "type":
+		return ec.fieldContext_ProjectStatus_type(ctx, field)
+	case "color":
+		return ec.fieldContext_ProjectStatus_color(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_ProjectStatus_updatedAt(ctx, field)
+	case "name":
+		return ec.fieldContext_ProjectStatus_name(ctx, field)
+	case "position":
+		return ec.fieldContext_ProjectStatus_position(ctx, field)
+	case "archivedAt":
+		return ec.fieldContext_ProjectStatus_archivedAt(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_ProjectStatus_createdAt(ctx, field)
+	case "id":
+		return ec.fieldContext_ProjectStatus_id(ctx, field)
+	case "indefinite":
+		return ec.fieldContext_ProjectStatus_indefinite(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ProjectStatus", field.Name)
+}
+
 func (ec *executionContext) childFields_ProjectUpdate(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
 		return ec.fieldContext_ProjectUpdate_id(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ProjectUpdate", field.Name)
+}
+
+func (ec *executionContext) childFields_Team(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "cycleIssueAutoAssignCompleted":
+		return ec.fieldContext_Team_cycleIssueAutoAssignCompleted(ctx, field)
+	case "cycleLockToActive":
+		return ec.fieldContext_Team_cycleLockToActive(ctx, field)
+	case "cycleIssueAutoAssignStarted":
+		return ec.fieldContext_Team_cycleIssueAutoAssignStarted(ctx, field)
+	case "cycleCalenderUrl":
+		return ec.fieldContext_Team_cycleCalenderUrl(ctx, field)
+	case "upcomingCycleCount":
+		return ec.fieldContext_Team_upcomingCycleCount(ctx, field)
+	case "autoArchivePeriod":
+		return ec.fieldContext_Team_autoArchivePeriod(ctx, field)
+	case "autoClosePeriod":
+		return ec.fieldContext_Team_autoClosePeriod(ctx, field)
+	case "securitySettings":
+		return ec.fieldContext_Team_securitySettings(ctx, field)
+	case "integrationsSettings":
+		return ec.fieldContext_Team_integrationsSettings(ctx, field)
+	case "activeCycle":
+		return ec.fieldContext_Team_activeCycle(ctx, field)
+	case "triageResponsibility":
+		return ec.fieldContext_Team_triageResponsibility(ctx, field)
+	case "scimGroupName":
+		return ec.fieldContext_Team_scimGroupName(ctx, field)
+	case "autoCloseStateId":
+		return ec.fieldContext_Team_autoCloseStateId(ctx, field)
+	case "cycleCooldownTime":
+		return ec.fieldContext_Team_cycleCooldownTime(ctx, field)
+	case "cycleStartDay":
+		return ec.fieldContext_Team_cycleStartDay(ctx, field)
+	case "defaultTemplateForMembers":
+		return ec.fieldContext_Team_defaultTemplateForMembers(ctx, field)
+	case "defaultTemplateForNonMembers":
+		return ec.fieldContext_Team_defaultTemplateForNonMembers(ctx, field)
+	case "defaultProjectTemplate":
+		return ec.fieldContext_Team_defaultProjectTemplate(ctx, field)
+	case "defaultIssueState":
+		return ec.fieldContext_Team_defaultIssueState(ctx, field)
+	case "cycleDuration":
+		return ec.fieldContext_Team_cycleDuration(ctx, field)
+	case "icon":
+		return ec.fieldContext_Team_icon(ctx, field)
+	case "defaultTemplateForMembersId":
+		return ec.fieldContext_Team_defaultTemplateForMembersId(ctx, field)
+	case "defaultTemplateForNonMembersId":
+		return ec.fieldContext_Team_defaultTemplateForNonMembersId(ctx, field)
+	case "issueEstimationType":
+		return ec.fieldContext_Team_issueEstimationType(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Team_updatedAt(ctx, field)
+	case "displayName":
+		return ec.fieldContext_Team_displayName(ctx, field)
+	case "ledInitiativeCount":
+		return ec.fieldContext_Team_ledInitiativeCount(ctx, field)
+	case "color":
+		return ec.fieldContext_Team_color(ctx, field)
+	case "description":
+		return ec.fieldContext_Team_description(ctx, field)
+	case "name":
+		return ec.fieldContext_Team_name(ctx, field)
+	case "parent":
+		return ec.fieldContext_Team_parent(ctx, field)
+	case "id":
+		return ec.fieldContext_Team_id(ctx, field)
+	case "key":
+		return ec.fieldContext_Team_key(ctx, field)
+	case "archivedAt":
+		return ec.fieldContext_Team_archivedAt(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Team_createdAt(ctx, field)
+	case "retiredAt":
+		return ec.fieldContext_Team_retiredAt(ctx, field)
+	case "timezone":
+		return ec.fieldContext_Team_timezone(ctx, field)
+	case "issueCount":
+		return ec.fieldContext_Team_issueCount(ctx, field)
+	case "viewerMembership":
+		return ec.fieldContext_Team_viewerMembership(ctx, field)
+	case "visibility":
+		return ec.fieldContext_Team_visibility(ctx, field)
+	case "mergeWorkflowState":
+		return ec.fieldContext_Team_mergeWorkflowState(ctx, field)
+	case "draftWorkflowState":
+		return ec.fieldContext_Team_draftWorkflowState(ctx, field)
+	case "startWorkflowState":
+		return ec.fieldContext_Team_startWorkflowState(ctx, field)
+	case "mergeableWorkflowState":
+		return ec.fieldContext_Team_mergeableWorkflowState(ctx, field)
+	case "reviewWorkflowState":
+		return ec.fieldContext_Team_reviewWorkflowState(ctx, field)
+	case "triageIssueState":
+		return ec.fieldContext_Team_triageIssueState(ctx, field)
+	case "defaultIssueEstimate":
+		return ec.fieldContext_Team_defaultIssueEstimate(ctx, field)
+	case "setIssueSortOrderOnStateChange":
+		return ec.fieldContext_Team_setIssueSortOrderOnStateChange(ctx, field)
+	case "allMembersCanJoin":
+		return ec.fieldContext_Team_allMembersCanJoin(ctx, field)
+	case "requirePriorityToLeaveTriage":
+		return ec.fieldContext_Team_requirePriorityToLeaveTriage(ctx, field)
+	case "autoCloseChildIssues":
+		return ec.fieldContext_Team_autoCloseChildIssues(ctx, field)
+	case "autoCloseParentIssues":
+		return ec.fieldContext_Team_autoCloseParentIssues(ctx, field)
+	case "initiativesEnabled":
+		return ec.fieldContext_Team_initiativesEnabled(ctx, field)
+	case "scimManaged":
+		return ec.fieldContext_Team_scimManaged(ctx, field)
+	case "private":
+		return ec.fieldContext_Team_private(ctx, field)
+	case "inheritIssueEstimation":
+		return ec.fieldContext_Team_inheritIssueEstimation(ctx, field)
+	case "inheritWorkflowStatuses":
+		return ec.fieldContext_Team_inheritWorkflowStatuses(ctx, field)
+	case "cyclesEnabled":
+		return ec.fieldContext_Team_cyclesEnabled(ctx, field)
+	case "viewerCanJoin":
+		return ec.fieldContext_Team_viewerCanJoin(ctx, field)
+	case "viewerCanLeave":
+		return ec.fieldContext_Team_viewerCanLeave(ctx, field)
+	case "issueEstimationExtended":
+		return ec.fieldContext_Team_issueEstimationExtended(ctx, field)
+	case "issueEstimationAllowZero":
+		return ec.fieldContext_Team_issueEstimationAllowZero(ctx, field)
+	case "aiDiscussionSummariesEnabled":
+		return ec.fieldContext_Team_aiDiscussionSummariesEnabled(ctx, field)
+	case "aiThreadSummariesEnabled":
+		return ec.fieldContext_Team_aiThreadSummariesEnabled(ctx, field)
+	case "groupIssueHistory":
+		return ec.fieldContext_Team_groupIssueHistory(ctx, field)
+	case "slackIssueComments":
+		return ec.fieldContext_Team_slackIssueComments(ctx, field)
+	case "slackNewIssue":
+		return ec.fieldContext_Team_slackNewIssue(ctx, field)
+	case "slackIssueStatuses":
+		return ec.fieldContext_Team_slackIssueStatuses(ctx, field)
+	case "triageEnabled":
+		return ec.fieldContext_Team_triageEnabled(ctx, field)
+	case "markedAsDuplicateWorkflowState":
+		return ec.fieldContext_Team_markedAsDuplicateWorkflowState(ctx, field)
+	case "inviteHash":
+		return ec.fieldContext_Team_inviteHash(ctx, field)
+	case "issueOrderingNoPriorityFirst":
+		return ec.fieldContext_Team_issueOrderingNoPriorityFirst(ctx, field)
+	case "issueSortOrderDefaultToBottom":
+		return ec.fieldContext_Team_issueSortOrderDefaultToBottom(ctx, field)
+	case "states":
+		return ec.fieldContext_Team_states(ctx, field)
+	case "members":
+		return ec.fieldContext_Team_members(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Team", field.Name)
+}
+
+func (ec *executionContext) childFields_TeamConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "nodes":
+		return ec.fieldContext_TeamConnection_nodes(ctx, field)
+	case "edges":
+		return ec.fieldContext_TeamConnection_edges(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_TeamConnection_pageInfo(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TeamConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_TeamEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "node":
+		return ec.fieldContext_TeamEdge_node(ctx, field)
+	case "cursor":
+		return ec.fieldContext_TeamEdge_cursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TeamEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_TeamMembership(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_TeamMembership_id(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TeamMembership", field.Name)
+}
+
+func (ec *executionContext) childFields_Template(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Template_id(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Template", field.Name)
+}
+
+func (ec *executionContext) childFields_TriageResponsibility(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_TriageResponsibility_id(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TriageResponsibility", field.Name)
 }
 
 func (ec *executionContext) childFields_User(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2079,6 +3989,56 @@ func (ec *executionContext) childFields_WelcomeMessage(ctx context.Context, fiel
 		return ec.fieldContext_WelcomeMessage_enabled(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type WelcomeMessage", field.Name)
+}
+
+func (ec *executionContext) childFields_WorkflowState(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_WorkflowState_id(ctx, field)
+	case "description":
+		return ec.fieldContext_WorkflowState_description(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_WorkflowState_updatedAt(ctx, field)
+	case "inheritedFrom":
+		return ec.fieldContext_WorkflowState_inheritedFrom(ctx, field)
+	case "position":
+		return ec.fieldContext_WorkflowState_position(ctx, field)
+	case "color":
+		return ec.fieldContext_WorkflowState_color(ctx, field)
+	case "name":
+		return ec.fieldContext_WorkflowState_name(ctx, field)
+	case "team":
+		return ec.fieldContext_WorkflowState_team(ctx, field)
+	case "archivedAt":
+		return ec.fieldContext_WorkflowState_archivedAt(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_WorkflowState_createdAt(ctx, field)
+	case "type":
+		return ec.fieldContext_WorkflowState_type(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type WorkflowState", field.Name)
+}
+
+func (ec *executionContext) childFields_WorkflowStateConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "nodes":
+		return ec.fieldContext_WorkflowStateConnection_nodes(ctx, field)
+	case "edges":
+		return ec.fieldContext_WorkflowStateConnection_edges(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_WorkflowStateConnection_pageInfo(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type WorkflowStateConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_WorkflowStateEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "node":
+		return ec.fieldContext_WorkflowStateEdge_node(ctx, field)
+	case "cursor":
+		return ec.fieldContext_WorkflowStateEdge_cursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type WorkflowStateEdge", field.Name)
 }
 
 func (ec *executionContext) childFields___Directive(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2197,6 +4157,68 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Organization_teams_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*TeamFilter, error) {
+			return ec.unmarshalOTeamFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "includeArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeArchived"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*PaginationOrderBy, error) {
+			return ec.unmarshalOPaginationOrderBy2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaginationOrderBy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg6
+	return args, nil
+}
+
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2208,6 +4230,82 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_team_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_teams_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*TeamFilter, error) {
+			return ec.unmarshalOTeamFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "includeArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeArchived"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*PaginationOrderBy, error) {
+			return ec.unmarshalOPaginationOrderBy2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaginationOrderBy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg6
 	return args, nil
 }
 
@@ -2300,6 +4398,222 @@ func (ec *executionContext) field_Query_users_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["sort"] = arg8
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_workflowState_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_workflowStates_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*WorkflowStateFilter, error) {
+			return ec.unmarshalOWorkflowStateFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "includeArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeArchived"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*PaginationOrderBy, error) {
+			return ec.unmarshalOPaginationOrderBy2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaginationOrderBy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg6
+	return args, nil
+}
+
+func (ec *executionContext) field_Team_members_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*UserFilter, error) {
+			return ec.unmarshalOUserFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUserFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "includeArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeArchived"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "includeDisabled",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeDisabled"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg6
+	arg7, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*PaginationOrderBy, error) {
+			return ec.unmarshalOPaginationOrderBy2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaginationOrderBy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg7
+	arg8, err := graphql.ProcessArgField(ctx, rawArgs, "sort",
+		func(ctx context.Context, v any) ([]UserSortInput, error) {
+			return ec.unmarshalOUserSortInput2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUserSortInputᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["sort"] = arg8
+	return args, nil
+}
+
+func (ec *executionContext) field_Team_states_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*WorkflowStateFilter, error) {
+			return ec.unmarshalOWorkflowStateFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateFilter(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "includeArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeArchived"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg5
+	arg6, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*PaginationOrderBy, error) {
+			return ec.unmarshalOPaginationOrderBy2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaginationOrderBy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg6
 	return args, nil
 }
 
@@ -3700,6 +6014,1388 @@ func (ec *executionContext) fieldContext_IssueSharedAccess_isShared(_ context.Co
 	return graphql.NewScalarFieldContext("IssueSharedAccess", field, false, false, "Boolean")
 }
 
+func (ec *executionContext) _Organization_allowedAuthServices(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_allowedAuthServices(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AllowedAuthServices, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_allowedAuthServices(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_allowedFileUploadContentTypes(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_allowedFileUploadContentTypes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AllowedFileUploadContentTypes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalOString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_allowedFileUploadContentTypes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_createdIssueCount(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_createdIssueCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedIssueCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_createdIssueCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Int")
+}
+
+func (ec *executionContext) _Organization_authSettings(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_authSettings(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AuthSettings, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v JSONObject) graphql.Marshaler {
+			return ec.marshalNJSONObject2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐJSONObject(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_authSettings(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "JSONObject")
+}
+
+func (ec *executionContext) _Organization_customersConfiguration(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_customersConfiguration(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CustomersConfiguration, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v JSONObject) graphql.Marshaler {
+			return ec.marshalNJSONObject2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐJSONObject(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_customersConfiguration(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "JSONObject")
+}
+
+func (ec *executionContext) _Organization_defaultFeedSummarySchedule(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_defaultFeedSummarySchedule(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultFeedSummarySchedule, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *FeedSummarySchedule) graphql.Marshaler {
+			return ec.marshalOFeedSummarySchedule2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐFeedSummarySchedule(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_defaultFeedSummarySchedule(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "FeedSummarySchedule")
+}
+
+func (ec *executionContext) _Organization_pullRequestIssueMode(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_pullRequestIssueMode(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequestIssueMode, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_pullRequestIssueMode(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_previousUrlKeys(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_previousUrlKeys(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PreviousURLKeys, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_previousUrlKeys(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_periodUploadVolume(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_periodUploadVolume(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PeriodUploadVolume, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_periodUploadVolume(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Organization_securitySettings(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_securitySettings(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SecuritySettings, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v JSONObject) graphql.Marshaler {
+			return ec.marshalNJSONObject2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐJSONObject(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_securitySettings(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "JSONObject")
+}
+
+func (ec *executionContext) _Organization_slackProjectChannelIntegration(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_slackProjectChannelIntegration(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SlackProjectChannelIntegration, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Integration) graphql.Marshaler {
+			return ec.marshalOIntegration2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIntegration(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_slackProjectChannelIntegration(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Organization",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Integration(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Organization_logoUrl(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_logoUrl(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LogoURL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_logoUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_initiativeUpdateRemindersDay(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_initiativeUpdateRemindersDay(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InitiativeUpdateRemindersDay, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v Day) graphql.Marshaler {
+			return ec.marshalNDay2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐDay(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_initiativeUpdateRemindersDay(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Day")
+}
+
+func (ec *executionContext) _Organization_projectUpdateRemindersDay(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_projectUpdateRemindersDay(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectUpdateRemindersDay, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v Day) graphql.Marshaler {
+			return ec.marshalNDay2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐDay(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_projectUpdateRemindersDay(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Day")
+}
+
+func (ec *executionContext) _Organization_defaultHomeView(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_defaultHomeView(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultHomeView, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_defaultHomeView(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_releaseChannel(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_releaseChannel(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReleaseChannel, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v ReleaseChannel) graphql.Marshaler {
+			return ec.marshalNReleaseChannel2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐReleaseChannel(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_releaseChannel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "ReleaseChannel")
+}
+
+func (ec *executionContext) _Organization_initiativeUpdateReminderFrequencyInWeeks(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_initiativeUpdateReminderFrequencyInWeeks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InitiativeUpdateReminderFrequencyInWeeks, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_initiativeUpdateReminderFrequencyInWeeks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Organization_projectUpdateReminderFrequencyInWeeks(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_projectUpdateReminderFrequencyInWeeks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectUpdateReminderFrequencyInWeeks, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_projectUpdateReminderFrequencyInWeeks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Organization_initiativeUpdateRemindersHour(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_initiativeUpdateRemindersHour(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InitiativeUpdateRemindersHour, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_initiativeUpdateRemindersHour(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Organization_projectUpdateRemindersHour(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_projectUpdateRemindersHour(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectUpdateRemindersHour, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_projectUpdateRemindersHour(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Organization_defaultHomeViewTargetId(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_defaultHomeViewTargetId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultHomeViewTargetID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_defaultHomeViewTargetId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_updatedAt(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Organization_customerCount(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_customerCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CustomerCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_customerCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Int")
+}
+
+func (ec *executionContext) _Organization_userCount(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_userCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UserCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_userCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Int")
+}
+
+func (ec *executionContext) _Organization_slackProjectChannelPrefix(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_slackProjectChannelPrefix(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SlackProjectChannelPrefix, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_slackProjectChannelPrefix(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_gitBranchFormat(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_gitBranchFormat(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.GitBranchFormat, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_gitBranchFormat(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_deletionRequestedAt(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_deletionRequestedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DeletionRequestedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_deletionRequestedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Organization_trialStartsAt(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_trialStartsAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TrialStartsAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_trialStartsAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Organization_trialEndsAt(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_trialEndsAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TrialEndsAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_trialEndsAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Organization_archivedAt(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_archivedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ArchivedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_archivedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Organization_createdAt(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Organization_id(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "ID")
+}
+
+func (ec *executionContext) _Organization_projectStatuses(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_projectStatuses(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectStatuses, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []ProjectStatus) graphql.Marshaler {
+			return ec.marshalNProjectStatus2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectStatusᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_projectStatuses(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Organization",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ProjectStatus(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Organization_name(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_subscription(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_subscription(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Subscription, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PaidSubscription) graphql.Marshaler {
+			return ec.marshalOPaidSubscription2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaidSubscription(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_subscription(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Organization",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PaidSubscription(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Organization_urlKey(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_urlKey(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.URLKey, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_urlKey(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "String")
+}
+
+func (ec *executionContext) _Organization_fiscalYearStartMonth(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_fiscalYearStartMonth(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.FiscalYearStartMonth, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_fiscalYearStartMonth(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Organization_hipaaComplianceEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_hipaaComplianceEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HipaaComplianceEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_hipaaComplianceEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_samlEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_samlEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SamlEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_samlEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_scimEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_scimEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ScimEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_scimEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_gitLinkbackDescriptionsEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_gitLinkbackDescriptionsEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.GitLinkbackDescriptionsEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_gitLinkbackDescriptionsEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_releasesEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_releasesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReleasesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_releasesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_customersEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_customersEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CustomersEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_customersEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_gitLinkbackMessagesEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_gitLinkbackMessagesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.GitLinkbackMessagesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_gitLinkbackMessagesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_gitPublicLinkbackMessagesEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_gitPublicLinkbackMessagesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.GitPublicLinkbackMessagesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_gitPublicLinkbackMessagesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_feedEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_feedEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.FeedEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_feedEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_suggestedBranchNameEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_suggestedBranchNameEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SuggestedBranchNameEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_suggestedBranchNameEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_roadmapEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_roadmapEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RoadmapEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_roadmapEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_pullRequestTourEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_pullRequestTourEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PullRequestTourEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_pullRequestTourEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_aiDiscussionSummariesEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_aiDiscussionSummariesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AiDiscussionSummariesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_aiDiscussionSummariesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_aiThreadSummariesEnabled(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_aiThreadSummariesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AiThreadSummariesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_aiThreadSummariesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_hideNonPrimaryOrganizations(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_hideNonPrimaryOrganizations(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HideNonPrimaryOrganizations, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_hideNonPrimaryOrganizations(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_projectUpdatesReminderFrequency(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_projectUpdatesReminderFrequency(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ProjectUpdatesReminderFrequency, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v ProjectUpdateReminderFrequency) graphql.Marshaler {
+			return ec.marshalNProjectUpdateReminderFrequency2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectUpdateReminderFrequency(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_projectUpdatesReminderFrequency(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "ProjectUpdateReminderFrequency")
+}
+
+func (ec *executionContext) _Organization_allowMembersToInvite(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_allowMembersToInvite(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AllowMembersToInvite, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_allowMembersToInvite(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_restrictTeamCreationToAdmins(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_restrictTeamCreationToAdmins(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RestrictTeamCreationToAdmins, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_restrictTeamCreationToAdmins(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_restrictLabelManagementToAdmins(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_restrictLabelManagementToAdmins(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RestrictLabelManagementToAdmins, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_restrictLabelManagementToAdmins(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Organization_slaDayCount(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_slaDayCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SLADayCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v SLADayCountType) graphql.Marshaler {
+			return ec.marshalNSLADayCountType2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐSLADayCountType(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_slaDayCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Organization", field, false, false, "SLADayCountType")
+}
+
+func (ec *executionContext) _Organization_teams(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Organization_teams(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Organization().Teams(ctx, obj, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["filter"].(*TeamFilter), fc.Args["first"].(*int), fc.Args["includeArchived"].(*bool), fc.Args["last"].(*int), fc.Args["orderBy"].(*PaginationOrderBy))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamConnection) graphql.Marshaler {
+			return ec.marshalNTeamConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Organization_teams(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Organization",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TeamConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Organization_teams_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _PageInfo_startCursor(ctx context.Context, field graphql.CollectedField, obj *PageInfo) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4169,6 +7865,236 @@ func (ec *executionContext) fieldContext_ProjectMilestone_id(_ context.Context, 
 	return graphql.NewScalarFieldContext("ProjectMilestone", field, false, false, "ID")
 }
 
+func (ec *executionContext) _ProjectStatus_description(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "String")
+}
+
+func (ec *executionContext) _ProjectStatus_type(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_type(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v ProjectStatusType) graphql.Marshaler {
+			return ec.marshalNProjectStatusType2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectStatusType(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "ProjectStatusType")
+}
+
+func (ec *executionContext) _ProjectStatus_color(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_color(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Color, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_color(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "String")
+}
+
+func (ec *executionContext) _ProjectStatus_updatedAt(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _ProjectStatus_name(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "String")
+}
+
+func (ec *executionContext) _ProjectStatus_position(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_position(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Position, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "Float")
+}
+
+func (ec *executionContext) _ProjectStatus_archivedAt(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_archivedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ArchivedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_archivedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _ProjectStatus_createdAt(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _ProjectStatus_id(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "ID")
+}
+
+func (ec *executionContext) _ProjectStatus_indefinite(ctx context.Context, field graphql.CollectedField, obj *ProjectStatus) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStatus_indefinite(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Indefinite, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStatus_indefinite(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStatus", field, false, false, "Boolean")
+}
+
 func (ec *executionContext) _ProjectUpdate_id(ctx context.Context, field graphql.CollectedField, obj *ProjectUpdate) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4306,6 +8232,214 @@ func (ec *executionContext) fieldContext_Query_user(ctx context.Context, field g
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_user_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_organization(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_organization(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Query().Organization(ctx)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Organization) graphql.Marshaler {
+			return ec.marshalNOrganization2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐOrganization(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_organization(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Organization(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_teams(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_teams(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Teams(ctx, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["filter"].(*TeamFilter), fc.Args["first"].(*int), fc.Args["includeArchived"].(*bool), fc.Args["last"].(*int), fc.Args["orderBy"].(*PaginationOrderBy))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamConnection) graphql.Marshaler {
+			return ec.marshalNTeamConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_teams(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TeamConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_teams_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_team(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_team(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Team(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
+			return ec.marshalNTeam2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_team(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Team(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_team_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_workflowStates(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_workflowStates(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().WorkflowStates(ctx, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["filter"].(*WorkflowStateFilter), fc.Args["first"].(*int), fc.Args["includeArchived"].(*bool), fc.Args["last"].(*int), fc.Args["orderBy"].(*PaginationOrderBy))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowStateConnection) graphql.Marshaler {
+			return ec.marshalNWorkflowStateConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_workflowStates(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowStateConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_workflowStates_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_workflowState(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_workflowState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().WorkflowState(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalNWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_workflowState(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_workflowState_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -4900,6 +9034,2068 @@ func (ec *executionContext) _SyncedExternalThread_isConnected(ctx context.Contex
 }
 func (ec *executionContext) fieldContext_SyncedExternalThread_isConnected(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("SyncedExternalThread", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_cycleIssueAutoAssignCompleted(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_cycleIssueAutoAssignCompleted(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CycleIssueAutoAssignCompleted, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_cycleIssueAutoAssignCompleted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_cycleLockToActive(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_cycleLockToActive(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CycleLockToActive, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_cycleLockToActive(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_cycleIssueAutoAssignStarted(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_cycleIssueAutoAssignStarted(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CycleIssueAutoAssignStarted, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_cycleIssueAutoAssignStarted(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_cycleCalenderUrl(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_cycleCalenderUrl(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CycleCalenderURL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_cycleCalenderUrl(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_upcomingCycleCount(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_upcomingCycleCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpcomingCycleCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_upcomingCycleCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Team_autoArchivePeriod(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_autoArchivePeriod(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AutoArchivePeriod, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_autoArchivePeriod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Team_autoClosePeriod(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_autoClosePeriod(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AutoClosePeriod, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_autoClosePeriod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Team_securitySettings(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_securitySettings(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SecuritySettings, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v JSONObject) graphql.Marshaler {
+			return ec.marshalNJSONObject2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐJSONObject(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_securitySettings(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "JSONObject")
+}
+
+func (ec *executionContext) _Team_integrationsSettings(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_integrationsSettings(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IntegrationsSettings, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *IntegrationsSettings) graphql.Marshaler {
+			return ec.marshalOIntegrationsSettings2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIntegrationsSettings(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_integrationsSettings(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_IntegrationsSettings(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_activeCycle(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_activeCycle(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ActiveCycle, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Cycle) graphql.Marshaler {
+			return ec.marshalOCycle2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐCycle(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_activeCycle(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Cycle(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_triageResponsibility(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_triageResponsibility(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TriageResponsibility, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TriageResponsibility) graphql.Marshaler {
+			return ec.marshalOTriageResponsibility2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTriageResponsibility(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_triageResponsibility(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TriageResponsibility(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_scimGroupName(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_scimGroupName(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ScimGroupName, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_scimGroupName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_autoCloseStateId(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_autoCloseStateId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AutoCloseStateID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_autoCloseStateId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_cycleCooldownTime(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_cycleCooldownTime(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CycleCooldownTime, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_cycleCooldownTime(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Team_cycleStartDay(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_cycleStartDay(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CycleStartDay, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_cycleStartDay(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Team_defaultTemplateForMembers(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_defaultTemplateForMembers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultTemplateForMembers, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Template) graphql.Marshaler {
+			return ec.marshalOTemplate2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTemplate(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_defaultTemplateForMembers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Template(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_defaultTemplateForNonMembers(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_defaultTemplateForNonMembers(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultTemplateForNonMembers, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Template) graphql.Marshaler {
+			return ec.marshalOTemplate2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTemplate(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_defaultTemplateForNonMembers(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Template(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_defaultProjectTemplate(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_defaultProjectTemplate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultProjectTemplate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Template) graphql.Marshaler {
+			return ec.marshalOTemplate2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTemplate(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_defaultProjectTemplate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Template(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_defaultIssueState(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_defaultIssueState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Team().DefaultIssueState(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_defaultIssueState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_cycleDuration(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_cycleDuration(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CycleDuration, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_cycleDuration(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Team_icon(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_icon(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Icon, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_icon(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_defaultTemplateForMembersId(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_defaultTemplateForMembersId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultTemplateForMembersID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_defaultTemplateForMembersId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_defaultTemplateForNonMembersId(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_defaultTemplateForNonMembersId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultTemplateForNonMembersID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_defaultTemplateForNonMembersId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_issueEstimationType(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_issueEstimationType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IssueEstimationType, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_issueEstimationType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_updatedAt(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Team_displayName(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_displayName(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DisplayName, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_displayName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_ledInitiativeCount(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_ledInitiativeCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LedInitiativeCount, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_ledInitiativeCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Int")
+}
+
+func (ec *executionContext) _Team_color(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_color(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Color, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_color(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_description(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_name(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_parent(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_parent(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Parent, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
+			return ec.marshalOTeam2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_parent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Team(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_id(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "ID")
+}
+
+func (ec *executionContext) _Team_key(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_key(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Key, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_key(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_archivedAt(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_archivedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ArchivedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_archivedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Team_createdAt(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Team_retiredAt(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_retiredAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RetiredAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_retiredAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Team_timezone(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_timezone(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Timezone, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_timezone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_issueCount(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_issueCount(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Team().IssueCount(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_issueCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, true, true, "Int")
+}
+
+func (ec *executionContext) _Team_viewerMembership(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_viewerMembership(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ViewerMembership, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *TeamMembership) graphql.Marshaler {
+			return ec.marshalOTeamMembership2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamMembership(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_viewerMembership(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TeamMembership(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_visibility(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_visibility(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Visibility, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v TeamVisibility) graphql.Marshaler {
+			return ec.marshalNTeamVisibility2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamVisibility(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_visibility(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "TeamVisibility")
+}
+
+func (ec *executionContext) _Team_mergeWorkflowState(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_mergeWorkflowState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MergeWorkflowState, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_mergeWorkflowState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_draftWorkflowState(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_draftWorkflowState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DraftWorkflowState, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_draftWorkflowState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_startWorkflowState(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_startWorkflowState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StartWorkflowState, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_startWorkflowState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_mergeableWorkflowState(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_mergeableWorkflowState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MergeableWorkflowState, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_mergeableWorkflowState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_reviewWorkflowState(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_reviewWorkflowState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ReviewWorkflowState, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_reviewWorkflowState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_triageIssueState(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_triageIssueState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TriageIssueState, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_triageIssueState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_defaultIssueEstimate(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_defaultIssueEstimate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.DefaultIssueEstimate, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_defaultIssueEstimate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Team_setIssueSortOrderOnStateChange(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_setIssueSortOrderOnStateChange(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SetIssueSortOrderOnStateChange, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_setIssueSortOrderOnStateChange(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_allMembersCanJoin(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_allMembersCanJoin(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AllMembersCanJoin, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_allMembersCanJoin(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_requirePriorityToLeaveTriage(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_requirePriorityToLeaveTriage(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequirePriorityToLeaveTriage, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_requirePriorityToLeaveTriage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_autoCloseChildIssues(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_autoCloseChildIssues(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AutoCloseChildIssues, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_autoCloseChildIssues(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_autoCloseParentIssues(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_autoCloseParentIssues(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AutoCloseParentIssues, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_autoCloseParentIssues(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_initiativesEnabled(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_initiativesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InitiativesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_initiativesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_scimManaged(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_scimManaged(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ScimManaged, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_scimManaged(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_private(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_private(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Private, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_private(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_inheritIssueEstimation(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_inheritIssueEstimation(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InheritIssueEstimation, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_inheritIssueEstimation(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_inheritWorkflowStatuses(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_inheritWorkflowStatuses(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InheritWorkflowStatuses, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_inheritWorkflowStatuses(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_cyclesEnabled(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_cyclesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CyclesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_cyclesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_viewerCanJoin(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_viewerCanJoin(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ViewerCanJoin, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_viewerCanJoin(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_viewerCanLeave(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_viewerCanLeave(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ViewerCanLeave, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_viewerCanLeave(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_issueEstimationExtended(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_issueEstimationExtended(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IssueEstimationExtended, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_issueEstimationExtended(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_issueEstimationAllowZero(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_issueEstimationAllowZero(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IssueEstimationAllowZero, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_issueEstimationAllowZero(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_aiDiscussionSummariesEnabled(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_aiDiscussionSummariesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AiDiscussionSummariesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_aiDiscussionSummariesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_aiThreadSummariesEnabled(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_aiThreadSummariesEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AiThreadSummariesEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_aiThreadSummariesEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_groupIssueHistory(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_groupIssueHistory(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.GroupIssueHistory, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_groupIssueHistory(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_slackIssueComments(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_slackIssueComments(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SlackIssueComments, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_slackIssueComments(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_slackNewIssue(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_slackNewIssue(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SlackNewIssue, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_slackNewIssue(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_slackIssueStatuses(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_slackIssueStatuses(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SlackIssueStatuses, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_slackIssueStatuses(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_triageEnabled(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_triageEnabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TriageEnabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_triageEnabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_markedAsDuplicateWorkflowState(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_markedAsDuplicateWorkflowState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MarkedAsDuplicateWorkflowState, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Team_markedAsDuplicateWorkflowState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_inviteHash(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_inviteHash(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InviteHash, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_inviteHash(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "String")
+}
+
+func (ec *executionContext) _Team_issueOrderingNoPriorityFirst(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_issueOrderingNoPriorityFirst(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IssueOrderingNoPriorityFirst, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_issueOrderingNoPriorityFirst(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_issueSortOrderDefaultToBottom(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_issueSortOrderDefaultToBottom(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IssueSortOrderDefaultToBottom, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_issueSortOrderDefaultToBottom(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Team", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Team_states(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_states(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Team().States(ctx, obj, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["filter"].(*WorkflowStateFilter), fc.Args["first"].(*int), fc.Args["includeArchived"].(*bool), fc.Args["last"].(*int), fc.Args["orderBy"].(*PaginationOrderBy))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowStateConnection) graphql.Marshaler {
+			return ec.marshalNWorkflowStateConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_states(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowStateConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Team_states_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Team_members(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_members(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Team().Members(ctx, obj, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["filter"].(*UserFilter), fc.Args["first"].(*int), fc.Args["includeArchived"].(*bool), fc.Args["includeDisabled"].(*bool), fc.Args["last"].(*int), fc.Args["orderBy"].(*PaginationOrderBy), fc.Args["sort"].([]UserSortInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *UserConnection) graphql.Marshaler {
+			return ec.marshalNUserConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUserConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_members(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_UserConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Team_members_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TeamConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *TeamConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TeamConnection_nodes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Team) graphql.Marshaler {
+			return ec.marshalNTeam2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TeamConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TeamConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Team(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TeamConnection_edges(ctx context.Context, field graphql.CollectedField, obj *TeamConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TeamConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []TeamEdge) graphql.Marshaler {
+			return ec.marshalNTeamEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TeamConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TeamConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TeamEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TeamConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *TeamConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TeamConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TeamConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TeamConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TeamEdge_node(ctx context.Context, field graphql.CollectedField, obj *TeamEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TeamEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
+			return ec.marshalNTeam2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TeamEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TeamEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Team(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TeamEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *TeamEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TeamEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TeamEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TeamEdge", field, false, false, "String")
 }
 
 func (ec *executionContext) _TeamMembership_id(ctx context.Context, field graphql.CollectedField, obj *TeamMembership) (ret graphql.Marshaler) {
@@ -6049,6 +12245,428 @@ func (ec *executionContext) _WelcomeMessage_enabled(ctx context.Context, field g
 }
 func (ec *executionContext) fieldContext_WelcomeMessage_enabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("WelcomeMessage", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _WorkflowState_id(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowState", field, false, false, "ID")
+}
+
+func (ec *executionContext) _WorkflowState_description(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_description(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowState", field, false, false, "String")
+}
+
+func (ec *executionContext) _WorkflowState_updatedAt(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowState", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _WorkflowState_inheritedFrom(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_inheritedFrom(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InheritedFrom, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_inheritedFrom(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WorkflowState",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WorkflowState_position(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_position(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Position, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowState", field, false, false, "Float")
+}
+
+func (ec *executionContext) _WorkflowState_color(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_color(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Color, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_color(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowState", field, false, false, "String")
+}
+
+func (ec *executionContext) _WorkflowState_name(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowState", field, false, false, "String")
+}
+
+func (ec *executionContext) _WorkflowState_team(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_team(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.WorkflowState().Team(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
+			return ec.marshalNTeam2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_team(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WorkflowState",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Team(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WorkflowState_archivedAt(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_archivedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ArchivedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_archivedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowState", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _WorkflowState_createdAt(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowState", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _WorkflowState_type(ctx context.Context, field graphql.CollectedField, obj *WorkflowState) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowState_type(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowState_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowState", field, false, false, "String")
+}
+
+func (ec *executionContext) _WorkflowStateConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *WorkflowStateConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowStateConnection_nodes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []WorkflowState) graphql.Marshaler {
+			return ec.marshalNWorkflowState2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowStateConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WorkflowStateConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WorkflowStateConnection_edges(ctx context.Context, field graphql.CollectedField, obj *WorkflowStateConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowStateConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []WorkflowStateEdge) graphql.Marshaler {
+			return ec.marshalNWorkflowStateEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowStateConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WorkflowStateConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowStateEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WorkflowStateConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *WorkflowStateConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowStateConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowStateConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WorkflowStateConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WorkflowStateEdge_node(ctx context.Context, field graphql.CollectedField, obj *WorkflowStateEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowStateEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+			return ec.marshalNWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowStateEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WorkflowStateEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WorkflowState(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WorkflowStateEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *WorkflowStateEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WorkflowStateEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WorkflowStateEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WorkflowStateEdge", field, false, false, "String")
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -8111,6 +14729,76 @@ func UnmarshalStringComparator(ctx context.Context, raw any) (StringComparator, 
 	return out, err
 }
 
+func (ec *executionContext) unmarshalInputTeamFilter(ctx context.Context, obj any) (TeamFilter, error) {
+	var it TeamFilter
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"and", "or", "id", "key", "name"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("and"))
+			data, err := ec.unmarshalOTeamFilter2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("or"))
+			data, err := ec.unmarshalOTeamFilter2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalOIDComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIDComparator(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("key"))
+			data, err := ec.unmarshalOStringComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐStringComparator(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Key = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalOStringComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐStringComparator(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalTeamFilter unmarshals raw into the TeamFilter input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalTeamFilter(ctx context.Context, raw any) (TeamFilter, error) {
+	var out TeamFilter
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "TeamFilter", raw, &out)
+	return out, err
+}
+
 func (ec *executionContext) unmarshalInputUserDisplayNameSort(ctx context.Context, obj any) (UserDisplayNameSort, error) {
 	var it UserDisplayNameSort
 	if obj == nil {
@@ -8360,6 +15048,83 @@ func (ec *executionContext) unmarshalInputUserSortInput(ctx context.Context, obj
 func UnmarshalUserSortInput(ctx context.Context, raw any) (UserSortInput, error) {
 	var out UserSortInput
 	err := graphql.UnmarshalNamedInputFromContext(ctx, "UserSortInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputWorkflowStateFilter(ctx context.Context, obj any) (WorkflowStateFilter, error) {
+	var it WorkflowStateFilter
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"and", "or", "id", "name", "type", "team"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "and":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("and"))
+			data, err := ec.unmarshalOWorkflowStateFilter2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.And = data
+		case "or":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("or"))
+			data, err := ec.unmarshalOWorkflowStateFilter2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateFilterᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Or = data
+		case "id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+			data, err := ec.unmarshalOIDComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIDComparator(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalOStringComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐStringComparator(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalOStringComparator2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐStringComparator(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "team":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("team"))
+			data, err := ec.unmarshalOTeamFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamFilter(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Team = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalWorkflowStateFilter unmarshals raw into the WorkflowStateFilter input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalWorkflowStateFilter(ctx context.Context, raw any) (WorkflowStateFilter, error) {
+	var out WorkflowStateFilter
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "WorkflowStateFilter", raw, &out)
 	return out, err
 }
 
@@ -9207,6 +15972,325 @@ func (ec *executionContext) _IssueSharedAccess(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var organizationImplementors = []string{"Organization"}
+
+func (ec *executionContext) _Organization(ctx context.Context, sel ast.SelectionSet, obj *Organization) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, organizationImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Organization")
+		case "allowedAuthServices":
+			out.Values[i] = ec._Organization_allowedAuthServices(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "allowedFileUploadContentTypes":
+			out.Values[i] = ec._Organization_allowedFileUploadContentTypes(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "createdIssueCount":
+			out.Values[i] = ec._Organization_createdIssueCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "authSettings":
+			out.Values[i] = ec._Organization_authSettings(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "customersConfiguration":
+			out.Values[i] = ec._Organization_customersConfiguration(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultFeedSummarySchedule":
+			out.Values[i] = ec._Organization_defaultFeedSummarySchedule(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "pullRequestIssueMode":
+			out.Values[i] = ec._Organization_pullRequestIssueMode(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "previousUrlKeys":
+			out.Values[i] = ec._Organization_previousUrlKeys(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "periodUploadVolume":
+			out.Values[i] = ec._Organization_periodUploadVolume(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "securitySettings":
+			out.Values[i] = ec._Organization_securitySettings(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slackProjectChannelIntegration":
+			out.Values[i] = ec._Organization_slackProjectChannelIntegration(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "logoUrl":
+			out.Values[i] = ec._Organization_logoUrl(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "initiativeUpdateRemindersDay":
+			out.Values[i] = ec._Organization_initiativeUpdateRemindersDay(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "projectUpdateRemindersDay":
+			out.Values[i] = ec._Organization_projectUpdateRemindersDay(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultHomeView":
+			out.Values[i] = ec._Organization_defaultHomeView(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "releaseChannel":
+			out.Values[i] = ec._Organization_releaseChannel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "initiativeUpdateReminderFrequencyInWeeks":
+			out.Values[i] = ec._Organization_initiativeUpdateReminderFrequencyInWeeks(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "projectUpdateReminderFrequencyInWeeks":
+			out.Values[i] = ec._Organization_projectUpdateReminderFrequencyInWeeks(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "initiativeUpdateRemindersHour":
+			out.Values[i] = ec._Organization_initiativeUpdateRemindersHour(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "projectUpdateRemindersHour":
+			out.Values[i] = ec._Organization_projectUpdateRemindersHour(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultHomeViewTargetId":
+			out.Values[i] = ec._Organization_defaultHomeViewTargetId(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Organization_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "customerCount":
+			out.Values[i] = ec._Organization_customerCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "userCount":
+			out.Values[i] = ec._Organization_userCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slackProjectChannelPrefix":
+			out.Values[i] = ec._Organization_slackProjectChannelPrefix(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "gitBranchFormat":
+			out.Values[i] = ec._Organization_gitBranchFormat(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "deletionRequestedAt":
+			out.Values[i] = ec._Organization_deletionRequestedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "trialStartsAt":
+			out.Values[i] = ec._Organization_trialStartsAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "trialEndsAt":
+			out.Values[i] = ec._Organization_trialEndsAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "archivedAt":
+			out.Values[i] = ec._Organization_archivedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "createdAt":
+			out.Values[i] = ec._Organization_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "id":
+			out.Values[i] = ec._Organization_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "projectStatuses":
+			out.Values[i] = ec._Organization_projectStatuses(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "name":
+			out.Values[i] = ec._Organization_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "subscription":
+			out.Values[i] = ec._Organization_subscription(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "urlKey":
+			out.Values[i] = ec._Organization_urlKey(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "fiscalYearStartMonth":
+			out.Values[i] = ec._Organization_fiscalYearStartMonth(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "hipaaComplianceEnabled":
+			out.Values[i] = ec._Organization_hipaaComplianceEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "samlEnabled":
+			out.Values[i] = ec._Organization_samlEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "scimEnabled":
+			out.Values[i] = ec._Organization_scimEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "gitLinkbackDescriptionsEnabled":
+			out.Values[i] = ec._Organization_gitLinkbackDescriptionsEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "releasesEnabled":
+			out.Values[i] = ec._Organization_releasesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "customersEnabled":
+			out.Values[i] = ec._Organization_customersEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "gitLinkbackMessagesEnabled":
+			out.Values[i] = ec._Organization_gitLinkbackMessagesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "gitPublicLinkbackMessagesEnabled":
+			out.Values[i] = ec._Organization_gitPublicLinkbackMessagesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "feedEnabled":
+			out.Values[i] = ec._Organization_feedEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "suggestedBranchNameEnabled":
+			out.Values[i] = ec._Organization_suggestedBranchNameEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "roadmapEnabled":
+			out.Values[i] = ec._Organization_roadmapEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "pullRequestTourEnabled":
+			out.Values[i] = ec._Organization_pullRequestTourEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "aiDiscussionSummariesEnabled":
+			out.Values[i] = ec._Organization_aiDiscussionSummariesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "aiThreadSummariesEnabled":
+			out.Values[i] = ec._Organization_aiThreadSummariesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "hideNonPrimaryOrganizations":
+			out.Values[i] = ec._Organization_hideNonPrimaryOrganizations(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "projectUpdatesReminderFrequency":
+			out.Values[i] = ec._Organization_projectUpdatesReminderFrequency(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "allowMembersToInvite":
+			out.Values[i] = ec._Organization_allowMembersToInvite(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "restrictTeamCreationToAdmins":
+			out.Values[i] = ec._Organization_restrictTeamCreationToAdmins(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "restrictLabelManagementToAdmins":
+			out.Values[i] = ec._Organization_restrictLabelManagementToAdmins(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slaDayCount":
+			out.Values[i] = ec._Organization_slaDayCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "teams":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Organization_teams(ctx, field, obj)
+				})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var pageInfoImplementors = []string{"PageInfo"}
 
 func (ec *executionContext) _PageInfo(ctx context.Context, sel ast.SelectionSet, obj *PageInfo) graphql.Marshaler {
@@ -9419,6 +16503,84 @@ func (ec *executionContext) _ProjectMilestone(ctx context.Context, sel ast.Selec
 	return out
 }
 
+var projectStatusImplementors = []string{"ProjectStatus"}
+
+func (ec *executionContext) _ProjectStatus(ctx context.Context, sel ast.SelectionSet, obj *ProjectStatus) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, projectStatusImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ProjectStatus")
+		case "description":
+			out.Values[i] = ec._ProjectStatus_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "type":
+			out.Values[i] = ec._ProjectStatus_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "color":
+			out.Values[i] = ec._ProjectStatus_color(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._ProjectStatus_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._ProjectStatus_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "position":
+			out.Values[i] = ec._ProjectStatus_position(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "archivedAt":
+			out.Values[i] = ec._ProjectStatus_archivedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._ProjectStatus_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "id":
+			out.Values[i] = ec._ProjectStatus_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "indefinite":
+			out.Values[i] = ec._ProjectStatus_indefinite(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var projectUpdateImplementors = []string{"ProjectUpdate"}
 
 func (ec *executionContext) _ProjectUpdate(ctx context.Context, sel ast.SelectionSet, obj *ProjectUpdate) graphql.Marshaler {
@@ -9488,6 +16650,36 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_user(ctx, field)
+				})
+		case "organization":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_organization(ctx, field)
+				})
+		case "teams":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_teams(ctx, field)
+				})
+		case "team":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_team(ctx, field)
+				})
+		case "workflowStates":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_workflowStates(ctx, field)
+				})
+		case "workflowState":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_workflowState(ctx, field)
 				})
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
@@ -9656,6 +16848,494 @@ func (ec *executionContext) _SyncedExternalThread(ctx context.Context, sel ast.S
 			}
 		case "isConnected":
 			out.Values[i] = ec._SyncedExternalThread_isConnected(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var teamImplementors = []string{"Team"}
+
+func (ec *executionContext) _Team(ctx context.Context, sel ast.SelectionSet, obj *Team) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, teamImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Team")
+		case "cycleIssueAutoAssignCompleted":
+			out.Values[i] = ec._Team_cycleIssueAutoAssignCompleted(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "cycleLockToActive":
+			out.Values[i] = ec._Team_cycleLockToActive(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "cycleIssueAutoAssignStarted":
+			out.Values[i] = ec._Team_cycleIssueAutoAssignStarted(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "cycleCalenderUrl":
+			out.Values[i] = ec._Team_cycleCalenderUrl(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "upcomingCycleCount":
+			out.Values[i] = ec._Team_upcomingCycleCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "autoArchivePeriod":
+			out.Values[i] = ec._Team_autoArchivePeriod(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "autoClosePeriod":
+			out.Values[i] = ec._Team_autoClosePeriod(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "securitySettings":
+			out.Values[i] = ec._Team_securitySettings(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "integrationsSettings":
+			out.Values[i] = ec._Team_integrationsSettings(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "activeCycle":
+			out.Values[i] = ec._Team_activeCycle(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "triageResponsibility":
+			out.Values[i] = ec._Team_triageResponsibility(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "scimGroupName":
+			out.Values[i] = ec._Team_scimGroupName(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "autoCloseStateId":
+			out.Values[i] = ec._Team_autoCloseStateId(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "cycleCooldownTime":
+			out.Values[i] = ec._Team_cycleCooldownTime(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "cycleStartDay":
+			out.Values[i] = ec._Team_cycleStartDay(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultTemplateForMembers":
+			out.Values[i] = ec._Team_defaultTemplateForMembers(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultTemplateForNonMembers":
+			out.Values[i] = ec._Team_defaultTemplateForNonMembers(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultProjectTemplate":
+			out.Values[i] = ec._Team_defaultProjectTemplate(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultIssueState":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Team_defaultIssueState(ctx, field, obj)
+				})
+		case "cycleDuration":
+			out.Values[i] = ec._Team_cycleDuration(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "icon":
+			out.Values[i] = ec._Team_icon(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultTemplateForMembersId":
+			out.Values[i] = ec._Team_defaultTemplateForMembersId(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultTemplateForNonMembersId":
+			out.Values[i] = ec._Team_defaultTemplateForNonMembersId(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "issueEstimationType":
+			out.Values[i] = ec._Team_issueEstimationType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Team_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "displayName":
+			out.Values[i] = ec._Team_displayName(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "ledInitiativeCount":
+			out.Values[i] = ec._Team_ledInitiativeCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "color":
+			out.Values[i] = ec._Team_color(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "description":
+			out.Values[i] = ec._Team_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "name":
+			out.Values[i] = ec._Team_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "parent":
+			out.Values[i] = ec._Team_parent(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "id":
+			out.Values[i] = ec._Team_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "key":
+			out.Values[i] = ec._Team_key(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "archivedAt":
+			out.Values[i] = ec._Team_archivedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "createdAt":
+			out.Values[i] = ec._Team_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "retiredAt":
+			out.Values[i] = ec._Team_retiredAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "timezone":
+			out.Values[i] = ec._Team_timezone(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "issueCount":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Team_issueCount(ctx, field, obj)
+				})
+		case "viewerMembership":
+			out.Values[i] = ec._Team_viewerMembership(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "visibility":
+			out.Values[i] = ec._Team_visibility(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "mergeWorkflowState":
+			out.Values[i] = ec._Team_mergeWorkflowState(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "draftWorkflowState":
+			out.Values[i] = ec._Team_draftWorkflowState(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "startWorkflowState":
+			out.Values[i] = ec._Team_startWorkflowState(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "mergeableWorkflowState":
+			out.Values[i] = ec._Team_mergeableWorkflowState(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "reviewWorkflowState":
+			out.Values[i] = ec._Team_reviewWorkflowState(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "triageIssueState":
+			out.Values[i] = ec._Team_triageIssueState(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "defaultIssueEstimate":
+			out.Values[i] = ec._Team_defaultIssueEstimate(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "setIssueSortOrderOnStateChange":
+			out.Values[i] = ec._Team_setIssueSortOrderOnStateChange(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "allMembersCanJoin":
+			out.Values[i] = ec._Team_allMembersCanJoin(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "requirePriorityToLeaveTriage":
+			out.Values[i] = ec._Team_requirePriorityToLeaveTriage(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "autoCloseChildIssues":
+			out.Values[i] = ec._Team_autoCloseChildIssues(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "autoCloseParentIssues":
+			out.Values[i] = ec._Team_autoCloseParentIssues(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "initiativesEnabled":
+			out.Values[i] = ec._Team_initiativesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "scimManaged":
+			out.Values[i] = ec._Team_scimManaged(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "private":
+			out.Values[i] = ec._Team_private(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "inheritIssueEstimation":
+			out.Values[i] = ec._Team_inheritIssueEstimation(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "inheritWorkflowStatuses":
+			out.Values[i] = ec._Team_inheritWorkflowStatuses(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "cyclesEnabled":
+			out.Values[i] = ec._Team_cyclesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "viewerCanJoin":
+			out.Values[i] = ec._Team_viewerCanJoin(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "viewerCanLeave":
+			out.Values[i] = ec._Team_viewerCanLeave(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "issueEstimationExtended":
+			out.Values[i] = ec._Team_issueEstimationExtended(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "issueEstimationAllowZero":
+			out.Values[i] = ec._Team_issueEstimationAllowZero(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "aiDiscussionSummariesEnabled":
+			out.Values[i] = ec._Team_aiDiscussionSummariesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "aiThreadSummariesEnabled":
+			out.Values[i] = ec._Team_aiThreadSummariesEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "groupIssueHistory":
+			out.Values[i] = ec._Team_groupIssueHistory(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slackIssueComments":
+			out.Values[i] = ec._Team_slackIssueComments(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slackNewIssue":
+			out.Values[i] = ec._Team_slackNewIssue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "slackIssueStatuses":
+			out.Values[i] = ec._Team_slackIssueStatuses(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "triageEnabled":
+			out.Values[i] = ec._Team_triageEnabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "markedAsDuplicateWorkflowState":
+			out.Values[i] = ec._Team_markedAsDuplicateWorkflowState(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "inviteHash":
+			out.Values[i] = ec._Team_inviteHash(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "issueOrderingNoPriorityFirst":
+			out.Values[i] = ec._Team_issueOrderingNoPriorityFirst(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "issueSortOrderDefaultToBottom":
+			out.Values[i] = ec._Team_issueSortOrderDefaultToBottom(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "states":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Team_states(ctx, field, obj)
+				})
+		case "members":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Team_members(ctx, field, obj)
+				})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var teamConnectionImplementors = []string{"TeamConnection"}
+
+func (ec *executionContext) _TeamConnection(ctx context.Context, sel ast.SelectionSet, obj *TeamConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, teamConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TeamConnection")
+		case "nodes":
+			out.Values[i] = ec._TeamConnection_nodes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "edges":
+			out.Values[i] = ec._TeamConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._TeamConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var teamEdgeImplementors = []string{"TeamEdge"}
+
+func (ec *executionContext) _TeamEdge(ctx context.Context, sel ast.SelectionSet, obj *TeamEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, teamEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TeamEdge")
+		case "node":
+			out.Values[i] = ec._TeamEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._TeamEdge_cursor(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -10113,6 +17793,171 @@ func (ec *executionContext) _WelcomeMessage(ctx context.Context, sel ast.Selecti
 	return out
 }
 
+var workflowStateImplementors = []string{"WorkflowState"}
+
+func (ec *executionContext) _WorkflowState(ctx context.Context, sel ast.SelectionSet, obj *WorkflowState) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, workflowStateImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WorkflowState")
+		case "id":
+			out.Values[i] = ec._WorkflowState_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "description":
+			out.Values[i] = ec._WorkflowState_description(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._WorkflowState_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "inheritedFrom":
+			out.Values[i] = ec._WorkflowState_inheritedFrom(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "position":
+			out.Values[i] = ec._WorkflowState_position(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "color":
+			out.Values[i] = ec._WorkflowState_color(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "name":
+			out.Values[i] = ec._WorkflowState_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "team":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._WorkflowState_team(ctx, field, obj)
+				})
+		case "archivedAt":
+			out.Values[i] = ec._WorkflowState_archivedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "createdAt":
+			out.Values[i] = ec._WorkflowState_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "type":
+			out.Values[i] = ec._WorkflowState_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var workflowStateConnectionImplementors = []string{"WorkflowStateConnection"}
+
+func (ec *executionContext) _WorkflowStateConnection(ctx context.Context, sel ast.SelectionSet, obj *WorkflowStateConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, workflowStateConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WorkflowStateConnection")
+		case "nodes":
+			out.Values[i] = ec._WorkflowStateConnection_nodes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "edges":
+			out.Values[i] = ec._WorkflowStateConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._WorkflowStateConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var workflowStateEdgeImplementors = []string{"WorkflowStateEdge"}
+
+func (ec *executionContext) _WorkflowStateEdge(ctx context.Context, sel ast.SelectionSet, obj *WorkflowStateEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, workflowStateEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WorkflowStateEdge")
+		case "node":
+			out.Values[i] = ec._WorkflowStateEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._WorkflowStateEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
 var __DirectiveImplementors = []string{"__Directive"}
 
 func (ec *executionContext) ___Directive(ctx context.Context, sel ast.SelectionSet, obj *introspection.Directive) graphql.Marshaler {
@@ -10517,6 +18362,16 @@ func (ec *executionContext) marshalNDateTimeOrDuration2string(ctx context.Contex
 	return res
 }
 
+func (ec *executionContext) unmarshalNDay2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐDay(ctx context.Context, v any) (Day, error) {
+	var res Day
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNDay2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐDay(ctx context.Context, sel ast.SelectionSet, v Day) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) unmarshalNExternalSyncService2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐExternalSyncService(ctx context.Context, v any) (ExternalSyncService, error) {
 	var res ExternalSyncService
 	err := res.UnmarshalGQL(v)
@@ -10609,9 +18464,27 @@ func (ec *executionContext) marshalNIssueSharedAccessDisallowedField2ᚕgithub�
 	return ret
 }
 
+func (ec *executionContext) unmarshalNJSONObject2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐJSONObject(ctx context.Context, v any) (JSONObject, error) {
+	var res JSONObject
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNJSONObject2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐJSONObject(ctx context.Context, sel ast.SelectionSet, v JSONObject) graphql.Marshaler {
+	return v
+}
+
 func (ec *executionContext) unmarshalNNullableUserFilter2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐNullableUserFilter(ctx context.Context, v any) (NullableUserFilter, error) {
 	res, err := ec.unmarshalInputNullableUserFilter(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNOrganization2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐOrganization(ctx context.Context, sel ast.SelectionSet, v *Organization) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Organization!")
+		return graphql.Null
+	}
+	return ec._Organization(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *PageInfo) graphql.Marshaler {
@@ -10620,6 +18493,66 @@ func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkos
 		return graphql.Null
 	}
 	return ec._PageInfo(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNProjectStatus2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectStatus(ctx context.Context, sel ast.SelectionSet, v ProjectStatus) graphql.Marshaler {
+	return ec._ProjectStatus(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNProjectStatus2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectStatusᚄ(ctx context.Context, sel ast.SelectionSet, v []ProjectStatus) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNProjectStatus2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectStatus(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNProjectStatusType2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectStatusType(ctx context.Context, v any) (ProjectStatusType, error) {
+	var res ProjectStatusType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNProjectStatusType2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectStatusType(ctx context.Context, sel ast.SelectionSet, v ProjectStatusType) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNProjectUpdateReminderFrequency2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectUpdateReminderFrequency(ctx context.Context, v any) (ProjectUpdateReminderFrequency, error) {
+	var res ProjectUpdateReminderFrequency
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNProjectUpdateReminderFrequency2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectUpdateReminderFrequency(ctx context.Context, sel ast.SelectionSet, v ProjectUpdateReminderFrequency) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNReleaseChannel2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐReleaseChannel(ctx context.Context, v any) (ReleaseChannel, error) {
+	var res ReleaseChannel
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNReleaseChannel2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐReleaseChannel(ctx context.Context, sel ast.SelectionSet, v ReleaseChannel) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNSLADayCountType2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐSLADayCountType(ctx context.Context, v any) (SLADayCountType, error) {
+	var res SLADayCountType
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNSLADayCountType2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐSLADayCountType(ctx context.Context, sel ast.SelectionSet, v SLADayCountType) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -10634,6 +18567,106 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		graphql.AddInvalidNullFromMarshaler(ctx, "String!")
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTeam2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx context.Context, sel ast.SelectionSet, v Team) graphql.Marshaler {
+	return ec._Team(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTeam2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamᚄ(ctx context.Context, sel ast.SelectionSet, v []Team) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNTeam2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTeam2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx context.Context, sel ast.SelectionSet, v *Team) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Team!")
+		return graphql.Null
+	}
+	return ec._Team(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTeamConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamConnection(ctx context.Context, sel ast.SelectionSet, v *TeamConnection) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "TeamConnection!")
+		return graphql.Null
+	}
+	return ec._TeamConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTeamEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamEdge(ctx context.Context, sel ast.SelectionSet, v TeamEdge) graphql.Marshaler {
+	return ec._TeamEdge(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTeamEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []TeamEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNTeamEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNTeamFilter2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamFilter(ctx context.Context, v any) (TeamFilter, error) {
+	res, err := ec.unmarshalInputTeamFilter(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNTeamVisibility2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamVisibility(ctx context.Context, v any) (TeamVisibility, error) {
+	var res TeamVisibility
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNTeamVisibility2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamVisibility(ctx context.Context, sel ast.SelectionSet, v TeamVisibility) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNTimelessDateOrDuration2string(ctx context.Context, v any) (string, error) {
@@ -10713,6 +18746,67 @@ func (ec *executionContext) unmarshalNUserFilter2githubᚗcomᚋaskuksovᚋyalko
 
 func (ec *executionContext) unmarshalNUserSortInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUserSortInput(ctx context.Context, v any) (UserSortInput, error) {
 	res, err := ec.unmarshalInputUserSortInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNWorkflowState2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx context.Context, sel ast.SelectionSet, v WorkflowState) graphql.Marshaler {
+	return ec._WorkflowState(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNWorkflowState2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateᚄ(ctx context.Context, sel ast.SelectionSet, v []WorkflowState) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNWorkflowState2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx context.Context, sel ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "WorkflowState!")
+		return graphql.Null
+	}
+	return ec._WorkflowState(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNWorkflowStateConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateConnection(ctx context.Context, sel ast.SelectionSet, v *WorkflowStateConnection) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "WorkflowStateConnection!")
+		return graphql.Null
+	}
+	return ec._WorkflowStateConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNWorkflowStateEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateEdge(ctx context.Context, sel ast.SelectionSet, v WorkflowStateEdge) graphql.Marshaler {
+	return ec._WorkflowStateEdge(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNWorkflowStateEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []WorkflowStateEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNWorkflowStateEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNWorkflowStateFilter2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateFilter(ctx context.Context, v any) (WorkflowStateFilter, error) {
+	res, err := ec.unmarshalInputWorkflowStateFilter(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -10910,6 +19004,13 @@ func (ec *executionContext) marshalOComment2ᚖgithubᚗcomᚋaskuksovᚋyalkos�
 	return ec._Comment(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOCycle2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐCycle(ctx context.Context, sel ast.SelectionSet, v *Cycle) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Cycle(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalODateTime2ᚖtimeᚐTime(ctx context.Context, v any) (*time.Time, error) {
 	if v == nil {
 		return nil, nil
@@ -11000,6 +19101,22 @@ func (ec *executionContext) marshalOExternalUser2ᚖgithubᚗcomᚋaskuksovᚋya
 		return graphql.Null
 	}
 	return ec._ExternalUser(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOFeedSummarySchedule2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐFeedSummarySchedule(ctx context.Context, v any) (*FeedSummarySchedule, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(FeedSummarySchedule)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOFeedSummarySchedule2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐFeedSummarySchedule(ctx context.Context, sel ast.SelectionSet, v *FeedSummarySchedule) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) unmarshalOFloat2ᚕfloat64ᚄ(ctx context.Context, v any) ([]float64, error) {
@@ -11147,6 +19264,20 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
+func (ec *executionContext) marshalOIntegration2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIntegration(ctx context.Context, sel ast.SelectionSet, v *Integration) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Integration(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOIntegrationsSettings2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIntegrationsSettings(ctx context.Context, sel ast.SelectionSet, v *IntegrationsSettings) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._IntegrationsSettings(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOIssue2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐIssue(ctx context.Context, sel ast.SelectionSet, v *Issue) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -11217,6 +19348,13 @@ func (ec *executionContext) marshalOPaginationSortOrder2ᚖgithubᚗcomᚋaskuks
 		return graphql.Null
 	}
 	return v
+}
+
+func (ec *executionContext) marshalOPaidSubscription2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaidSubscription(ctx context.Context, sel ast.SelectionSet, v *PaidSubscription) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._PaidSubscription(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOProject2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProject(ctx context.Context, sel ast.SelectionSet, v *Project) graphql.Marshaler {
@@ -11301,6 +19439,52 @@ func (ec *executionContext) unmarshalOStringComparator2ᚖgithubᚗcomᚋaskukso
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) marshalOTeam2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx context.Context, sel ast.SelectionSet, v *Team) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Team(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOTeamFilter2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamFilterᚄ(ctx context.Context, v any) ([]TeamFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]TeamFilter, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNTeamFilter2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamFilter(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOTeamFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamFilter(ctx context.Context, v any) (*TeamFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputTeamFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOTeamMembership2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeamMembership(ctx context.Context, sel ast.SelectionSet, v *TeamMembership) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._TeamMembership(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOTemplate2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTemplate(ctx context.Context, sel ast.SelectionSet, v *Template) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Template(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalOTimelessDateOrDuration2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
 	if v == nil {
 		return nil, nil
@@ -11352,6 +19536,13 @@ func (ec *executionContext) marshalOTimelessDateOrDuration2ᚖstring(ctx context
 	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOTriageResponsibility2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTriageResponsibility(ctx context.Context, sel ast.SelectionSet, v *TriageResponsibility) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._TriageResponsibility(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUser(ctx context.Context, sel ast.SelectionSet, v *User) graphql.Marshaler {
@@ -11424,6 +19615,38 @@ func (ec *executionContext) marshalOWelcomeMessage2ᚖgithubᚗcomᚋaskuksovᚋ
 		return graphql.Null
 	}
 	return ec._WelcomeMessage(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOWorkflowState2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowState(ctx context.Context, sel ast.SelectionSet, v *WorkflowState) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._WorkflowState(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOWorkflowStateFilter2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateFilterᚄ(ctx context.Context, v any) ([]WorkflowStateFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]WorkflowStateFilter, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNWorkflowStateFilter2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateFilter(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalOWorkflowStateFilter2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWorkflowStateFilter(ctx context.Context, v any) (*WorkflowStateFilter, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputWorkflowStateFilter(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {
