@@ -116,3 +116,13 @@ func TestBranchSearchCandidateCap(t *testing.T) {
 		t.Fatalf("10th candidate: %+v", out.IssueVcsBranchSearch)
 	}
 }
+
+// Without credentials searchIssues does not reveal whether a team exists.
+func TestSearchIssuesNeedsCredentialsFirst(t *testing.T) {
+	f := newIssueFix(t)
+	q := `query($team: String) { searchIssues(term: "x", teamId: $team) { totalCount } }`
+	for _, team := range []string{"NOPE", "YLK"} {
+		f.gql(t, "", q, map[string]any{"team": team}).fails(t).
+			want(t, "AUTHENTICATION_ERROR", "authentication error", "Authentication required", "")
+	}
+}
