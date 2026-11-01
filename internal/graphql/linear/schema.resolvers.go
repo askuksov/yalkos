@@ -203,6 +203,11 @@ func (r *queryResolver) Project(ctx context.Context, id string) (*Project, error
 	return r.projectByID(ctx, id)
 }
 
+// ProjectStatus is the resolver for the projectStatus field.
+func (r *queryResolver) ProjectStatus(ctx context.Context, id string) (*ProjectStatus, error) {
+	return r.projectStatusByID(ctx, id)
+}
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 

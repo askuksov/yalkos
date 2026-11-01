@@ -684,6 +684,7 @@ type ComplexityRoot struct {
 		Issues               func(childComplexity int, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, sort []IssueSortInput) int
 		Organization         func(childComplexity int) int
 		Project              func(childComplexity int, id string) int
+		ProjectStatus        func(childComplexity int, id string) int
 		Projects             func(childComplexity int, after *string, before *string, filter *ProjectFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, sort []ProjectSortInput) int
 		SearchIssues         func(childComplexity int, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, includeComments *bool, last *int, orderBy *PaginationOrderBy, teamID *string, term string) int
 		Team                 func(childComplexity int, id string) int
@@ -1012,6 +1013,7 @@ type QueryResolver interface {
 	Comment(ctx context.Context, hash *string, id *string) (*Comment, error)
 	Projects(ctx context.Context, after *string, before *string, filter *ProjectFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, sort []ProjectSortInput) (*ProjectConnection, error)
 	Project(ctx context.Context, id string) (*Project, error)
+	ProjectStatus(ctx context.Context, id string) (*ProjectStatus, error)
 }
 type TeamResolver interface {
 	DefaultIssueState(ctx context.Context, obj *Team) (*WorkflowState, error)
@@ -4140,6 +4142,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Project(childComplexity, args["id"].(string)), true
+	case "Query.projectStatus":
+		if e.ComplexityRoot.Query.ProjectStatus == nil {
+			break
+		}
+
+		args, err := ec.field_Query_projectStatus_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.ProjectStatus(childComplexity, args["id"].(string)), true
 	case "Query.projects":
 		if e.ComplexityRoot.Query.Projects == nil {
 			break
@@ -6587,6 +6600,8 @@ type Query {
   projects(after: String, before: String, filter: ProjectFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [ProjectSortInput!]): ProjectConnection!
   "A project by id."
   project(id: String!): Project!
+  "One of the four project statuses by id."
+  projectStatus(id: String!): ProjectStatus!
 }
 
 type Mutation {
@@ -9754,6 +9769,20 @@ func (ec *executionContext) field_Query_issues_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["sort"] = arg7
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_projectStatus_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -23792,6 +23821,50 @@ func (ec *executionContext) fieldContext_Query_project(ctx context.Context, fiel
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_projectStatus(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_projectStatus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().ProjectStatus(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *ProjectStatus) graphql.Marshaler {
+			return ec.marshalNProjectStatus2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_projectStatus(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ProjectStatus(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_projectStatus_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -36616,6 +36689,12 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				true, true,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_project(ctx, field)
+				})
+		case "projectStatus":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_projectStatus(ctx, field)
 				})
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {

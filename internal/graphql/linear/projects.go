@@ -400,3 +400,20 @@ func (r *Resolver) deleteProject(ctx context.Context, id string) (*ProjectArchiv
 func (r *Resolver) projectTeams(p project.Project, f *TeamFilter, by *PaginationOrderBy, a page.Args) (*TeamConnection, error) {
 	return teamList([]project.Project{p}, f, by, a)
 }
+
+// projectStatusByID reads one of the fixed project statuses.
+func (r *Resolver) projectStatusByID(ctx context.Context, id string) (*ProjectStatus, error) {
+	if _, err := r.actor(ctx); err != nil {
+		return nil, err
+	}
+	s, ok := statusByID(id)
+	if !ok {
+		return nil, kit.NotFoundError{Entity: "ProjectStatus"}
+	}
+	ws, err := r.workspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ps := statusFor(s, ws)
+	return &ps, nil
+}

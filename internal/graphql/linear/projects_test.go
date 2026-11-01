@@ -183,10 +183,10 @@ func TestProjectCreate(t *testing.T) {
 	q := `mutation($input: ProjectCreateInput!) { projectCreate(input: $input, slackChannelName: "x") { success lastSyncId project { ` + projectFields + ` } } }`
 	var out struct{ ProjectCreate projectPayload }
 	f.gql(t, f.ownerKey, q, map[string]any{"input": map[string]any{
-		"teamIds": []string{"YLK"}, "name": "Payments", "content": "# Plan", "targetDate": "2026-09-01", "leadId": f.mia.ID.String(),
+		"teamIds": []string{"YLK"}, "name": "Payments", "content": "# Scope", "targetDate": "2026-09-01", "leadId": f.mia.ID.String(),
 	}}).ok(t, &out)
 	p := out.ProjectCreate.Project
-	if !out.ProjectCreate.Success || out.ProjectCreate.LastSyncID <= 0 || p.Name != "Payments" || p.Description != "# Plan" ||
+	if !out.ProjectCreate.Success || out.ProjectCreate.LastSyncID <= 0 || p.Name != "Payments" || p.Description != "# Scope" ||
 		*p.TargetDate != "2026-09-01" || p.Lead.ID != f.mia.ID.String() || p.State != "planned" || teamKeys(p.Teams.Nodes)[0] != "YLK" {
 		t.Fatalf("created = %+v", out.ProjectCreate)
 	}
@@ -240,4 +240,29 @@ func TestProjectDelete(t *testing.T) {
 	}
 	f.gql(t, f.ownerKey, `query($id: String!) { project(id: $id) { id } }`, map[string]any{"id": f.later.ID.String()}).fails(t).
 		want(t, "NOT_FOUND", "invalid input", "Project not found", "")
+}
+
+func TestProjectStatusByID(t *testing.T) {
+	f := newProjectFix(t)
+	q := `query($id: String!) { projectStatus(id: $id) { id name type color position indefinite createdAt } }`
+	var out struct {
+		ProjectStatus struct {
+			ID, Name, Type, Color string
+			Position              float64
+		}
+	}
+	f.gql(t, f.ownerKey, q, map[string]any{"id": "00000000-0000-7000-8000-000000000003"}).ok(t, &out)
+	if s := out.ProjectStatus; s.Name != "Done" || s.Type != "completed" || s.Color != "#22C55E" || s.Position != 2 {
+		t.Fatalf("status = %+v", s)
+	}
+	// The status a project reports resolves through this lookup.
+	var p struct{ Project projectNode }
+	f.gql(t, f.ownerKey, `query($id: String!) { project(id: $id) { status { id } } }`, map[string]any{"id": f.bank.ID.String()}).ok(t, &p)
+	f.gql(t, f.ownerKey, q, map[string]any{"id": p.Project.Status.ID}).ok(t, &out)
+	if out.ProjectStatus.Name != "In Progress" {
+		t.Fatalf("project's status = %+v", out.ProjectStatus)
+	}
+	for _, id := range []string{uuid.NewString(), "nope"} {
+		f.gql(t, f.ownerKey, q, map[string]any{"id": id}).fails(t).want(t, "NOT_FOUND", "invalid input", "ProjectStatus not found", "")
+	}
 }
