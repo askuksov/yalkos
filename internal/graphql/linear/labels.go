@@ -219,7 +219,18 @@ func (r *Resolver) updateLabel(ctx context.Context, id string, in IssueLabelUpda
 	if err != nil {
 		return nil, err
 	}
-	p := label.Patch{Name: in.Name, Color: in.Color, Description: in.Description, Exclusive: exclusiveOf(in.GroupType)}
+	p := label.Patch{Description: clearable(in.Description)}
+	if p.Name, err = required("name", in.Name); err != nil {
+		return nil, err
+	}
+	if p.Color, err = required("color", in.Color); err != nil {
+		return nil, err
+	}
+	groupType, err := required("groupType", in.GroupType)
+	if err != nil {
+		return nil, err
+	}
+	p.Exclusive = exclusiveOf(groupType)
 	if p.ParentID, err = optPatch("parentId", in.ParentID); err != nil {
 		return nil, err
 	}

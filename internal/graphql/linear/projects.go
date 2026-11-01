@@ -349,11 +349,18 @@ func (r *Resolver) updateProject(ctx context.Context, id string, in ProjectUpdat
 	if err != nil {
 		return nil, err
 	}
-	desc, err := description(in.Description, in.Content)
+	if in.Description.IsSet() && in.Content.IsSet() {
+		return nil, badArg("content", "Invalid content: use either description or content")
+	}
+	desc := clearable(in.Description)
+	if in.Content.IsSet() {
+		desc = clearable(in.Content)
+	}
+	name, err := required("name", in.Name)
 	if err != nil {
 		return nil, err
 	}
-	p := milestone.Patch{Name: in.Name, Description: desc}
+	p := milestone.Patch{Name: name, Description: desc}
 	if v, set := in.TargetDate.ValueOK(); set {
 		p.TargetDate = kit.Opt[time.Time]{Set: true, Value: v}
 	}

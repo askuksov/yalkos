@@ -192,14 +192,18 @@ func (r *Resolver) updateComment(ctx context.Context, id string, in CommentUpdat
 	if err != nil {
 		return nil, err
 	}
-	if in.Body == nil {
+	body, err := required("body", in.Body)
+	if err != nil {
+		return nil, err
+	}
+	if body == nil {
 		cur, err := r.commentByID(ctx, &id)
 		if err != nil {
 			return nil, err
 		}
 		return &CommentPayload{Success: true, LastSyncID: lastSync(cur.UpdatedAt), Comment: cur}, nil
 	}
-	c, err := r.d.Comments.Update(ctx, actor, cid, *in.Body)
+	c, err := r.d.Comments.Update(ctx, actor, cid, *body)
 	if err != nil {
 		return nil, err
 	}

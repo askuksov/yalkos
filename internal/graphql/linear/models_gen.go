@@ -171,7 +171,7 @@ type CommentPayload struct {
 }
 
 type CommentUpdateInput struct {
-	Body *string `json:"body,omitempty"`
+	Body graphql.Omittable[*string] `json:"body,omitempty"`
 }
 
 type CreatedAtSort struct {
@@ -486,12 +486,12 @@ type IssueLabelPayload struct {
 }
 
 type IssueLabelUpdateInput struct {
-	Name        *string `json:"name,omitempty"`
-	Color       *string `json:"color,omitempty"`
-	Description *string `json:"description,omitempty"`
+	Name        graphql.Omittable[*string] `json:"name,omitempty"`
+	Color       graphql.Omittable[*string] `json:"color,omitempty"`
+	Description graphql.Omittable[*string] `json:"description,omitempty"`
 	// null takes the label out of its group.
-	ParentID  graphql.Omittable[*string] `json:"parentId,omitempty"`
-	GroupType *LabelGroupType            `json:"groupType,omitempty"`
+	ParentID  graphql.Omittable[*string]         `json:"parentId,omitempty"`
+	GroupType graphql.Omittable[*LabelGroupType] `json:"groupType,omitempty"`
 }
 
 type IssuePayload struct {
@@ -619,21 +619,21 @@ type IssueSortInput struct {
 
 // Changes to an issue; null clears assigneeId, parentId, projectId and dueDate.
 type IssueUpdateInput struct {
-	Title       *string                    `json:"title,omitempty"`
-	Description *string                    `json:"description,omitempty"`
+	Title       graphql.Omittable[*string] `json:"title,omitempty"`
+	Description graphql.Omittable[*string] `json:"description,omitempty"`
 	AssigneeID  graphql.Omittable[*string] `json:"assigneeId,omitempty"`
-	StateID     *string                    `json:"stateId,omitempty"`
-	Priority    *int                       `json:"priority,omitempty"`
+	StateID     graphql.Omittable[*string] `json:"stateId,omitempty"`
+	Priority    graphql.Omittable[*int]    `json:"priority,omitempty"`
 	// Replaces all labels, the type included.
-	LabelIds        []string                      `json:"labelIds,omitempty"`
-	AddedLabelIds   []string                      `json:"addedLabelIds,omitempty"`
-	RemovedLabelIds []string                      `json:"removedLabelIds,omitempty"`
+	LabelIds        graphql.Omittable[[]string]   `json:"labelIds,omitempty"`
+	AddedLabelIds   graphql.Omittable[[]string]   `json:"addedLabelIds,omitempty"`
+	RemovedLabelIds graphql.Omittable[[]string]   `json:"removedLabelIds,omitempty"`
 	ParentID        graphql.Omittable[*string]    `json:"parentId,omitempty"`
 	ProjectID       graphql.Omittable[*string]    `json:"projectId,omitempty"`
 	DueDate         graphql.Omittable[*time.Time] `json:"dueDate,omitempty"`
-	SortOrder       *float64                      `json:"sortOrder,omitempty"`
+	SortOrder       graphql.Omittable[*float64]   `json:"sortOrder,omitempty"`
 	// Moves the issue to another team; only stateId may come with it.
-	TeamID *string `json:"teamId,omitempty"`
+	TeamID graphql.Omittable[*string] `json:"teamId,omitempty"`
 }
 
 // Board order.
@@ -987,9 +987,9 @@ type ProjectUpdate struct {
 }
 
 type ProjectUpdateInput struct {
-	Name        *string `json:"name,omitempty"`
-	Description *string `json:"description,omitempty"`
-	Content     *string `json:"content,omitempty"`
+	Name        graphql.Omittable[*string] `json:"name,omitempty"`
+	Description graphql.Omittable[*string] `json:"description,omitempty"`
+	Content     graphql.Omittable[*string] `json:"content,omitempty"`
 	// null clears.
 	TargetDate graphql.Omittable[*time.Time] `json:"targetDate,omitempty"`
 	// null clears.

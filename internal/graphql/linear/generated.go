@@ -29548,7 +29548,7 @@ func (ec *executionContext) unmarshalInputCommentUpdateInput(ctx context.Context
 			if err != nil {
 				return it, err
 			}
-			it.Body = data
+			it.Body = graphql.OmittableOf(data)
 		}
 	}
 	return it, nil
@@ -30346,21 +30346,21 @@ func (ec *executionContext) unmarshalInputIssueLabelUpdateInput(ctx context.Cont
 			if err != nil {
 				return it, err
 			}
-			it.Name = data
+			it.Name = graphql.OmittableOf(data)
 		case "color":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("color"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Color = data
+			it.Color = graphql.OmittableOf(data)
 		case "description":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Description = data
+			it.Description = graphql.OmittableOf(data)
 		case "parentId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("parentId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -30374,7 +30374,7 @@ func (ec *executionContext) unmarshalInputIssueLabelUpdateInput(ctx context.Cont
 			if err != nil {
 				return it, err
 			}
-			it.GroupType = data
+			it.GroupType = graphql.OmittableOf(data)
 		}
 	}
 	return it, nil
@@ -30486,14 +30486,14 @@ func (ec *executionContext) unmarshalInputIssueUpdateInput(ctx context.Context, 
 			if err != nil {
 				return it, err
 			}
-			it.Title = data
+			it.Title = graphql.OmittableOf(data)
 		case "description":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Description = data
+			it.Description = graphql.OmittableOf(data)
 		case "assigneeId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assigneeId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -30507,35 +30507,35 @@ func (ec *executionContext) unmarshalInputIssueUpdateInput(ctx context.Context, 
 			if err != nil {
 				return it, err
 			}
-			it.StateID = data
+			it.StateID = graphql.OmittableOf(data)
 		case "priority":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("priority"))
 			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Priority = data
+			it.Priority = graphql.OmittableOf(data)
 		case "labelIds":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("labelIds"))
 			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.LabelIds = data
+			it.LabelIds = graphql.OmittableOf(data)
 		case "addedLabelIds":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("addedLabelIds"))
 			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.AddedLabelIds = data
+			it.AddedLabelIds = graphql.OmittableOf(data)
 		case "removedLabelIds":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("removedLabelIds"))
 			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.RemovedLabelIds = data
+			it.RemovedLabelIds = graphql.OmittableOf(data)
 		case "parentId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("parentId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -30563,14 +30563,14 @@ func (ec *executionContext) unmarshalInputIssueUpdateInput(ctx context.Context, 
 			if err != nil {
 				return it, err
 			}
-			it.SortOrder = data
+			it.SortOrder = graphql.OmittableOf(data)
 		case "teamId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("teamId"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.TeamID = data
+			it.TeamID = graphql.OmittableOf(data)
 		}
 	}
 	return it, nil
@@ -31844,21 +31844,21 @@ func (ec *executionContext) unmarshalInputProjectUpdateInput(ctx context.Context
 			if err != nil {
 				return it, err
 			}
-			it.Name = data
+			it.Name = graphql.OmittableOf(data)
 		case "description":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Description = data
+			it.Description = graphql.OmittableOf(data)
 		case "content":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("content"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.Content = data
+			it.Content = graphql.OmittableOf(data)
 		case "targetDate":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("targetDate"))
 			data, err := ec.unmarshalOTimelessDate2ᚖtimeᚐTime(ctx, v)

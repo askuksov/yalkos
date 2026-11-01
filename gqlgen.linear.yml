@@ -125,8 +125,28 @@ models:
         resolver: true
       parent:
         resolver: true
+  # Update inputs: null clears what can be empty and is an error otherwise,
+  # so every nullable field tells null from absent.
   IssueUpdateInput:
     fields:
+      title:
+        omittable: true
+      description:
+        omittable: true
+      stateId:
+        omittable: true
+      priority:
+        omittable: true
+      labelIds:
+        omittable: true
+      addedLabelIds:
+        omittable: true
+      removedLabelIds:
+        omittable: true
+      sortOrder:
+        omittable: true
+      teamId:
+        omittable: true
       assigneeId:
         omittable: true
       parentId:
@@ -146,6 +166,14 @@ models:
         resolver: true
   IssueLabelUpdateInput:
     fields:
+      name:
+        omittable: true
+      color:
+        omittable: true
+      description:
+        omittable: true
+      groupType:
+        omittable: true
       parentId:
         omittable: true
   Comment:
@@ -182,9 +210,19 @@ models:
         resolver: true
   ProjectUpdateInput:
     fields:
+      name:
+        omittable: true
+      description:
+        omittable: true
+      content:
+        omittable: true
       targetDate:
         omittable: true
       leadId:
         omittable: true
       statusId:
+        omittable: true
+  CommentUpdateInput:
+    fields:
+      body:
         omittable: true

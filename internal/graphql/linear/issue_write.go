@@ -91,10 +91,42 @@ func (r *Resolver) createIssue(ctx context.Context, in IssueCreateInput) (*Issue
 	return r.issuePayload(i), nil
 }
 
+func cannotBeNull(field string) error {
+	return badArg(field, "Invalid "+field+": "+field+" cannot be null")
+}
+
+// required reads an update field that cannot be cleared: null is an error.
+func required[T any](field string, o graphql.Omittable[*T]) (*T, error) {
+	v, set := o.ValueOK()
+	if set && v == nil {
+		return nil, cannotBeNull(field)
+	}
+	return v, nil
+}
+
+// requiredList is required for lists.
+func requiredList(field string, o graphql.Omittable[[]string]) ([]string, error) {
+	v, set := o.ValueOK()
+	if set && v == nil {
+		return nil, cannotBeNull(field)
+	}
+	return v, nil
+}
+
+// clearable reads an update text: null clears it.
+func clearable(o graphql.Omittable[*string]) *string {
+	v, set := o.ValueOK()
+	if set && v == nil {
+		empty := ""
+		return &empty
+	}
+	return v
+}
+
 // movesWithOthers reports fields other than stateId next to teamId.
 func movesWithOthers(in IssueUpdateInput) bool {
-	return in.Title != nil || in.Description != nil || in.Priority != nil || in.SortOrder != nil ||
-		in.LabelIds != nil || in.AddedLabelIds != nil || in.RemovedLabelIds != nil ||
+	return in.Title.IsSet() || in.Description.IsSet() || in.Priority.IsSet() || in.SortOrder.IsSet() ||
+		in.LabelIds.IsSet() || in.AddedLabelIds.IsSet() || in.RemovedLabelIds.IsSet() ||
 		in.AssigneeID.IsSet() || in.ParentID.IsSet() || in.ProjectID.IsSet() || in.DueDate.IsSet()
 }
 
@@ -103,23 +135,55 @@ func (r *Resolver) updateIssue(ctx context.Context, ref string, in IssueUpdateIn
 	if err != nil {
 		return nil, err
 	}
-	if in.LabelIds != nil && (in.AddedLabelIds != nil || in.RemovedLabelIds != nil) {
+	title, err := required("title", in.Title)
+	if err != nil {
+		return nil, err
+	}
+	stateRef, err := required("stateId", in.StateID)
+	if err != nil {
+		return nil, err
+	}
+	priority, err := required("priority", in.Priority)
+	if err != nil {
+		return nil, err
+	}
+	sortOrder, err := required("sortOrder", in.SortOrder)
+	if err != nil {
+		return nil, err
+	}
+	teamRef, err := required("teamId", in.TeamID)
+	if err != nil {
+		return nil, err
+	}
+	labelIDs, err := requiredList("labelIds", in.LabelIds)
+	if err != nil {
+		return nil, err
+	}
+	added, err := requiredList("addedLabelIds", in.AddedLabelIds)
+	if err != nil {
+		return nil, err
+	}
+	removed, err := requiredList("removedLabelIds", in.RemovedLabelIds)
+	if err != nil {
+		return nil, err
+	}
+	if labelIDs != nil && (added != nil || removed != nil) {
 		return nil, badArg("labelIds", "Invalid labelIds: use either labelIds or addedLabelIds/removedLabelIds")
 	}
 	cur, err := r.issueByRef(ctx, "", ref)
 	if err != nil {
 		return nil, err
 	}
-	stateID, err := optID("stateId", in.StateID)
+	stateID, err := optID("stateId", stateRef)
 	if err != nil {
 		return nil, err
 	}
-	if in.TeamID != nil {
+	if teamRef != nil {
 		// A move and an update run in separate transactions: a move comes alone.
 		if movesWithOthers(in) {
 			return nil, badArg("teamId", "Invalid teamId: move the issue in its own update (teamId with stateId only)")
 		}
-		p, err := r.projectByRef(ctx, "teamId", *in.TeamID)
+		p, err := r.projectByRef(ctx, "teamId", *teamRef)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +195,7 @@ func (r *Resolver) updateIssue(ctx context.Context, ref string, in IssueUpdateIn
 			return r.issuePayload(moved), nil
 		}
 	}
-	patch := issue.Patch{Title: in.Title, Description: in.Description, StateID: stateID, Priority: in.Priority, SortOrder: in.SortOrder}
+	patch := issue.Patch{Title: title, Description: clearable(in.Description), StateID: stateID, Priority: priority, SortOrder: sortOrder}
 	if patch.AssigneeID, err = optPatch("assigneeId", in.AssigneeID); err != nil {
 		return nil, err
 	}
@@ -148,17 +212,17 @@ func (r *Resolver) updateIssue(ctx context.Context, ref string, in IssueUpdateIn
 	if v, set := in.DueDate.ValueOK(); set {
 		patch.DueDate = kit.Opt[time.Time]{Set: true, Value: v}
 	}
-	if in.LabelIds != nil {
-		ids, err := parseIDs("labelIds", in.LabelIds)
+	if labelIDs != nil {
+		ids, err := parseIDs("labelIds", labelIDs)
 		if err != nil {
 			return nil, err
 		}
 		patch.LabelIDs = &ids
 	}
-	if patch.AddLabelIDs, err = parseIDs("addedLabelIds", in.AddedLabelIds); err != nil {
+	if patch.AddLabelIDs, err = parseIDs("addedLabelIds", added); err != nil {
 		return nil, err
 	}
-	if patch.RemoveLabelIDs, err = parseIDs("removedLabelIds", in.RemovedLabelIds); err != nil {
+	if patch.RemoveLabelIDs, err = parseIDs("removedLabelIds", removed); err != nil {
 		return nil, err
 	}
 	i, err := r.d.Issues.Update(ctx, actor, cur.ID, patch)
