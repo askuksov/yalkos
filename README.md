@@ -56,16 +56,9 @@ Create a key under **API keys** (it is shown once). Keys look like `yal_api_…`
 
 | Endpoint | For |
 | :--- | :--- |
-| `POST /graphql` | Linear-compatible API (`@linear/sdk`, Linear tools) |
+| `POST /graphql` | Linear-compatible API for `@linear/sdk` scripts and tools ([below](#linear-compatible-api)) |
 | `POST /api/graphql` | Yalkos API |
 | `POST /mcp` | AI agents (MCP): Claude Code, OpenCode |
-
-```ts
-import { LinearClient } from '@linear/sdk'
-
-const linear = new LinearClient({ apiKey: process.env.YALKOS_API_KEY, apiUrl: 'https://app.example.com/graphql' })
-const me = await linear.viewer
-```
 
 Send the key as `Authorization: <key>` or `Authorization: Bearer <key>`. Keys act as their user but cannot manage credentials: creating or revoking keys, changing the password and inviting people need a signed-in browser session.
 
@@ -136,6 +129,31 @@ Tools:
 | `update_milestone` | Change a milestone, or pin or release its status |
 
 Conventions: issues are named by identifier (`YLK-12`); states, labels, types, milestones and people by name (people also by email); `me` is the key's owner; `none` clears a value in updates and matches an empty one in searches. Times are UTC, written `YYYY-MM-DD HH:mm`.
+
+### Linear-compatible API
+
+`POST https://<host>/graphql` speaks a Linear-compatible GraphQL API, so scripts written for `@linear/sdk` work with Yalkos once `apiUrl` and the key change. Use an API key from **Settings → API keys**, sent as `Authorization: <key>` or `Authorization: Bearer <key>`.
+
+```js
+import { LinearClient } from "@linear/sdk";
+
+const client = new LinearClient({
+  apiKey: process.env.YALKOS_API_KEY,
+  apiUrl: "https://tracker.example.com/graphql",
+});
+
+const me = await client.viewer;
+const mine = await client.issues({ filter: { assignee: { isMe: { eq: true } } } });
+```
+
+- Tested with `@linear/sdk` 100.x. The SDK requires an `https://` URL except on `localhost`.
+- Names: a Team is a Yalkos project, a Project is a milestone, a WorkflowState is a state, an IssueLabel is a label (issue types are the labels of the Type group), the Organization is the workspace.
+- Supported: the viewer, users, teams with their states, members and labels, workflow states, issues (read, filter, sort, search, create, update, move to another team with `teamId`, delete), comments, labels and label groups, projects with their statuses, and the files uploaded to an issue (read only). `issue(id:)` and `team(id:)` also take `YLK-12` and `YLK`.
+- Not available: estimates, cycles, issue relations, archiving issues, link attachments and webhooks. An input or filter field that is not supported is rejected with an error naming it, never ignored.
+- After `deleteIssue` or `deleteProject` the deleted item can no longer be read: use `payload.success` and `payload.entityId`, not `await payload.entity`.
+- Query cost: each query may cost up to 10 000 points (0.1 per field, 1 per object, times the page size for lists); the `X-Complexity` response header shows a query's cost. With the SDK's full selections keep `first` at 200 or below.
+- Other tools need a configurable endpoint: `LINEAR_GRAPHQL_ENDPOINT=https://<host>/graphql` for linear-cli; SDK-based tools need `apiUrl`.
+- API keys are limited to 5 000 requests per hour per user on every endpoint (`API_RATE_LIMIT`, `0` turns it off). Responses carry `X-RateLimit-Requests-Limit`, `-Remaining` and `-Reset`; over the limit the answer is 429 with `Retry-After`.
 
 ### Projects and issues
 
@@ -243,6 +261,7 @@ Server configuration (environment variables):
 | `BASE_URL` | `http://localhost:8080` | Public URL (invite links, `Secure` cookies for https) |
 | `DATA_DIR` | `./data` (`/data` in Docker) | Uploaded files (created with mode 0700) |
 | `MAX_UPLOAD_MB` | `25` | Largest file to upload, 1–1024 |
+| `API_RATE_LIMIT` | `5000` | API-key requests per hour and user on every endpoint; `0` turns the limit off |
 
 Local ports used by `make dev` / `make test`, override if they are taken:
 
