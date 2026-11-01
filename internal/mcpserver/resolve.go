@@ -250,6 +250,11 @@ func (c *call) milestone(ctx context.Context, p project.Project, ref string) (*m
 	if isNone(ref) {
 		return nil, nil
 	}
+	return c.milestoneNamed(ctx, p, ref)
+}
+
+// milestoneNamed finds a milestone of p by name or id; "none" is a name here.
+func (c *call) milestoneNamed(ctx context.Context, p project.Project, ref string) (*milestone.Milestone, error) {
 	ref = strings.TrimSpace(ref)
 	if id, err := uuid.Parse(ref); err == nil {
 		m, err := c.d.Milestones.Get(ctx, id)
