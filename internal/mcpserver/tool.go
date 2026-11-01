@@ -113,3 +113,7 @@ func addTool[In any](srv *mcp.Server, d *Deps, t *mcp.Tool, h func(ctx context.C
 		return &mcp.CallToolResult{IsError: isErr, Content: []mcp.Content{&mcp.TextContent{Text: text}}}, nil, nil
 	})
 }
+
+func writes(title string, idempotent bool) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{Title: title, DestructiveHint: boolPtr(false), IdempotentHint: idempotent, OpenWorldHint: boolPtr(false)}
+}
