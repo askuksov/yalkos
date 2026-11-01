@@ -1,6 +1,8 @@
 package account_test
 
 import (
+	"github.com/google/uuid"
+
 	"context"
 	"errors"
 	"testing"
@@ -72,5 +74,41 @@ func TestCannotDisableOwnerOrSelf(t *testing.T) {
 	}
 	if err := e.svc.SetMemberDisabled(ctx, member, admin.ID, true); !errors.Is(err, account.ErrForbidden) {
 		t.Errorf("member disables admin: err = %v", err)
+	}
+}
+
+func TestUserUpdatedAt(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	owner, _ := e.setupOwner(t)
+	member, _ := e.addMember(t, owner, account.RoleMember)
+	before, err := e.svc.Member(ctx, member.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.UpdatedAt.IsZero() {
+		t.Fatal("UpdatedAt is zero")
+	}
+	if err := e.svc.UpdateMemberRole(ctx, owner, member.ID, account.RoleAdmin); err != nil {
+		t.Fatal(err)
+	}
+	after, err := e.svc.Member(ctx, member.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.UpdatedAt.After(before.UpdatedAt) {
+		t.Fatalf("UpdatedAt %v, before %v", after.UpdatedAt, before.UpdatedAt)
+	}
+}
+
+func TestWorkspaceRead(t *testing.T) {
+	e := newEnv(t)
+	e.setupOwner(t)
+	ws, err := e.svc.Workspace(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ws.Name != "Acme" || ws.ID == uuid.Nil || ws.CreatedAt.IsZero() {
+		t.Fatalf("workspace = %+v", ws)
 	}
 }

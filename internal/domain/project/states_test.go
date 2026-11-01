@@ -302,3 +302,23 @@ func TestStatesOfArchivedProject(t *testing.T) {
 		t.Fatalf("StatesByIDs = %+v, %v", got, err)
 	}
 }
+
+func TestStateTimestamps(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	p := e.create(t, "YLK")
+	todo := stateByName(t, e, p.ID, "Todo")
+	if todo.CreatedAt.IsZero() || todo.UpdatedAt.IsZero() {
+		t.Fatalf("timestamps = %v / %v", todo.CreatedAt, todo.UpdatedAt)
+	}
+	up, err := e.svc.UpdateState(ctx, e.users.Admin, todo.ID, project.StatePatch{Name: ptr("To do")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !up.UpdatedAt.After(todo.UpdatedAt) || !up.CreatedAt.Equal(todo.CreatedAt) {
+		t.Fatalf("after update: %v / %v, before %v / %v", up.CreatedAt, up.UpdatedAt, todo.CreatedAt, todo.UpdatedAt)
+	}
+	if got := stateByName(t, e, p.ID, "To do"); !got.UpdatedAt.Equal(up.UpdatedAt) {
+		t.Fatalf("States() UpdatedAt = %v, want %v", got.UpdatedAt, up.UpdatedAt)
+	}
+}

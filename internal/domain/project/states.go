@@ -45,6 +45,8 @@ type State struct {
 	Color         string
 	Position      int
 	IsDefault     bool
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 const (
@@ -56,6 +58,7 @@ func toState(s q.State) State {
 	return State{
 		ID: s.ID, ProjectID: s.ProjectID, Name: s.Name, Type: StateType(s.Type),
 		Color: s.Color, Position: int(s.Position), IsDefault: s.IsDefault,
+		CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
 	}
 }
 

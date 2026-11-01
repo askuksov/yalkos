@@ -372,6 +372,20 @@ func (s *Service) ByIDs(ctx context.Context, ids []uuid.UUID) ([]Milestone, erro
 	return out, nil
 }
 
+// ListAll returns the milestones of all projects, oldest first; those of
+// archived projects only with includeArchivedProjects.
+func (s *Service) ListAll(ctx context.Context, includeArchivedProjects bool) ([]Milestone, error) {
+	rows, err := s.q.ListAllMilestones(ctx, includeArchivedProjects)
+	if err != nil {
+		return nil, fmt.Errorf("list all milestones: %w", err)
+	}
+	out := make([]Milestone, len(rows))
+	for i, r := range rows {
+		out[i] = toMilestone(r)
+	}
+	return out, nil
+}
+
 // List returns the project's milestones in manual order; without includeDone
 // those whose status is done or canceled are left out.
 func (s *Service) List(ctx context.Context, projectID uuid.UUID, includeDone bool) ([]Milestone, error) {

@@ -12,6 +12,70 @@ import (
 	"github.com/google/uuid"
 )
 
+const countIssuesByCreators = `-- name: CountIssuesByCreators :many
+SELECT creator_id, count(*)::int AS n FROM issues
+WHERE creator_id = ANY($1::uuid[]) AND deleted_at IS NULL
+GROUP BY creator_id
+`
+
+type CountIssuesByCreatorsRow struct {
+	CreatorID uuid.UUID
+	N         int32
+}
+
+// Live issues per creator.
+func (q *Queries) CountIssuesByCreators(ctx context.Context, ids []uuid.UUID) ([]CountIssuesByCreatorsRow, error) {
+	rows, err := q.db.Query(ctx, countIssuesByCreators, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountIssuesByCreatorsRow
+	for rows.Next() {
+		var i CountIssuesByCreatorsRow
+		if err := rows.Scan(&i.CreatorID, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countIssuesByProjects = `-- name: CountIssuesByProjects :many
+SELECT project_id, count(*)::int AS n FROM issues
+WHERE project_id = ANY($1::uuid[]) AND deleted_at IS NULL
+GROUP BY project_id
+`
+
+type CountIssuesByProjectsRow struct {
+	ProjectID uuid.UUID
+	N         int32
+}
+
+// Live issues per project (archived projects included).
+func (q *Queries) CountIssuesByProjects(ctx context.Context, ids []uuid.UUID) ([]CountIssuesByProjectsRow, error) {
+	rows, err := q.db.Query(ctx, countIssuesByProjects, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountIssuesByProjectsRow
+	for rows.Next() {
+		var i CountIssuesByProjectsRow
+		if err := rows.Scan(&i.ProjectID, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO issues (project_id, number, title, description, state_id, priority, assignee_id, creator_id,
     parent_id, due_date, sort_order, created_at, updated_at, completed_at, canceled_at, milestone_id)

@@ -144,6 +144,44 @@ func (q *Queries) GetMilestoneForUpdate(ctx context.Context, id uuid.UUID) (Mile
 	return i, err
 }
 
+const listAllMilestones = `-- name: ListAllMilestones :many
+SELECT m.id, m.project_id, m.name, m.description, m.target_date, m.lead_id, m.sort_order, m.status_manual, m.created_by, m.created_at, m.updated_at FROM milestones m JOIN projects p ON p.id = m.project_id
+WHERE $1::boolean OR p.archived_at IS NULL
+ORDER BY m.created_at, m.id
+`
+
+func (q *Queries) ListAllMilestones(ctx context.Context, includeArchived bool) ([]Milestone, error) {
+	rows, err := q.db.Query(ctx, listAllMilestones, includeArchived)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Milestone
+	for rows.Next() {
+		var i Milestone
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.TargetDate,
+			&i.LeadID,
+			&i.SortOrder,
+			&i.StatusManual,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMilestonesByIDs = `-- name: ListMilestonesByIDs :many
 SELECT id, project_id, name, description, target_date, lead_id, sort_order, status_manual, created_by, created_at, updated_at FROM milestones WHERE id = ANY($1::uuid[])
 `

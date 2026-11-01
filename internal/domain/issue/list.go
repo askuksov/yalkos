@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/askuksov/yalkos/internal/domain/kit"
@@ -196,6 +197,34 @@ LIMIT %s`, issueColumns, spec.out(o.Desc), wh.sql(), key, sqlDir, sqlDir, wh.arg
 	out := page.Result[Issue]{Cursors: res.Cursors, Info: res.Info, Items: make([]Issue, len(res.Items))}
 	for i, l := range res.Items {
 		out.Items[i] = l.issue
+	}
+	return out, nil
+}
+
+// CountByProjects counts live issues per project (archived projects
+// included); projects without issues are absent from the map.
+func (s *Service) CountByProjects(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]int, error) {
+	rows, err := s.q.CountIssuesByProjects(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("count issues by projects: %w", err)
+	}
+	out := make(map[uuid.UUID]int, len(rows))
+	for _, r := range rows {
+		out[r.ProjectID] = int(r.N)
+	}
+	return out, nil
+}
+
+// CountByCreators counts live issues per creator; users without issues are
+// absent from the map.
+func (s *Service) CountByCreators(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]int, error) {
+	rows, err := s.q.CountIssuesByCreators(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("count issues by creators: %w", err)
+	}
+	out := make(map[uuid.UUID]int, len(rows))
+	for _, r := range rows {
+		out[r.CreatorID] = int(r.N)
 	}
 	return out, nil
 }

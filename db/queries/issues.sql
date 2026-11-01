@@ -95,3 +95,15 @@ INSERT INTO issue_labels (issue_id, label_id, exclusive_group_id)
 SELECT @issue_id::uuid, l.id, CASE WHEN g.exclusive THEN g.id END
 FROM labels l LEFT JOIN labels g ON g.id = l.parent_id
 WHERE l.id = ANY(@label_ids::uuid[]);
+
+-- name: CountIssuesByProjects :many
+-- Live issues per project (archived projects included).
+SELECT project_id, count(*)::int AS n FROM issues
+WHERE project_id = ANY(@ids::uuid[]) AND deleted_at IS NULL
+GROUP BY project_id;
+
+-- name: CountIssuesByCreators :many
+-- Live issues per creator.
+SELECT creator_id, count(*)::int AS n FROM issues
+WHERE creator_id = ANY(@ids::uuid[]) AND deleted_at IS NULL
+GROUP BY creator_id;
