@@ -87,6 +87,21 @@ func (r *Resolver) teamConn(ctx context.Context, f *TeamFilter, includeArchived 
 	if err != nil {
 		return nil, err
 	}
+	return teamList(ps, nil, by, a)
+}
+
+// teamList filters, orders and pages projects in memory.
+func teamList(all []project.Project, f *TeamFilter, by *PaginationOrderBy, a page.Args) (*TeamConnection, error) {
+	var ps []project.Project
+	for _, p := range all {
+		ok, err := teamMatch(f, p)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			ps = append(ps, p)
+		}
+	}
 	id := func(p project.Project) uuid.UUID { return p.ID }
 	orderByTime(ps, id, func(p project.Project) time.Time { return p.CreatedAt }, func(p project.Project) time.Time { return p.UpdatedAt }, by)
 	items, info, err := pageOf(ps, id, a)

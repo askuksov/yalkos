@@ -89,7 +89,7 @@ func (r *Resolver) issueConn(ctx context.Context, scope issue.Filter, f *IssueFi
 // parent or assignee scope the caller's filter is the top level, so its team
 // filter decides on archived teams.
 func scoped(scope, user issue.Filter) issue.Filter {
-	if scope.Project == nil && scope.Parent == nil && scope.Assignee == nil {
+	if scope.Project == nil && scope.Parent == nil && scope.Assignee == nil && scope.Milestone == nil {
 		user.IncludeArchived = scope.IncludeArchived
 		user.Search = scope.Search
 		return user
@@ -229,4 +229,8 @@ func (r *Resolver) issueState(ctx context.Context, i issue.Issue) (*WorkflowStat
 		return nil, err
 	}
 	return stateOut(st), nil
+}
+
+func milestoneScope(id uuid.UUID) issue.Filter {
+	return issue.Filter{Milestone: &issue.IDCond{Eq: &id}, IncludeArchived: true}
 }

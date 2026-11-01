@@ -85,6 +85,8 @@ models:
         resolver: true
       parent:
         resolver: true
+      project:
+        resolver: true
       children:
         resolver: true
       relations:
@@ -109,6 +111,8 @@ models:
       Src:
         type: github.com/askuksov/yalkos/internal/domain/issue.Issue
     fields:
+      project:
+        resolver: true
       labelIds:
         resolver: true
       team:
@@ -153,3 +157,34 @@ models:
         resolver: true
       user:
         resolver: true
+  Project:
+    extraFields:
+      Src:
+        type: github.com/askuksov/yalkos/internal/domain/milestone.Milestone
+    fields:
+      url:
+        resolver: true
+      status:
+        resolver: true
+      state:
+        resolver: true
+      progress:
+        resolver: true
+      scope:
+        resolver: true
+      lead:
+        resolver: true
+      creator:
+        resolver: true
+      teams:
+        resolver: true
+      issues:
+        resolver: true
+  ProjectUpdateInput:
+    fields:
+      targetDate:
+        omittable: true
+      leadId:
+        omittable: true
+      statusId:
+        omittable: true

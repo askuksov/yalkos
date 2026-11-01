@@ -54,6 +54,21 @@ func (r *mutationResolver) CommentDelete(ctx context.Context, id string) (*Delet
 	return r.deleteComment(ctx, id)
 }
 
+// ProjectCreate is the resolver for the projectCreate field.
+func (r *mutationResolver) ProjectCreate(ctx context.Context, input ProjectCreateInput, aiConversationID *string, projectDraftID *string, slackChannelName *string) (*ProjectPayload, error) {
+	return r.createProject(ctx, input)
+}
+
+// ProjectUpdate is the resolver for the projectUpdate field.
+func (r *mutationResolver) ProjectUpdate(ctx context.Context, id string, input ProjectUpdateInput) (*ProjectPayload, error) {
+	return r.updateProject(ctx, id, input)
+}
+
+// ProjectDelete is the resolver for the projectDelete field.
+func (r *mutationResolver) ProjectDelete(ctx context.Context, id string) (*ProjectArchivePayload, error) {
+	return r.deleteProject(ctx, id)
+}
+
 // Viewer is the resolver for the viewer field.
 func (r *queryResolver) Viewer(ctx context.Context) (*User, error) {
 	me, err := r.actor(ctx)
@@ -176,6 +191,16 @@ func (r *queryResolver) Comments(ctx context.Context, after *string, before *str
 // Comment is the resolver for the comment field.
 func (r *queryResolver) Comment(ctx context.Context, hash *string, id *string) (*Comment, error) {
 	return r.commentByID(ctx, id)
+}
+
+// Projects is the resolver for the projects field.
+func (r *queryResolver) Projects(ctx context.Context, after *string, before *string, filter *ProjectFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, sort []ProjectSortInput) (*ProjectConnection, error) {
+	return r.projectConn(ctx, filter, includeArchived, orderBy, sort, pageArgs(first, after, last, before))
+}
+
+// Project is the resolver for the project field.
+func (r *queryResolver) Project(ctx context.Context, id string) (*Project, error) {
+	return r.projectByID(ctx, id)
 }
 
 // Mutation returns MutationResolver implementation.

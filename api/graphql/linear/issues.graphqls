@@ -112,6 +112,7 @@ input IssueFilter {
   state: WorkflowStateFilter
   team: TeamFilter
   labels: IssueLabelCollectionFilter
+  project: NullableProjectFilter
   parent: NullableIssueFilter
 }
 

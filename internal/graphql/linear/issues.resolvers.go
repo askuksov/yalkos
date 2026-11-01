@@ -29,6 +29,11 @@ func (r *issueResolver) Parent(ctx context.Context, obj *Issue) (*Issue, error) 
 	return r.issueRef(ctx, obj.Src.ParentID)
 }
 
+// Project is the resolver for the project field.
+func (r *issueResolver) Project(ctx context.Context, obj *Issue) (*Project, error) {
+	return r.projectRef(ctx, obj.Src.MilestoneID)
+}
+
 // Team is the resolver for the team field.
 func (r *issueResolver) Team(ctx context.Context, obj *Issue) (*Team, error) {
 	return r.issueTeam(ctx, obj.Src)
@@ -96,6 +101,11 @@ func (r *issueSearchResultResolver) LabelIds(ctx context.Context, obj *IssueSear
 // Parent is the resolver for the parent field.
 func (r *issueSearchResultResolver) Parent(ctx context.Context, obj *IssueSearchResult) (*Issue, error) {
 	return r.issueRef(ctx, obj.Src.ParentID)
+}
+
+// Project is the resolver for the project field.
+func (r *issueSearchResultResolver) Project(ctx context.Context, obj *IssueSearchResult) (*Project, error) {
+	return r.projectRef(ctx, obj.Src.MilestoneID)
 }
 
 // Team is the resolver for the team field.

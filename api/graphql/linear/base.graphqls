@@ -422,5 +422,3 @@ type IssueSharedAccess {
   isShared: Boolean!
 }
 
-# Placeholders until the full types are declared.
-type Project { id: ID! }

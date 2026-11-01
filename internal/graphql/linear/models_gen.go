@@ -14,6 +14,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/comment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/label"
+	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/google/uuid"
 )
@@ -328,7 +329,6 @@ type Issue struct {
 	// 0 no priority, 1 urgent, 2 high, 3 medium, 4 low.
 	Priority               float64           `json:"priority"`
 	ProjectMilestone       *ProjectMilestone `json:"projectMilestone,omitempty"`
-	Project                *Project          `json:"project,omitempty"`
 	RecurringIssueTemplate *Template         `json:"recurringIssueTemplate,omitempty"`
 	ArchivedAt             *time.Time        `json:"archivedAt,omitempty"`
 	CreatedAt              time.Time         `json:"createdAt"`
@@ -414,6 +414,7 @@ type IssueFilter struct {
 	State       *WorkflowStateFilter            `json:"state,omitempty"`
 	Team        *TeamFilter                     `json:"team,omitempty"`
 	Labels      *IssueLabelCollectionFilter     `json:"labels,omitempty"`
+	Project     *NullableProjectFilter          `json:"project,omitempty"`
 	Parent      *NullableIssueFilter            `json:"parent,omitempty"`
 }
 
@@ -571,7 +572,6 @@ type IssueSearchResult struct {
 	// 0 no priority, 1 urgent, 2 high, 3 medium, 4 low.
 	Priority               float64           `json:"priority"`
 	ProjectMilestone       *ProjectMilestone `json:"projectMilestone,omitempty"`
-	Project                *Project          `json:"project,omitempty"`
 	RecurringIssueTemplate *Template         `json:"recurringIssueTemplate,omitempty"`
 	ArchivedAt             *time.Time        `json:"archivedAt,omitempty"`
 	CreatedAt              time.Time         `json:"createdAt"`
@@ -673,6 +673,12 @@ type NullableNumberComparator struct {
 	In   []float64 `json:"in,omitempty"`
 	Nin  []float64 `json:"nin,omitempty"`
 	Null *bool     `json:"null,omitempty"`
+}
+
+type NullableProjectFilter struct {
+	ID   *IDComparator     `json:"id,omitempty"`
+	Name *StringComparator `json:"name,omitempty"`
+	Null *bool             `json:"null,omitempty"`
 }
 
 // String comparator for optional values; an empty string counts as no value.
@@ -828,12 +834,138 @@ type PrioritySort struct {
 	NoPriorityFirst *bool                `json:"noPriorityFirst,omitempty"`
 }
 
+// A project is a Yalkos milestone of one team.
 type Project struct {
-	ID string `json:"id"`
+	ID                             string                   `json:"id"`
+	Trashed                        *bool                    `json:"trashed,omitempty"`
+	IntegrationsSettings           *IntegrationsSettings    `json:"integrationsSettings,omitempty"`
+	MicrosoftTeamsChannelID        *string                  `json:"microsoftTeamsChannelId,omitempty"`
+	SlackChannelID                 *string                  `json:"slackChannelId,omitempty"`
+	LabelIds                       []string                 `json:"labelIds"`
+	DocumentContent                *DocumentContent         `json:"documentContent,omitempty"`
+	UpdateRemindersDay             *Day                     `json:"updateRemindersDay,omitempty"`
+	TargetDate                     *time.Time               `json:"targetDate,omitempty"`
+	StartDate                      *time.Time               `json:"startDate,omitempty"`
+	SyncedWith                     []ExternalEntityInfo     `json:"syncedWith,omitempty"`
+	UpdateReminderFrequency        *float64                 `json:"updateReminderFrequency,omitempty"`
+	UpdateRemindersHour            *float64                 `json:"updateRemindersHour,omitempty"`
+	Icon                           *string                  `json:"icon,omitempty"`
+	ConvertedFromIssue             *Issue                   `json:"convertedFromIssue,omitempty"`
+	LastAppliedTemplate            *Template                `json:"lastAppliedTemplate,omitempty"`
+	UpdatedAt                      time.Time                `json:"updatedAt"`
+	LastUpdate                     *ProjectUpdate           `json:"lastUpdate,omitempty"`
+	UpdateReminderFrequencyInWeeks *float64                 `json:"updateReminderFrequencyInWeeks,omitempty"`
+	Name                           string                   `json:"name"`
+	CompletedScopeHistory          []float64                `json:"completedScopeHistory"`
+	CompletedIssueCountHistory     []float64                `json:"completedIssueCountHistory"`
+	InProgressScopeHistory         []float64                `json:"inProgressScopeHistory"`
+	ResourceCount                  int                      `json:"resourceCount"`
+	Health                         *ProjectUpdateHealthType `json:"health,omitempty"`
+	PriorityLabel                  string                   `json:"priorityLabel"`
+	Priority                       int                      `json:"priority"`
+	Color                          string                   `json:"color"`
+	// The description in Markdown.
+	Content *string `json:"content,omitempty"`
+	// Same as id.
+	SlugID               string                  `json:"slugId"`
+	TargetDateResolution *DateResolutionType     `json:"targetDateResolution,omitempty"`
+	StartDateResolution  *DateResolutionType     `json:"startDateResolution,omitempty"`
+	FrequencyResolution  FrequencyResolutionType `json:"frequencyResolution"`
+	// The full description (same as content).
+	Description                         string              `json:"description"`
+	PrioritySortOrder                   float64             `json:"prioritySortOrder"`
+	SortOrder                           float64             `json:"sortOrder"`
+	ArchivedAt                          *time.Time          `json:"archivedAt,omitempty"`
+	CreatedAt                           time.Time           `json:"createdAt"`
+	HealthUpdatedAt                     *time.Time          `json:"healthUpdatedAt,omitempty"`
+	AutoArchivedAt                      *time.Time          `json:"autoArchivedAt,omitempty"`
+	CanceledAt                          *time.Time          `json:"canceledAt,omitempty"`
+	CompletedAt                         *time.Time          `json:"completedAt,omitempty"`
+	StartedAt                           *time.Time          `json:"startedAt,omitempty"`
+	ProjectUpdateRemindersPausedUntilAt *time.Time          `json:"projectUpdateRemindersPausedUntilAt,omitempty"`
+	IssueCountHistory                   []float64           `json:"issueCountHistory"`
+	ScopeHistory                        []float64           `json:"scopeHistory"`
+	Favorite                            *Favorite           `json:"favorite,omitempty"`
+	SlackIssueComments                  bool                `json:"slackIssueComments"`
+	SlackNewIssue                       bool                `json:"slackNewIssue"`
+	SlackIssueStatuses                  bool                `json:"slackIssueStatuses"`
+	Src                                 milestone.Milestone `json:"-"`
+}
+
+type ProjectArchivePayload struct {
+	// The project as it was before deletion.
+	Entity     *Project `json:"entity,omitempty"`
+	LastSyncID float64  `json:"lastSyncId"`
+	Success    bool     `json:"success"`
+}
+
+type ProjectConnection struct {
+	Nodes    []Project     `json:"nodes"`
+	Edges    []ProjectEdge `json:"edges"`
+	PageInfo *PageInfo     `json:"pageInfo"`
+}
+
+type ProjectCreateInput struct {
+	Name string `json:"name"`
+	// Exactly one team (UUID or key).
+	TeamIds []string `json:"teamIds"`
+	// Use description or content, not both.
+	Description *string    `json:"description,omitempty"`
+	Content     *string    `json:"content,omitempty"`
+	TargetDate  *time.Time `json:"targetDate,omitempty"`
+	LeadID      *string    `json:"leadId,omitempty"`
+}
+
+type ProjectCreatedAtSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
+}
+
+type ProjectEdge struct {
+	Node   *Project `json:"node"`
+	Cursor string   `json:"cursor"`
+}
+
+type ProjectFilter struct {
+	And  []ProjectFilter   `json:"and,omitempty"`
+	Or   []ProjectFilter   `json:"or,omitempty"`
+	ID   *IDComparator     `json:"id,omitempty"`
+	Name *StringComparator `json:"name,omitempty"`
+	// Status type: planned, started, completed or canceled.
+	State           *StringComparator       `json:"state,omitempty"`
+	TargetDate      *NullableDateComparator `json:"targetDate,omitempty"`
+	AccessibleTeams *TeamCollectionFilter   `json:"accessibleTeams,omitempty"`
+}
+
+type ProjectManualSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
 }
 
 type ProjectMilestone struct {
 	ID string `json:"id"`
+}
+
+type ProjectNameSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
+}
+
+type ProjectPayload struct {
+	LastSyncID float64  `json:"lastSyncId"`
+	Project    *Project `json:"project,omitempty"`
+	Success    bool     `json:"success"`
+}
+
+// One element with one key.
+type ProjectSortInput struct {
+	CreatedAt *ProjectCreatedAtSort `json:"createdAt,omitempty"`
+	UpdatedAt *ProjectUpdatedAtSort `json:"updatedAt,omitempty"`
+	// Manual order within the team.
+	Manual *ProjectManualSort `json:"manual,omitempty"`
+	Name   *ProjectNameSort   `json:"name,omitempty"`
+	// No target date last.
+	TargetDate *TargetDateSort `json:"targetDate,omitempty"`
 }
 
 // A project status: planned, in progress, done or canceled.
@@ -852,6 +984,23 @@ type ProjectStatus struct {
 
 type ProjectUpdate struct {
 	ID string `json:"id"`
+}
+
+type ProjectUpdateInput struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Content     *string `json:"content,omitempty"`
+	// null clears.
+	TargetDate graphql.Omittable[*time.Time] `json:"targetDate,omitempty"`
+	// null clears.
+	LeadID graphql.Omittable[*string] `json:"leadId,omitempty"`
+	// One of the four project statuses pins it; null lets it follow the issues again.
+	StatusID graphql.Omittable[*string] `json:"statusId,omitempty"`
+}
+
+type ProjectUpdatedAtSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
 }
 
 type Query struct {
@@ -899,6 +1048,11 @@ type SyncedExternalThread struct {
 	IsPersonalIntegrationRequired  bool    `json:"isPersonalIntegrationRequired"`
 	IsPersonalIntegrationConnected bool    `json:"isPersonalIntegrationConnected"`
 	IsConnected                    bool    `json:"isConnected"`
+}
+
+type TargetDateSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
 }
 
 // A team is a Yalkos project.
@@ -975,6 +1129,12 @@ type Team struct {
 	IssueOrderingNoPriorityFirst   bool                  `json:"issueOrderingNoPriorityFirst"`
 	IssueSortOrderDefaultToBottom  bool                  `json:"issueSortOrderDefaultToBottom"`
 	Src                            project.Project       `json:"-"`
+}
+
+// Matches when the project's team matches.
+type TeamCollectionFilter struct {
+	ID   *IDComparator `json:"id,omitempty"`
+	Some *TeamFilter   `json:"some,omitempty"`
 }
 
 type TeamConnection struct {
