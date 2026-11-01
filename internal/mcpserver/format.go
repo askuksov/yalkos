@@ -76,3 +76,10 @@ func encode(v any) (string, error) {
 	}
 	return strings.TrimSuffix(b.String(), "\n"), nil
 }
+
+func stampPtr(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return stamp(*t)
+}

@@ -10,10 +10,12 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -51,6 +53,39 @@ func newEnv(t *testing.T) *env { return newEnvLogger(t, quiet) }
 func newEnvLogger(t *testing.T, logger *slog.Logger) *env {
 	t.Helper()
 	pool, users, _ := testfx.New(t)
+	return serveEnv(t, pool, users, logger)
+}
+
+// counter is a pgx tracer that counts SQL statements.
+type counter struct{ n atomic.Int64 }
+
+func (c *counter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
+	c.n.Add(1)
+	return ctx
+}
+
+func (c *counter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
+
+// newTracedEnv is newEnv whose services use a pool that counts SQL statements.
+func newTracedEnv(t *testing.T) (*env, *counter) {
+	t.Helper()
+	setup, users, _ := testfx.New(t)
+	cfg, err := pgxpool.ParseConfig(setup.Config().ConnString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	queries := &counter{}
+	cfg.ConnConfig.Tracer = queries
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	return serveEnv(t, pool, users, quiet), queries
+}
+
+func serveEnv(t *testing.T, pool *pgxpool.Pool, users testfx.Users, logger *slog.Logger) *env {
+	t.Helper()
 	base, _ := url.Parse(testBase)
 	accounts := account.New(pool, time.Now, base.String())
 	projects := project.New(pool, time.Now)
