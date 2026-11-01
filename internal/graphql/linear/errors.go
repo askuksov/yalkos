@@ -35,7 +35,7 @@ var errorTypes = map[string]string{
 }
 
 // fieldNames maps domain field names to the names used here.
-var fieldNames = map[string]string{"projectId": "teamId", "milestoneId": "projectId"}
+var fieldNames = map[string]string{"projectId": "teamId", "milestoneId": "projectId", "exclusive": "groupType"}
 
 // entityNames maps not-found messages of domain entities.
 var entityNames = map[string]string{
@@ -56,6 +56,8 @@ var domainMessages = map[string]string{
 	"parent belongs to another project":    "parent belongs to another team",
 	"state belongs to another project":     "state belongs to another team",
 	"a milestone with this name exists":    "a project with this name exists in this team",
+	"only groups can be exclusive":         "only label groups have a groupType",
+	"the type group is always exclusive":   "the Type group is always singleSelect",
 }
 
 // presenter builds errors as clients of this API expect them: an error type
