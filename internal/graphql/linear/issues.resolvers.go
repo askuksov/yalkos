@@ -21,11 +21,7 @@ func (r *attachmentResolver) Issue(ctx context.Context, obj *Attachment) (*Issue
 
 // LabelIds is the resolver for the labelIds field.
 func (r *issueResolver) LabelIds(ctx context.Context, obj *Issue) ([]string, error) {
-	if obj.Src.LabelIDs != nil {
-		return idStrings(obj.Src.LabelIDs), nil
-	}
-	ids, err := loadersFrom(ctx).issueLabels.Load(ctx, obj.Src.ID)
-	return idStrings(ids), err
+	return r.issueLabelIDs(ctx, obj.Src)
 }
 
 // Parent is the resolver for the parent field.
@@ -35,11 +31,7 @@ func (r *issueResolver) Parent(ctx context.Context, obj *Issue) (*Issue, error) 
 
 // Team is the resolver for the team field.
 func (r *issueResolver) Team(ctx context.Context, obj *Issue) (*Team, error) {
-	p, err := loadersFrom(ctx).projects.Load(ctx, obj.Src.ProjectID)
-	if err != nil {
-		return nil, err
-	}
-	return teamOut(p), nil
+	return r.issueTeam(ctx, obj.Src)
 }
 
 // Assignee is the resolver for the assignee field.
@@ -54,11 +46,7 @@ func (r *issueResolver) Creator(ctx context.Context, obj *Issue) (*User, error) 
 
 // State is the resolver for the state field.
 func (r *issueResolver) State(ctx context.Context, obj *Issue) (*WorkflowState, error) {
-	st, err := loadersFrom(ctx).states.Load(ctx, obj.Src.StateID)
-	if err != nil {
-		return nil, err
-	}
-	return stateOut(st), nil
+	return r.issueState(ctx, obj.Src)
 }
 
 // Children is the resolver for the children field.
@@ -83,13 +71,49 @@ func (r *issueResolver) Attachments(ctx context.Context, obj *Issue, after *stri
 	return r.attachmentConn(files, filter, orderBy, pageArgs(first, after, last, before))
 }
 
+// LabelIds is the resolver for the labelIds field.
+func (r *issueSearchResultResolver) LabelIds(ctx context.Context, obj *IssueSearchResult) ([]string, error) {
+	return r.issueLabelIDs(ctx, obj.Src)
+}
+
+// Parent is the resolver for the parent field.
+func (r *issueSearchResultResolver) Parent(ctx context.Context, obj *IssueSearchResult) (*Issue, error) {
+	return r.issueRef(ctx, obj.Src.ParentID)
+}
+
+// Team is the resolver for the team field.
+func (r *issueSearchResultResolver) Team(ctx context.Context, obj *IssueSearchResult) (*Team, error) {
+	return r.issueTeam(ctx, obj.Src)
+}
+
+// Assignee is the resolver for the assignee field.
+func (r *issueSearchResultResolver) Assignee(ctx context.Context, obj *IssueSearchResult) (*User, error) {
+	return r.userRef(ctx, obj.Src.AssigneeID)
+}
+
+// Creator is the resolver for the creator field.
+func (r *issueSearchResultResolver) Creator(ctx context.Context, obj *IssueSearchResult) (*User, error) {
+	return r.userRef(ctx, &obj.Src.CreatorID)
+}
+
+// State is the resolver for the state field.
+func (r *issueSearchResultResolver) State(ctx context.Context, obj *IssueSearchResult) (*WorkflowState, error) {
+	return r.issueState(ctx, obj.Src)
+}
+
 // Attachment returns AttachmentResolver implementation.
 func (r *Resolver) Attachment() AttachmentResolver { return &attachmentResolver{r} }
 
 // Issue returns IssueResolver implementation.
 func (r *Resolver) Issue() IssueResolver { return &issueResolver{r} }
 
+// IssueSearchResult returns IssueSearchResultResolver implementation.
+func (r *Resolver) IssueSearchResult() IssueSearchResultResolver {
+	return &issueSearchResultResolver{r}
+}
+
 type (
-	attachmentResolver struct{ *Resolver }
-	issueResolver      struct{ *Resolver }
+	attachmentResolver        struct{ *Resolver }
+	issueResolver             struct{ *Resolver }
+	issueSearchResultResolver struct{ *Resolver }
 )
