@@ -24,6 +24,21 @@ func (r *mutationResolver) IssueDelete(ctx context.Context, id string, permanent
 	return r.deleteIssue(ctx, id, permanentlyDelete)
 }
 
+// IssueLabelCreate is the resolver for the issueLabelCreate field.
+func (r *mutationResolver) IssueLabelCreate(ctx context.Context, input IssueLabelCreateInput, replaceTeamLabels *bool) (*IssueLabelPayload, error) {
+	return r.createLabel(ctx, input)
+}
+
+// IssueLabelUpdate is the resolver for the issueLabelUpdate field.
+func (r *mutationResolver) IssueLabelUpdate(ctx context.Context, id string, input IssueLabelUpdateInput, replaceTeamLabels *bool) (*IssueLabelPayload, error) {
+	return r.updateLabel(ctx, id, input)
+}
+
+// IssueLabelDelete is the resolver for the issueLabelDelete field.
+func (r *mutationResolver) IssueLabelDelete(ctx context.Context, id string) (*DeletePayload, error) {
+	return r.deleteLabel(ctx, id)
+}
+
 // Viewer is the resolver for the viewer field.
 func (r *queryResolver) Viewer(ctx context.Context) (*User, error) {
 	me, err := r.actor(ctx)
@@ -126,6 +141,16 @@ func (r *queryResolver) IssueSearch(ctx context.Context, after *string, before *
 // IssueVcsBranchSearch is the resolver for the issueVcsBranchSearch field.
 func (r *queryResolver) IssueVcsBranchSearch(ctx context.Context, branchName string) (*Issue, error) {
 	return r.issueByBranch(ctx, branchName)
+}
+
+// IssueLabels is the resolver for the issueLabels field.
+func (r *queryResolver) IssueLabels(ctx context.Context, after *string, before *string, filter *IssueLabelFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*IssueLabelConnection, error) {
+	return r.allLabelConn(ctx, filter, orderBy, pageArgs(first, after, last, before))
+}
+
+// IssueLabel is the resolver for the issueLabel field.
+func (r *queryResolver) IssueLabel(ctx context.Context, id string) (*IssueLabel, error) {
+	return r.labelByID(ctx, id)
 }
 
 // Mutation returns MutationResolver implementation.

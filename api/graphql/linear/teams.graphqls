@@ -79,6 +79,8 @@ type Team {
   states(after: String, before: String, filter: WorkflowStateFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): WorkflowStateConnection!
   "Issues of the team."
   issues(after: String, before: String, filter: IssueFilter, first: Int, includeArchived: Boolean, includeSubTeams: Boolean, last: Int, orderBy: PaginationOrderBy): IssueConnection!
+  "All workspace labels (labels are not per team)."
+  labels(after: String, before: String, filter: IssueLabelFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): IssueLabelConnection!
   "Members of the team."
   members(after: String, before: String, filter: UserFilter, first: Int, includeArchived: Boolean, includeDisabled: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [UserSortInput!]): UserConnection!
 }

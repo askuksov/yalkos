@@ -54,6 +54,15 @@ func (r *issueResolver) Children(ctx context.Context, obj *Issue, after *string,
 	return r.issueConn(ctx, childScope(obj.Src.ID), filter, orderBy, nil, pageArgs(first, after, last, before))
 }
 
+// Labels is the resolver for the labels field.
+func (r *issueResolver) Labels(ctx context.Context, obj *Issue, after *string, before *string, filter *IssueLabelFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*IssueLabelConnection, error) {
+	ids, err := r.issueLabelIDs(ctx, obj.Src)
+	if err != nil {
+		return nil, err
+	}
+	return r.issueLabelConn(ctx, ids, filter, orderBy, pageArgs(first, after, last, before))
+}
+
 // Relations is the resolver for the relations field.
 func (r *issueResolver) Relations(ctx context.Context, obj *Issue, after *string, before *string, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*IssueRelationConnection, error) {
 	if _, err := pageArgs(first, after, last, before).Window(); err != nil {

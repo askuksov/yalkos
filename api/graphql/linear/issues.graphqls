@@ -70,6 +70,8 @@ type Issue {
   inheritsSharedAccess: Boolean!
   "Sub-issues, archived teams included."
   children(after: String, before: String, filter: IssueFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): IssueConnection!
+  "The issue's labels, its type included."
+  labels(after: String, before: String, filter: IssueLabelFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): IssueLabelConnection!
   "Always empty."
   relations(after: String, before: String, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): IssueRelationConnection!
   "Files uploaded to the issue."
@@ -107,6 +109,7 @@ input IssueFilter {
   creator: NullableUserFilter
   state: WorkflowStateFilter
   team: TeamFilter
+  labels: IssueLabelCollectionFilter
   parent: NullableIssueFilter
 }
 

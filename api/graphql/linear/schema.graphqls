@@ -30,6 +30,10 @@ type Query {
   issueSearch(after: String, before: String, filter: IssueFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy, query: String): IssueConnection!
   "The issue whose identifier (KEY-N) appears in a branch name, or null."
   issueVcsBranchSearch(branchName: String!): Issue
+  "Labels and label groups, the Type group included."
+  issueLabels(after: String, before: String, filter: IssueLabelFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): IssueLabelConnection!
+  "A label by id."
+  issueLabel(id: String!): IssueLabel!
 }
 
 type Mutation {
@@ -39,4 +43,10 @@ type Mutation {
   issueUpdate(id: String!, input: IssueUpdateInput!): IssuePayload!
   "Deletes an issue (it can be restored in the app)."
   issueDelete(id: String!, permanentlyDelete: Boolean): IssueArchivePayload!
+  "Creates a workspace label or group."
+  issueLabelCreate(input: IssueLabelCreateInput!, replaceTeamLabels: Boolean): IssueLabelPayload!
+  "Updates a label."
+  issueLabelUpdate(id: String!, input: IssueLabelUpdateInput!, replaceTeamLabels: Boolean): IssueLabelPayload!
+  "Deletes a label (a group must be empty)."
+  issueLabelDelete(id: String!): DeletePayload!
 }

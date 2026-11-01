@@ -118,6 +118,11 @@ func (fc filterCtx) issue(f *IssueFilter) (issue.Filter, error) {
 		}
 		out.Project = &issue.IDCond{In: ids}
 	}
+	if f.Labels != nil {
+		if out.Label, err = fc.labelCond(f.Labels); err != nil {
+			return out, err
+		}
+	}
 	if f.Parent != nil {
 		if out.Parent, err = idCond("id", f.Parent.ID); err != nil {
 			return out, err
@@ -377,4 +382,22 @@ func issueOrder(by *PaginationOrderBy, sort []IssueSortInput) (issue.Order, erro
 		return issue.Order{Field: issue.UpdatedAt, Desc: true}, nil
 	}
 	return issue.Order{Field: issue.CreatedAt, Desc: true}, nil
+}
+
+// labelCond: issues with a label matching all of id, name and some; null
+// tests for no labels.
+func (fc filterCtx) labelCond(c *IssueLabelCollectionFilter) (*issue.LabelCond, error) {
+	out := &issue.LabelCond{Null: c.Null}
+	if c.ID != nil || c.Name != nil || c.Some != nil {
+		f := &IssueLabelFilter{ID: c.ID, Name: c.Name}
+		if c.Some != nil {
+			f.And = []IssueLabelFilter{*c.Some}
+		}
+		ids, err := fc.r.labelIDs(fc.ctx, f)
+		if err != nil {
+			return nil, err
+		}
+		out.In = ids
+	}
+	return out, nil
 }
