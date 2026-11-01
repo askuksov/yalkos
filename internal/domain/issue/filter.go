@@ -23,10 +23,30 @@ type IntCond struct {
 	In, Nin                   []int
 }
 
-// DateCond compares a date column.
+// DateCond compares a date column. Neq and Nin keep rows without a date.
 type DateCond struct {
-	Eq, Lt, Lte, Gt, Gte *time.Time
-	Null                 *bool
+	Eq, Neq, Lt, Lte, Gt, Gte *time.Time
+	In, Nin                   []time.Time
+	Null                      *bool
+}
+
+// TextCond compares a text column. Fold operators ignore case. Negative
+// operators (Neq, NeqFold, Nin, Not*) keep rows without a value.
+type TextCond struct {
+	Eq, Neq, EqFold, NeqFold                  *string
+	Contains, NotContains                     *string
+	ContainsFold, NotContainsFold             *string
+	StartsWith, StartsWithFold, NotStartsWith *string
+	EndsWith, NotEndsWith                     *string
+	In, Nin                                   []string
+	Null                                      *bool
+}
+
+// TimeCond compares a timestamp column. Neq and Nin keep rows without a value.
+type TimeCond struct {
+	Eq, Neq, Lt, Lte, Gt, Gte *time.Time
+	In, Nin                   []time.Time
+	Null                      *bool
 }
 
 // LabelCond matches labels: In = any of, Nin = none of, Null true = no labels.
@@ -49,17 +69,25 @@ type StateTypeCond struct {
 
 // Filter selects issues; all set conditions are AND-ed.
 type Filter struct {
+	ID, Creator                      *IDCond
 	Project, State, Assignee, Parent *IDCond
 	Milestone                        *IDCond
 	Label                            *LabelCond
 	Type                             *TypeCond
 	StateType                        *StateTypeCond
-	Priority                         *IntCond
+	Number, Priority                 *IntCond
+	Title, Description               *TextCond
+	CreatedAt, UpdatedAt             *TimeCond
+	CompletedAt, CanceledAt          *TimeCond
 	DueDate                          *DateCond
 	HasChildren                      *bool
 	// Search matches words of the title and description by prefix; an
 	// identifier also matches that issue. Input without words matches all.
 	Search *string
+	// All adds each sub-filter's conditions; Any matches when at least one
+	// sub-filter does (empty Any adds nothing). Sub-filters never decide on
+	// deleted or archived rows: their IncludeArchived is ignored.
+	All, Any []Filter
 	// IncludeArchived lists issues of archived projects; they are also listed
 	// when Project.Eq or Project.In is set.
 	IncludeArchived bool
@@ -153,11 +181,118 @@ func (w *where) dateCond(col string, c *DateCond) {
 			w.add(col+" "+op.op+" %s::date", op.v.Format(time.DateOnly))
 		}
 	}
+	if c.Neq != nil {
+		w.add("("+col+" IS NULL OR "+col+" <> %s::date)", c.Neq.Format(time.DateOnly))
+	}
+	if c.In != nil {
+		w.add(col+" = ANY(%s::date[])", dateStrings(c.In))
+	}
+	if len(c.Nin) > 0 {
+		w.add("("+col+" IS NULL OR "+col+" <> ALL(%s::date[]))", dateStrings(c.Nin))
+	}
 	if c.Null != nil {
 		if *c.Null {
 			w.conds = append(w.conds, col+" IS NULL")
 		} else {
 			w.conds = append(w.conds, col+" IS NOT NULL")
+		}
+	}
+}
+
+func dateStrings(ts []time.Time) []string {
+	out := make([]string, len(ts))
+	for i, t := range ts {
+		out[i] = t.Format(time.DateOnly)
+	}
+	return out
+}
+
+func (w *where) null(col string, null bool) {
+	if null {
+		w.conds = append(w.conds, col+" IS NULL")
+	} else {
+		w.conds = append(w.conds, col+" IS NOT NULL")
+	}
+}
+
+func (w *where) timeCond(col string, c *TimeCond) {
+	if c == nil {
+		return
+	}
+	for _, op := range []struct {
+		v  *time.Time
+		op string
+	}{{c.Eq, "="}, {c.Lt, "<"}, {c.Lte, "<="}, {c.Gt, ">"}, {c.Gte, ">="}} {
+		if op.v != nil {
+			w.add(col+" "+op.op+" %s::timestamptz", *op.v)
+		}
+	}
+	if c.Neq != nil {
+		w.add(col+" IS DISTINCT FROM %s::timestamptz", *c.Neq)
+	}
+	if c.In != nil {
+		w.add(col+" = ANY(%s::timestamptz[])", c.In)
+	}
+	if len(c.Nin) > 0 {
+		w.add("("+col+" IS NULL OR "+col+" <> ALL(%s::timestamptz[]))", c.Nin)
+	}
+	if c.Null != nil {
+		w.null(col, *c.Null)
+	}
+}
+
+// likeEscaper makes a value match literally inside a LIKE pattern (ESCAPE '\').
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// textCond compares a text column; emptyIsNull treats ” as no value.
+func (w *where) textCond(col string, c *TextCond, emptyIsNull bool) {
+	if c == nil {
+		return
+	}
+	isNull := col + " IS NULL"
+	if emptyIsNull {
+		isNull = "(" + col + " IS NULL OR " + col + " = '')"
+	}
+	pos := func(format string, v any) { w.add(format, v) }
+	neg := func(format string, v any) { w.add("("+isNull+" OR "+format+")", v) }
+	like := func(prefix, v, suffix string) string { return prefix + likeEscaper.Replace(v) + suffix }
+	type op struct {
+		v      *string
+		add    func(string, any)
+		format string
+		val    func(string) any
+	}
+	plain := func(s string) any { return s }
+	for _, o := range []op{
+		{c.Eq, pos, col + " = %s", plain},
+		{c.Neq, neg, col + " <> %s", plain},
+		{c.EqFold, pos, "lower(" + col + ") = lower(%s)", plain},
+		{c.NeqFold, neg, "lower(" + col + ") <> lower(%s)", plain},
+		{c.Contains, pos, col + ` LIKE %s ESCAPE '\'`, func(s string) any { return like("%", s, "%") }},
+		{c.NotContains, neg, col + ` NOT LIKE %s ESCAPE '\'`, func(s string) any { return like("%", s, "%") }},
+		{c.ContainsFold, pos, col + ` ILIKE %s ESCAPE '\'`, func(s string) any { return like("%", s, "%") }},
+		{c.NotContainsFold, neg, col + ` NOT ILIKE %s ESCAPE '\'`, func(s string) any { return like("%", s, "%") }},
+		{c.StartsWith, pos, col + ` LIKE %s ESCAPE '\'`, func(s string) any { return like("", s, "%") }},
+		{c.StartsWithFold, pos, col + ` ILIKE %s ESCAPE '\'`, func(s string) any { return like("", s, "%") }},
+		{c.NotStartsWith, neg, col + ` NOT LIKE %s ESCAPE '\'`, func(s string) any { return like("", s, "%") }},
+		{c.EndsWith, pos, col + ` LIKE %s ESCAPE '\'`, func(s string) any { return like("%", s, "") }},
+		{c.NotEndsWith, neg, col + ` NOT LIKE %s ESCAPE '\'`, func(s string) any { return like("%", s, "") }},
+	} {
+		if o.v != nil {
+			o.add(o.format, o.val(*o.v))
+		}
+	}
+	if c.In != nil {
+		w.add(col+" = ANY(%s::text[])", c.In)
+	}
+	if len(c.Nin) > 0 {
+		neg(col+" <> ALL(%s::text[])", c.Nin)
+	}
+	if c.Null != nil {
+		if *c.Null {
+			w.conds = append(w.conds, isNull)
+		} else {
+			w.conds = append(w.conds, "NOT "+isNull)
 		}
 	}
 }
@@ -229,6 +364,25 @@ func (w *where) stateType(col string, c *StateTypeCond) {
 // build turns the filter into conditions on issues i, projects p, states st.
 func (f Filter) build(w *where) {
 	w.conds = append(w.conds, "i.deleted_at IS NULL")
+	f.conds(w)
+	explicitProject := f.Project != nil && (f.Project.Eq != nil || f.Project.In != nil)
+	if !f.IncludeArchived && !explicitProject {
+		w.conds = append(w.conds, "p.archived_at IS NULL")
+	}
+}
+
+// conds adds the field conditions of f and its groups, without the deleted and
+// archived rules. Sub-filters share w's placeholder numbering.
+func (f Filter) conds(w *where) {
+	w.id("i.id", f.ID)
+	w.id("i.creator_id", f.Creator)
+	w.intCond("i.number", f.Number)
+	w.textCond("i.title", f.Title, false)
+	w.textCond("i.description", f.Description, true)
+	w.timeCond("i.created_at", f.CreatedAt)
+	w.timeCond("i.updated_at", f.UpdatedAt)
+	w.timeCond("i.completed_at", f.CompletedAt)
+	w.timeCond("i.canceled_at", f.CanceledAt)
 	w.id("i.project_id", f.Project)
 	w.id("i.state_id", f.State)
 	w.id("i.assignee_id", f.Assignee)
@@ -249,8 +403,17 @@ func (f Filter) build(w *where) {
 	if f.Search != nil {
 		w.search(*f.Search)
 	}
-	explicitProject := f.Project != nil && (f.Project.Eq != nil || f.Project.In != nil)
-	if !f.IncludeArchived && !explicitProject {
-		w.conds = append(w.conds, "p.archived_at IS NULL")
+	for _, sub := range f.All {
+		sub.conds(w)
+	}
+	if len(f.Any) > 0 {
+		alts := make([]string, len(f.Any))
+		for i, sub := range f.Any {
+			child := where{args: w.args}
+			sub.conds(&child)
+			w.args = child.args
+			alts[i] = "(" + child.sql() + ")"
+		}
+		w.conds = append(w.conds, "("+strings.Join(alts, " OR ")+")")
 	}
 }
