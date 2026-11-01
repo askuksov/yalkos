@@ -167,6 +167,9 @@ describe('ApiKeysPage', () => {
     await userEvent.type(await screen.findByLabelText('Key name'), 'Agent')
     await userEvent.click(screen.getByRole('button', { name: 'Create key' }))
     expect(await screen.findByText(claudeCommand(plain))).toBeInTheDocument()
+    expect(screen.getByText(`export YALKOS_API_KEY=${plain}`)).toBeInTheDocument()
+    // The OpenCode config names the variable, so the file can be committed safely.
+    expect(document.body.textContent).toContain('"Authorization": "Bearer {env:YALKOS_API_KEY}"')
     expect(count(plain)).toBe(3)
     expect(count('YOUR_API_KEY')).toBe(0)
     await userEvent.click(screen.getByRole('button', { name: 'Done' }))
@@ -180,15 +183,17 @@ describe('ApiKeysPage', () => {
     renderAt('/settings/api-keys')
     await screen.findByRole('heading', { name: 'Connect an AI agent' })
     const copies = screen.getAllByRole('button', { name: 'Copy' })
-    expect(copies).toHaveLength(2)
+    expect(copies).toHaveLength(3)
     await user.click(copies[1])
     const cfg = JSON.parse(await navigator.clipboard.readText())
     expect(cfg.mcp.yalkos).toEqual({
       type: 'remote',
       url: `${window.location.origin}/mcp`,
-      headers: { Authorization: 'Bearer YOUR_API_KEY' },
+      headers: { Authorization: 'Bearer {env:YALKOS_API_KEY}' },
       oauth: false,
     })
+    await user.click(copies[2])
+    expect(await navigator.clipboard.readText()).toBe('export YALKOS_API_KEY=YOUR_API_KEY')
     await user.click(copies[0])
     expect(await navigator.clipboard.readText()).toBe(claudeCommand('YOUR_API_KEY'))
   })
