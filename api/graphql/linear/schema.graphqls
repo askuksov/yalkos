@@ -38,6 +38,10 @@ type Query {
   comments(after: String, before: String, filter: CommentFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): CommentConnection!
   "A comment by id (required)."
   comment(hash: String, id: String): Comment!
+  "Projects (milestones); of archived teams only with includeArchived."
+  projects(after: String, before: String, filter: ProjectFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [ProjectSortInput!]): ProjectConnection!
+  "A project by id."
+  project(id: String!): Project!
 }
 
 type Mutation {
@@ -59,4 +63,10 @@ type Mutation {
   commentUpdate(id: String!, input: CommentUpdateInput!, skipEditedAt: Boolean): CommentPayload!
   "Deletes a comment."
   commentDelete(id: String!): DeletePayload!
+  "Creates a project (milestone) in one team."
+  projectCreate(input: ProjectCreateInput!, aiConversationId: String, projectDraftId: String, slackChannelName: String): ProjectPayload!
+  "Updates a project."
+  projectUpdate(id: String!, input: ProjectUpdateInput!): ProjectPayload!
+  "Deletes a project; its issues stay without one."
+  projectDelete(id: String!): ProjectArchivePayload!
 }

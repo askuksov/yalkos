@@ -1,0 +1,177 @@
+"A project is a Yalkos milestone of one team."
+type Project {
+  id: ID!
+  trashed: Boolean
+  url: String!
+  integrationsSettings: IntegrationsSettings
+  microsoftTeamsChannelId: String
+  slackChannelId: String
+  labelIds: [String!]!
+  documentContent: DocumentContent
+  "The status: pinned by hand or following the issues."
+  status: ProjectStatus!
+  updateRemindersDay: Day
+  targetDate: TimelessDate
+  startDate: TimelessDate
+  syncedWith: [ExternalEntityInfo!]
+  updateReminderFrequency: Float
+  updateRemindersHour: Float
+  icon: String
+  convertedFromIssue: Issue
+  lastAppliedTemplate: Template
+  updatedAt: DateTime!
+  lastUpdate: ProjectUpdate
+  updateReminderFrequencyInWeeks: Float
+  name: String!
+  completedScopeHistory: [Float!]!
+  completedIssueCountHistory: [Float!]!
+  inProgressScopeHistory: [Float!]!
+  resourceCount: Int!
+  health: ProjectUpdateHealthType
+  "Completed share of the non-canceled issues."
+  progress: Float!
+  "Number of non-canceled issues."
+  scope: Float!
+  priorityLabel: String!
+  priority: Int!
+  color: String!
+  "The description in Markdown."
+  content: String
+  "Same as id."
+  slugId: String!
+  targetDateResolution: DateResolutionType
+  startDateResolution: DateResolutionType
+  frequencyResolution: FrequencyResolutionType!
+  "The full description (same as content)."
+  description: String!
+  prioritySortOrder: Float!
+  sortOrder: Float!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  healthUpdatedAt: DateTime
+  autoArchivedAt: DateTime
+  canceledAt: DateTime
+  completedAt: DateTime
+  startedAt: DateTime
+  projectUpdateRemindersPausedUntilAt: DateTime
+  issueCountHistory: [Float!]!
+  scopeHistory: [Float!]!
+  creator: User
+  lead: User
+  favorite: Favorite
+  slackIssueComments: Boolean!
+  slackNewIssue: Boolean!
+  slackIssueStatuses: Boolean!
+  "Status type: planned, started, completed or canceled."
+  state: String!
+  "The milestone's team."
+  teams(after: String, before: String, filter: TeamFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): TeamConnection!
+  "Issues in the project."
+  issues(after: String, before: String, filter: IssueFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): IssueConnection!
+}
+
+type ProjectConnection {
+  nodes: [Project!]!
+  edges: [ProjectEdge!]!
+  pageInfo: PageInfo!
+}
+
+type ProjectEdge {
+  node: Project!
+  cursor: String!
+}
+
+input ProjectFilter {
+  and: [ProjectFilter!]
+  or: [ProjectFilter!]
+  id: IDComparator
+  name: StringComparator
+  "Status type: planned, started, completed or canceled."
+  state: StringComparator
+  targetDate: NullableDateComparator
+  accessibleTeams: TeamCollectionFilter
+}
+
+input NullableProjectFilter {
+  id: IDComparator
+  name: StringComparator
+  null: Boolean
+}
+
+"Matches when the project's team matches."
+input TeamCollectionFilter {
+  id: IDComparator
+  some: TeamFilter
+}
+
+"One element with one key."
+input ProjectSortInput {
+  createdAt: ProjectCreatedAtSort
+  updatedAt: ProjectUpdatedAtSort
+  "Manual order within the team."
+  manual: ProjectManualSort
+  name: ProjectNameSort
+  "No target date last."
+  targetDate: TargetDateSort
+}
+
+input ProjectCreatedAtSort {
+  nulls: PaginationNulls
+  order: PaginationSortOrder
+}
+
+input ProjectUpdatedAtSort {
+  nulls: PaginationNulls
+  order: PaginationSortOrder
+}
+
+input ProjectManualSort {
+  nulls: PaginationNulls
+  order: PaginationSortOrder
+}
+
+input ProjectNameSort {
+  nulls: PaginationNulls
+  order: PaginationSortOrder
+}
+
+input TargetDateSort {
+  nulls: PaginationNulls
+  order: PaginationSortOrder
+}
+
+input ProjectCreateInput {
+  name: String!
+  "Exactly one team (UUID or key)."
+  teamIds: [String!]!
+  "Use description or content, not both."
+  description: String
+  content: String
+  targetDate: TimelessDate
+  leadId: String
+}
+
+input ProjectUpdateInput {
+  name: String
+  description: String
+  content: String
+  "null clears."
+  targetDate: TimelessDate
+  "null clears."
+  leadId: String
+  "One of the four project statuses pins it; null lets it follow the issues again."
+  statusId: String
+}
+
+type ProjectPayload {
+  lastSyncId: Float!
+  project: Project
+  success: Boolean!
+}
+
+type ProjectArchivePayload {
+  "The project as it was before deletion."
+  entity: Project
+  lastSyncId: Float!
+  success: Boolean!
+}

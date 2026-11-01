@@ -123,6 +123,11 @@ func (fc filterCtx) issue(f *IssueFilter) (issue.Filter, error) {
 			return out, err
 		}
 	}
+	if f.Project != nil {
+		if out.Milestone, err = fc.milestoneCond(f.Project); err != nil {
+			return out, err
+		}
+	}
 	if f.Parent != nil {
 		if out.Parent, err = idCond("id", f.Parent.ID); err != nil {
 			return out, err

@@ -13,6 +13,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/label"
+	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
 )
 
@@ -40,6 +41,11 @@ type loaders struct {
 	allProjects memo[[]project.Project]
 	allStates   memo[[]project.State]
 	allLabels   memo[[]label.Label]
+	workspace   memo[account.Workspace]
+
+	milestones *dataloadgen.Loader[uuid.UUID, milestone.Milestone]
+	// By milestone id: counts of its live issues.
+	milestoneProgress *dataloadgen.Loader[uuid.UUID, milestone.Progress]
 }
 
 type loadersKey struct{}
@@ -67,6 +73,10 @@ func newLoaders(d Deps) *loaders {
 		}, func(i issue.Issue) uuid.UUID { return i.ID }), opt),
 		issueLabels:      dataloadgen.NewLoader(grouped(d.Issues.LabelIDs), opt),
 		issueAttachments: dataloadgen.NewLoader(grouped(d.Attachments.ByIssues), opt),
+		milestones: dataloadgen.NewLoader(byID("Milestone", func(ctx context.Context, ids []uuid.UUID) ([]milestone.Milestone, error) {
+			return d.Milestones.ByIDs(ctx, ids)
+		}, func(m milestone.Milestone) uuid.UUID { return m.ID }), opt),
+		milestoneProgress: dataloadgen.NewLoader(mapped(d.Milestones.Progress), opt),
 	}
 }
 

@@ -183,6 +183,24 @@ func matchTime(field string, c *DateComparator, t, now time.Time) (bool, error) 
 	return conds.match(t), nil
 }
 
+func matchNullableTime(field string, c *NullableDateComparator, t *time.Time, now time.Time) (bool, error) {
+	if c == nil {
+		return true, nil
+	}
+	conds, err := nullableDateOpsOf(c).parse(field, func(f, s string) (time.Time, error) { return parseDateOrDuration(f, s, now) })
+	if err != nil {
+		return false, err
+	}
+	if conds.null != nil && *conds.null != (t == nil) {
+		return false, nil
+	}
+	if t == nil {
+		// Negative operators keep rows without a value; others need one.
+		return conds.eq == nil && conds.lt == nil && conds.lte == nil && conds.gt == nil && conds.gte == nil && conds.in == nil, nil
+	}
+	return conds.match(*t), nil
+}
+
 var durationRe = regexp.MustCompile(`^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$`)
 
 func badDate(field string) error {
