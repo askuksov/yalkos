@@ -3,6 +3,8 @@ package linear
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,14 +45,18 @@ func (r *Resolver) everyProject(ctx context.Context) ([]project.Project, error) 
 	})
 }
 
-// teamIDs are the projects (archived ones included) matching f.
-func (r *Resolver) teamIDs(ctx context.Context, f *TeamFilter) ([]uuid.UUID, error) {
+// teamIDs are the projects matching f; archived ones only when asked or
+// when f names them by id or key (eq or in).
+func (r *Resolver) teamIDs(ctx context.Context, f *TeamFilter, includeArchived bool) ([]uuid.UUID, error) {
 	ps, err := r.everyProject(ctx)
 	if err != nil {
 		return nil, err
 	}
 	out := []uuid.UUID{}
 	for _, p := range ps {
+		if p.ArchivedAt != nil && !includeArchived && !namesTeam(f, p) {
+			continue
+		}
 		ok, err := teamMatch(f, p)
 		if err != nil {
 			return nil, err
@@ -62,9 +68,28 @@ func (r *Resolver) teamIDs(ctx context.Context, f *TeamFilter) ([]uuid.UUID, err
 	return out, nil
 }
 
+// namesTeam reports a filter that names p by id or key (eq or in).
+func namesTeam(f *TeamFilter, p project.Project) bool {
+	if f == nil {
+		return false
+	}
+	if c := f.ID; c != nil && (c.Eq != nil && *c.Eq == p.ID.String() || slices.Contains(c.In, p.ID.String())) {
+		return true
+	}
+	if c := f.Key; c != nil && (c.Eq != nil && strings.EqualFold(*c.Eq, p.Key) || slices.ContainsFunc(c.In, func(k string) bool { return strings.EqualFold(k, p.Key) })) {
+		return true
+	}
+	for _, sub := range append(slices.Clone(f.And), f.Or...) {
+		if namesTeam(&sub, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // issueConn lists issues; scope is AND-ed with the caller's filter.
 func (r *Resolver) issueConn(ctx context.Context, scope issue.Filter, f *IssueFilter, by *PaginationOrderBy, sort []IssueSortInput, a page.Args) (*IssueConnection, error) {
-	user, err := r.issueFilter(ctx, f)
+	user, err := r.issueFilter(ctx, f, scope.IncludeArchived)
 	if err != nil {
 		return nil, err
 	}

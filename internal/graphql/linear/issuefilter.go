@@ -19,16 +19,18 @@ type filterCtx struct {
 	ctx context.Context
 	me  uuid.UUID
 	now time.Time
+	// includeArchived lets team filters match archived teams.
+	includeArchived bool
 }
 
 // issueFilter turns an issue filter into the domain filter. Relation
 // filters become id sets; one that matches nothing matches no issue.
-func (r *Resolver) issueFilter(ctx context.Context, f *IssueFilter) (issue.Filter, error) {
+func (r *Resolver) issueFilter(ctx context.Context, f *IssueFilter, includeArchived bool) (issue.Filter, error) {
 	me, err := r.actor(ctx)
 	if err != nil {
 		return issue.Filter{}, err
 	}
-	fc := filterCtx{r: r, ctx: ctx, me: me.ID, now: r.d.now()}
+	fc := filterCtx{r: r, ctx: ctx, me: me.ID, now: r.d.now(), includeArchived: includeArchived}
 	return fc.issue(f)
 }
 
@@ -122,7 +124,7 @@ func (fc filterCtx) issue(f *IssueFilter) (issue.Filter, error) {
 		out.State = &issue.IDCond{In: ids}
 	}
 	if f.Team != nil {
-		ids, err := fc.r.teamIDs(fc.ctx, f.Team)
+		ids, err := fc.r.teamIDs(fc.ctx, f.Team, fc.includeArchived)
 		if err != nil {
 			return out, err
 		}
