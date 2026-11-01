@@ -25,6 +25,8 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    # Longer than the app's own 10 s graceful shutdown.
+    stop_grace_period: 15s
 
   db:
     image: postgres:18-alpine

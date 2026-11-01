@@ -8,8 +8,10 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/askuksov/yalkos/internal/domain/attachment"
+	"github.com/askuksov/yalkos/internal/mcpserver"
 )
 
 // maxGraphQLBody caps GraphQL request bodies (1 MiB) so one request cannot exhaust memory.
@@ -29,6 +31,10 @@ type Deps struct {
 	Auth func(http.Handler) http.Handler
 	// Attachments serves file uploads and downloads (nil = no file routes).
 	Attachments *attachment.Service
+	// MCP serves /mcp for AI agents (nil = no endpoint); it is wrapped by
+	// mcpserver.Guard with BaseURL and Auth.
+	MCP     http.Handler
+	BaseURL *url.URL
 }
 
 // NewRouter returns the root HTTP handler.
@@ -48,9 +54,17 @@ func NewRouter(d Deps) http.Handler {
 		mux.Handle("POST /api/attachments", authWrap(upload(d.Attachments, d.Logger)))
 		mux.Handle("GET /api/attachments/{id}/{name}", authWrap(download(d.Attachments, d.Logger)))
 	}
-	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
+	notFound := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
+	mux.Handle("/api/", notFound)
+	// The SDK answers 405 and 413 on /mcp itself.
+	if d.MCP != nil {
+		mux.Handle("/mcp", mcpserver.Guard(d.BaseURL, authWrap, d.MCP))
+	}
+	mux.Handle("/mcp/", notFound)
+	// No OAuth metadata: clients probing it must get 404, not the web app.
+	mux.Handle("/.well-known/", notFound)
 
 	mux.Handle("GET /assets/", assets(d.UI))
 	mux.Handle("/", spaIndex(d.UI))
