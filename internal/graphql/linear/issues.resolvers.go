@@ -49,6 +49,14 @@ func (r *issueResolver) State(ctx context.Context, obj *Issue) (*WorkflowState, 
 	return r.issueState(ctx, obj.Src)
 }
 
+// Comments is the resolver for the comments field.
+func (r *issueResolver) Comments(ctx context.Context, obj *Issue, after *string, before *string, filter *CommentFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*CommentConnection, error) {
+	if filter != nil && filter.Issue != nil {
+		return nil, badArg("filter", "Invalid filter: leave filter.issue out of issue(id).comments")
+	}
+	return r.commentConn(ctx, obj.Src, filter, pageArgs(first, after, last, before))
+}
+
 // Children is the resolver for the children field.
 func (r *issueResolver) Children(ctx context.Context, obj *Issue, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*IssueConnection, error) {
 	return r.issueConn(ctx, childScope(obj.Src.ID), filter, orderBy, nil, pageArgs(first, after, last, before))

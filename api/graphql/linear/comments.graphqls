@@ -1,0 +1,80 @@
+"A comment on an issue."
+type Comment {
+  id: ID!
+  agentSession: AgentSession
+  "The issue URL."
+  url: String!
+  "Always an empty list."
+  reactionData: JSONObject!
+  reactions: [Reaction!]!
+  resolvingCommentId: String
+  documentContentId: String
+  initiativeId: String
+  initiativeUpdateId: String
+  "UUID of the issue."
+  issueId: String
+  parentId: String
+  projectId: String
+  projectUpdateId: String
+  botActor: ActorBot
+  resolvingComment: Comment
+  body: String!
+  documentContent: DocumentContent
+  syncedWith: [ExternalEntityInfo!]
+  externalThread: SyncedExternalThread
+  externalUser: ExternalUser
+  initiative: Initiative
+  initiativeUpdate: InitiativeUpdate
+  issue: Issue
+  updatedAt: DateTime!
+  parent: Comment
+  project: Project
+  projectUpdate: ProjectUpdate
+  quotedText: String
+  archivedAt: DateTime
+  createdAt: DateTime!
+  "When the body was last changed."
+  editedAt: DateTime
+  resolvedAt: DateTime
+  resolvingUser: User
+  "The author."
+  user: User
+}
+
+type CommentConnection {
+  nodes: [Comment!]!
+  edges: [CommentEdge!]!
+  pageInfo: PageInfo!
+}
+
+type CommentEdge {
+  node: Comment!
+  cursor: String!
+}
+
+input CommentFilter {
+  "Root comments only: the issue (UUID or KEY-N in id.eq)."
+  issue: NullableIssueFilter
+  id: IDComparator
+  body: StringComparator
+  user: UserFilter
+  createdAt: DateComparator
+  updatedAt: DateComparator
+}
+
+input CommentCreateInput {
+  "Issue UUID or KEY-N; required."
+  issueId: String
+  "Markdown; required."
+  body: String
+}
+
+input CommentUpdateInput {
+  body: String
+}
+
+type CommentPayload {
+  comment: Comment!
+  lastSyncId: Float!
+  success: Boolean!
+}

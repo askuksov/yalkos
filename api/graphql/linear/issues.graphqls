@@ -68,6 +68,8 @@ type Issue {
   favorite: Favorite
   state: WorkflowState!
   inheritsSharedAccess: Boolean!
+  "Comments, oldest first."
+  comments(after: String, before: String, filter: CommentFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): CommentConnection!
   "Sub-issues, archived teams included."
   children(after: String, before: String, filter: IssueFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): IssueConnection!
   "The issue's labels, its type included."

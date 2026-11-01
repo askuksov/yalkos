@@ -93,6 +93,8 @@ models:
         resolver: true
       labels:
         resolver: true
+      comments:
+        resolver: true
   Attachment:
     extraFields:
       Src:
@@ -142,3 +144,12 @@ models:
     fields:
       parentId:
         omittable: true
+  Comment:
+    extraFields:
+      Src:
+        type: github.com/askuksov/yalkos/internal/domain/comment.Comment
+    fields:
+      issue:
+        resolver: true
+      user:
+        resolver: true
