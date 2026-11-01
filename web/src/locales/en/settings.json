@@ -40,6 +40,7 @@
       "intro": "Claude Code, OpenCode and other MCP clients can find, create and update issues through <code>{{url}}</code>. They act as you, with an API key from this page.",
       "claudeCode": "Claude Code",
       "openCode": "OpenCode (opencode.json)",
+      "openCodeKey": "Start OpenCode with the key in YALKOS_API_KEY:",
       "warning": "Anyone with the key can act as you. Revoke it here if it leaks."
     }
   }
