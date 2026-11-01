@@ -98,11 +98,21 @@ func (fc filterCtx) issue(f *IssueFilter) (issue.Filter, error) {
 	if out.DueDate, err = fc.dateCond(timelessOpsOf(f.DueDate)); err != nil {
 		return out, err
 	}
-	if out.Assignee, err = fc.userCond(f.Assignee); err != nil {
-		return out, err
-	}
-	if out.Creator, err = fc.userCond(f.Creator); err != nil {
-		return out, err
+	for _, u := range []struct {
+		f  *NullableUserFilter
+		on func(*issue.IDCond) issue.Filter
+	}{
+		{f.Assignee, func(c *issue.IDCond) issue.Filter { return issue.Filter{Assignee: c} }},
+		{f.Creator, func(c *issue.IDCond) issue.Filter { return issue.Filter{Creator: c} }},
+	} {
+		if u.f == nil {
+			continue
+		}
+		s, err := fc.userFilter(u.f, u.on)
+		if err != nil {
+			return out, err
+		}
+		out.All = append(out.All, s)
 	}
 	if f.State != nil {
 		ids, err := fc.stateIDs(f.State)
@@ -254,55 +264,51 @@ func (fc filterCtx) dateCond(o dateOps) (*issue.DateCond, error) {
 	return &issue.DateCond{Eq: c.eq, Neq: c.neq, Lt: c.lt, Lte: c.lte, Gt: c.gt, Gte: c.gte, In: c.in, Nin: c.nin, Null: c.null}, nil
 }
 
-// userFilterOf drops null from a nullable user filter (and its groups).
-func userFilterOf(f *NullableUserFilter) *UserFilter {
-	if f == nil {
-		return nil
+// userFilter turns a nullable user filter into issue conditions on one user
+// column: the filter's own fields select users (AND-ed with null), and its
+// and/or groups become nested groups, so null keeps its meaning inside them.
+func (fc filterCtx) userFilter(f *NullableUserFilter, on func(*issue.IDCond) issue.Filter) (issue.Filter, error) {
+	var out issue.Filter
+	for _, sub := range f.And {
+		s, err := fc.userFilter(&sub, on)
+		if err != nil {
+			return out, err
+		}
+		out.All = append(out.All, s)
 	}
-	out := &UserFilter{
-		ID: f.ID, Name: f.Name, DisplayName: f.DisplayName, Email: f.Email,
-		Active: f.Active, Admin: f.Admin, Owner: f.Owner, IsMe: f.IsMe,
+	for _, sub := range f.Or {
+		s, err := fc.userFilter(&sub, on)
+		if err != nil {
+			return out, err
+		}
+		out.Any = append(out.Any, s)
 	}
-	for _, s := range f.And {
-		out.And = append(out.And, *userFilterOf(&s))
-	}
-	for _, s := range f.Or {
-		out.Or = append(out.Or, *userFilterOf(&s))
-	}
-	return out
-}
-
-func (f *NullableUserFilter) hasConds() bool {
-	return f.And != nil || f.Or != nil || f.ID != nil || f.Name != nil || f.DisplayName != nil || f.Email != nil ||
+	leaf := &UserFilter{ID: f.ID, Name: f.Name, DisplayName: f.DisplayName, Email: f.Email, Active: f.Active, Admin: f.Admin, Owner: f.Owner, IsMe: f.IsMe}
+	hasLeaf := f.ID != nil || f.Name != nil || f.DisplayName != nil || f.Email != nil ||
 		f.Active != nil || f.Admin != nil || f.Owner != nil || f.IsMe != nil
-}
-
-// userCond: null tests for no user; other conditions match the users they
-// select (AND-ed with null).
-func (fc filterCtx) userCond(f *NullableUserFilter) (*issue.IDCond, error) {
-	if f == nil {
-		return nil, nil
+	if !hasLeaf && f.Null == nil {
+		return out, nil
 	}
-	out := &issue.IDCond{Null: f.Null}
-	if f.hasConds() {
+	cond := &issue.IDCond{Null: f.Null}
+	if hasLeaf {
 		users, err := loadersFrom(fc.ctx).allUsers.get(fc.ctx, func(ctx context.Context) ([]account.User, error) {
 			return fc.r.d.Accounts.ListMembers(ctx, account.User{})
 		})
 		if err != nil {
-			return nil, err
+			return out, err
 		}
-		uf := userFilterOf(f)
-		out.In = []uuid.UUID{}
+		cond.In = []uuid.UUID{}
 		for _, u := range users {
-			ok, err := userMatch(uf, u, fc.me)
+			ok, err := userMatch(leaf, u, fc.me)
 			if err != nil {
-				return nil, err
+				return out, err
 			}
 			if ok {
-				out.In = append(out.In, u.ID)
+				cond.In = append(cond.In, u.ID)
 			}
 		}
 	}
+	out.All = append(out.All, on(cond))
 	return out, nil
 }
 
