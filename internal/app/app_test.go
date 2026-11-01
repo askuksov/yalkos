@@ -190,3 +190,54 @@ func TestRunNoSetupLogAfterSetup(t *testing.T) {
 		t.Errorf("setup log after setup: %s", logs)
 	}
 }
+
+// TestRunRateLimitsAPIKeys: one bucket per user across endpoints; sessions
+// and anonymous requests are not limited.
+func TestRunRateLimitsAPIKeys(t *testing.T) {
+	url, pool := testdb.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := store.Migrate(ctx, pool, db.Migrations()); err != nil {
+		t.Fatal(err)
+	}
+	svc := account.New(pool, time.Now, "http://localhost:8080")
+	_ = svc.RefreshSetupCode(ctx)
+	owner, _, err := svc.Setup(ctx, account.SetupInput{Code: svc.SetupCode(), WorkspaceName: "W", Name: "O",
+		Email: "o@example.com", Password: "owner-password"}, "127.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, key, err := svc.CreateAPIKey(ctx, owner, "k")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := start(ctx, t, config.Config{DatabaseURL: url, ListenAddr: "127.0.0.1:0", DataDir: t.TempDir(), APIRateLimit: 2})
+	post := func(path, auth string) *http.Response {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodPost, "http://"+s.addr+path, strings.NewReader(`{"query":"{ viewer { id } }"}`))
+		req.Header.Set("Content-Type", "application/json")
+		if auth != "" {
+			req.Header.Set("Authorization", auth)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		return resp
+	}
+	for range 3 {
+		if r := post("/graphql", ""); r.StatusCode != 200 || r.Header.Get("X-RateLimit-Requests-Limit") != "" {
+			t.Fatalf("anonymous: %d %v", r.StatusCode, r.Header)
+		}
+	}
+	if r := post("/graphql", key); r.StatusCode != 200 || r.Header.Get("X-RateLimit-Requests-Remaining") != "1" {
+		t.Fatalf("1st key request: %d %v", r.StatusCode, r.Header)
+	}
+	if r := post("/api/graphql", "Bearer "+key); r.StatusCode != 200 || r.Header.Get("X-RateLimit-Requests-Remaining") != "0" {
+		t.Fatalf("2nd key request: %d %v", r.StatusCode, r.Header)
+	}
+	if r := post("/mcp", key); r.StatusCode != http.StatusTooManyRequests || r.Header.Get("Retry-After") != "1800" {
+		t.Fatalf("3rd key request on /mcp: %d %v", r.StatusCode, r.Header)
+	}
+}

@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/askuksov/yalkos/db"
 	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/blob"
@@ -29,6 +31,7 @@ import (
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/httpapi"
 	"github.com/askuksov/yalkos/internal/mcpserver"
+	"github.com/askuksov/yalkos/internal/ratelimit"
 	"github.com/askuksov/yalkos/internal/store"
 )
 
@@ -88,6 +91,12 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	milestones := milestone.New(pool, projects, time.Now)
 	labels := label.New(pool, time.Now)
 	comments := comment.New(pool, issues, attachments, time.Now)
+	var limiter *ratelimit.Limiter
+	if cfg.APIRateLimit > 0 {
+		limiter = ratelimit.New(cfg.APIRateLimit, time.Now)
+	}
+	authenticate := authn.Middleware(accounts, baseURL, logger)
+	limit := ratelimit.Middleware(limiter, apiKeyUser)
 	router := httpapi.NewRouter(httpapi.Deps{
 		Ready: func(c context.Context) error { return store.Ready(c, pool, migrations) },
 		UI:    ui,
@@ -104,7 +113,7 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 		}),
 		BaseURL:     baseURL,
 		Logger:      logger,
-		Auth:        authn.Middleware(accounts, baseURL, logger),
+		Auth:        func(h http.Handler) http.Handler { return authenticate(limit(h)) },
 		Attachments: attachments,
 	})
 
@@ -148,4 +157,13 @@ func newServer(h http.Handler) *http.Server {
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
+}
+
+// apiKeyUser returns the user of a request authenticated by an API key.
+func apiKeyUser(r *http.Request) (uuid.UUID, bool) {
+	a, ok := authn.ActorFrom(r.Context())
+	if !ok || a.Via != "api_key" {
+		return uuid.Nil, false
+	}
+	return a.User.ID, true
 }

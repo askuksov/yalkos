@@ -26,6 +26,9 @@ type Config struct {
 	DataDir string
 	// MaxUploadMB caps one uploaded file (MAX_UPLOAD_MB, 1–1024, default 25).
 	MaxUploadMB int
+	// APIRateLimit is the number of API-key requests per hour and user
+	// (API_RATE_LIMIT, default 5000; 0 turns the limit off).
+	APIRateLimit int
 }
 
 // Load reads the configuration through getenv (os.Getenv in production).
@@ -62,6 +65,14 @@ func Load(getenv func(string) string) (Config, error) {
 			return Config{}, fmt.Errorf("MAX_UPLOAD_MB: %q must be a number of megabytes from 1 to 1024", v)
 		}
 		cfg.MaxUploadMB = n
+	}
+	cfg.APIRateLimit = 5000
+	if v := getenv("API_RATE_LIMIT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return Config{}, errors.New("API_RATE_LIMIT must be a non-negative integer")
+		}
+		cfg.APIRateLimit = n
 	}
 	return cfg, nil
 }
