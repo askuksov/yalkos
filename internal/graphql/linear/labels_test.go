@@ -186,3 +186,14 @@ func TestLabelPermissionMessage(t *testing.T) {
 	// Positive control: a member may create a free label.
 	f.gql(t, f.miaKey, `mutation { issueLabelCreate(input: { name: "Mine" }) { success } }`, nil).ok(t, nil)
 }
+
+// Label errors name the group type, not the domain's exclusive flag.
+func TestLabelGroupTypeErrors(t *testing.T) {
+	f := newIssueFix(t)
+	types, _ := f.deps.Labels.TypeInfo(context.Background())
+	f.gql(t, f.ownerKey, `mutation { issueLabelCreate(input: { name: "x", groupType: singleSelect }) { success } }`, nil).fails(t).
+		want(t, "INVALID_INPUT", "invalid input", "Invalid groupType: only label groups have a groupType", "groupType")
+	f.gql(t, f.ownerKey, `mutation($id: String!) { issueLabelUpdate(id: $id, input: { groupType: multiSelect }) { success } }`,
+		map[string]any{"id": types.GroupID.String()}).fails(t).
+		want(t, "INVALID_INPUT", "invalid input", "Invalid groupType: the Type group is always singleSelect", "groupType")
+}
