@@ -237,7 +237,7 @@ func (r *Resolver) deleteIssue(ctx context.Context, ref string, permanentlyDelet
 	if err != nil {
 		return nil, err
 	}
-	if permanentlyDelete != nil {
+	if isTrue(permanentlyDelete) {
 		return nil, badArg("permanentlyDelete", "permanentlyDelete is not supported")
 	}
 	cur, err := r.issueByRef(ctx, "", ref)
