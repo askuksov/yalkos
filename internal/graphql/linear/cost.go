@@ -67,40 +67,55 @@ func operationCost(op *ast.OperationDefinition, frags ast.FragmentDefinitionList
 }
 
 func costTenths(op *ast.OperationDefinition, frags ast.FragmentDefinitionList, vars map[string]any) int64 {
-	return selectionCost(op.SelectionSet, frags, vars, 0)
+	w := walker{frags: frags, vars: vars, memo: map[string]int64{}}
+	return w.selection(op.SelectionSet)
 }
 
-// maxDepth stops runaway recursion; validation has rejected fragment cycles.
-const maxDepth = 64
+// walker prices selections; each fragment is priced once per operation, so
+// fragments spreading each other many times cost linear time.
+type walker struct {
+	frags ast.FragmentDefinitionList
+	vars  map[string]any
+	memo  map[string]int64
+}
 
-func selectionCost(set ast.SelectionSet, frags ast.FragmentDefinitionList, vars map[string]any, depth int) int64 {
-	if depth > maxDepth {
-		return capTenths
-	}
+func (w *walker) selection(set ast.SelectionSet) int64 {
 	var sum int64
 	for _, sel := range set {
 		switch s := sel.(type) {
 		case *ast.Field:
-			sum += fieldCost(s, frags, vars, depth)
+			sum += w.field(s)
 		case *ast.InlineFragment:
-			sum += selectionCost(s.SelectionSet, frags, vars, depth+1)
+			sum += w.selection(s.SelectionSet)
 		case *ast.FragmentSpread:
-			if def := frags.ForName(s.Name); def != nil {
-				sum += selectionCost(def.SelectionSet, frags, vars, depth+1)
-			}
+			sum += w.fragment(s.Name)
 		}
 		sum = min(sum, capTenths)
 	}
 	return sum
 }
 
-func fieldCost(f *ast.Field, frags ast.FragmentDefinitionList, vars map[string]any, depth int) int64 {
+func (w *walker) fragment(name string) int64 {
+	if c, ok := w.memo[name]; ok {
+		return c
+	}
+	// Validation rejects fragment cycles; a cycle here prices as the cap.
+	w.memo[name] = capTenths
+	var c int64
+	if def := w.frags.ForName(name); def != nil {
+		c = w.selection(def.SelectionSet)
+	}
+	w.memo[name] = c
+	return c
+}
+
+func (w *walker) field(f *ast.Field) int64 {
 	if len(f.SelectionSet) == 0 {
 		return scalarTenths
 	}
-	c := objectTenths + selectionCost(f.SelectionSet, frags, vars, depth+1)
+	c := min(objectTenths+w.selection(f.SelectionSet), capTenths)
 	if f.Definition != nil && f.Definition.Arguments.ForName("first") != nil {
-		c = min(c*int64(costPageSize(f, vars)), capTenths)
+		c = min(c*int64(costPageSize(f, w.vars)), capTenths)
 	}
 	return c
 }
@@ -136,20 +151,37 @@ func toInt(v any) (int, bool) {
 	return 0, false
 }
 
-// countFields counts fields of one selection level, expanding fragments.
+// countFields counts fields of one selection level, expanding fragments;
+// each fragment is counted once per operation.
 func countFields(set ast.SelectionSet, frags ast.FragmentDefinitionList) int {
+	return fieldCounter{frags: frags, memo: map[string]int{}}.count(set)
+}
+
+type fieldCounter struct {
+	frags ast.FragmentDefinitionList
+	memo  map[string]int
+}
+
+func (c fieldCounter) count(set ast.SelectionSet) int {
 	n := 0
 	for _, sel := range set {
 		switch s := sel.(type) {
 		case *ast.Field:
 			n++
 		case *ast.InlineFragment:
-			n += countFields(s.SelectionSet, frags)
+			n += c.count(s.SelectionSet)
 		case *ast.FragmentSpread:
-			if def := frags.ForName(s.Name); def != nil {
-				n += countFields(def.SelectionSet, frags)
+			m, ok := c.memo[s.Name]
+			if !ok {
+				c.memo[s.Name] = maxRootFields + 1 // a cycle counts as too many
+				if def := c.frags.ForName(s.Name); def != nil {
+					m = c.count(def.SelectionSet)
+				}
+				c.memo[s.Name] = m
 			}
+			n += m
 		}
+		n = min(n, 1<<30)
 	}
 	return n
 }

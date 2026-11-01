@@ -96,3 +96,55 @@ func TestDurationParsing(t *testing.T) {
 		}
 	}
 }
+
+// fanOut is a query whose fragments each spread the next one twice: walked
+// naively it visits 2^levels fields.
+func fanOut(levels int) string {
+	var b strings.Builder
+	b.WriteString("{ viewer { ...F0 } }\n")
+	for i := range levels {
+		fmt.Fprintf(&b, "fragment F%d on User { ...F%d ...F%d }\n", i, i+1, i+1)
+	}
+	fmt.Fprintf(&b, "fragment F%d on User { id }\n", levels)
+	return b.String()
+}
+
+func TestCostFragmentFanOut(t *testing.T) {
+	done := make(chan float64, 1)
+	go func() {
+		c, err := linear.CostOf(fanOut(40), nil)
+		if err != nil {
+			t.Error(err)
+		}
+		done <- c
+	}()
+	select {
+	case c := <-done:
+		if c <= 10_000 {
+			t.Fatalf("cost = %v, want over the limit", c)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("cost of a fragment fan-out took over 2s")
+	}
+	e := newEnv(t)
+	start := time.Now()
+	g := e.gql(t, e.ownerKey, fanOut(40), nil).fails(t)
+	if g.Extensions["code"] != "COMPLEXITY_LIMIT_EXCEEDED" || time.Since(start) > 2*time.Second {
+		t.Fatalf("fan-out over HTTP: %+v after %v", g, time.Since(start))
+	}
+	// Root-level fan-out is counted without walking every spread either.
+	start = time.Now()
+	g = e.gql(t, e.ownerKey, strings.Replace(fanOut(40), "{ viewer { ...F0 } }", "{ ...Q0 }", 1)+rootFanOut(40), nil).fails(t)
+	if time.Since(start) > 2*time.Second {
+		t.Fatalf("root fan-out took %v: %+v", time.Since(start), g)
+	}
+}
+
+func rootFanOut(levels int) string {
+	var b strings.Builder
+	for i := range levels {
+		fmt.Fprintf(&b, "fragment Q%d on Query { ...Q%d ...Q%d }\n", i, i+1, i+1)
+	}
+	fmt.Fprintf(&b, "fragment Q%d on Query { viewer { ...F0 } }\n", levels)
+	return b.String()
+}

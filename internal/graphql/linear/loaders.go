@@ -10,6 +10,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/kit"
+	"github.com/askuksov/yalkos/internal/domain/project"
 )
 
 // loaders batch per-request lookups by id, so a list of N items costs one
@@ -18,6 +19,13 @@ type loaders struct {
 	users *dataloadgen.Loader[uuid.UUID, account.User]
 	// By user id: live issues they created.
 	createdIssues *dataloadgen.Loader[uuid.UUID, int]
+
+	projects *dataloadgen.Loader[uuid.UUID, project.Project]
+	states   *dataloadgen.Loader[uuid.UUID, project.State]
+	// By project id: its states, member ids and number of live issues.
+	projectStates  *dataloadgen.Loader[uuid.UUID, []project.State]
+	projectMembers *dataloadgen.Loader[uuid.UUID, []uuid.UUID]
+	projectIssues  *dataloadgen.Loader[uuid.UUID, int]
 }
 
 type loadersKey struct{}
@@ -31,6 +39,15 @@ func newLoaders(d Deps) *loaders {
 			return d.Accounts.UsersByIDs(ctx, ids)
 		}, func(u account.User) uuid.UUID { return u.ID }), opt),
 		createdIssues: dataloadgen.NewLoader(mapped(d.Issues.CountByCreators), opt),
+		projects: dataloadgen.NewLoader(byID("Project", func(ctx context.Context, ids []uuid.UUID) ([]project.Project, error) {
+			return d.Projects.ByIDs(ctx, ids)
+		}, func(p project.Project) uuid.UUID { return p.ID }), opt),
+		states: dataloadgen.NewLoader(byID("State", func(ctx context.Context, ids []uuid.UUID) ([]project.State, error) {
+			return d.Projects.StatesByIDs(ctx, ids)
+		}, func(s project.State) uuid.UUID { return s.ID }), opt),
+		projectStates:  dataloadgen.NewLoader(grouped(d.Projects.StatesByProjects), opt),
+		projectMembers: dataloadgen.NewLoader(grouped(d.Projects.MemberIDsByProjects), opt),
+		projectIssues:  dataloadgen.NewLoader(mapped(d.Issues.CountByProjects), opt),
 	}
 }
 
@@ -49,6 +66,12 @@ func mapped[T any](fetch func(context.Context, []uuid.UUID) (map[uuid.UUID]T, er
 		}
 		return values, errs
 	}
+}
+
+// grouped adapts a fetch returning lists per key; a key without rows gets an
+// empty list.
+func grouped[T any](fetch func(context.Context, []uuid.UUID) (map[uuid.UUID][]T, error)) func(context.Context, []uuid.UUID) ([][]T, []error) {
+	return mapped(fetch)
 }
 
 // byID adapts a ByIDs-style fetch to a loader fetch; a missing id is NOT_FOUND.

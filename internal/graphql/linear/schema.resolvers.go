@@ -36,6 +36,49 @@ func (r *queryResolver) User(ctx context.Context, id string) (*User, error) {
 	return r.userByID(ctx, "id", id)
 }
 
+// Organization is the resolver for the organization field.
+func (r *queryResolver) Organization(ctx context.Context) (*Organization, error) {
+	return r.organization(ctx)
+}
+
+// Teams is the resolver for the teams field.
+func (r *queryResolver) Teams(ctx context.Context, after *string, before *string, filter *TeamFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*TeamConnection, error) {
+	return r.teamConn(ctx, filter, includeArchived, orderBy, pageArgs(first, after, last, before))
+}
+
+// Team is the resolver for the team field.
+func (r *queryResolver) Team(ctx context.Context, id string) (*Team, error) {
+	if _, err := r.actor(ctx); err != nil {
+		return nil, err
+	}
+	p, err := r.projectByRef(ctx, "", id)
+	if err != nil {
+		return nil, err
+	}
+	return teamOut(p), nil
+}
+
+// WorkflowStates is the resolver for the workflowStates field.
+func (r *queryResolver) WorkflowStates(ctx context.Context, after *string, before *string, filter *WorkflowStateFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*WorkflowStateConnection, error) {
+	return r.workflowStates(ctx, filter, includeArchived, orderBy, pageArgs(first, after, last, before))
+}
+
+// WorkflowState is the resolver for the workflowState field.
+func (r *queryResolver) WorkflowState(ctx context.Context, id string) (*WorkflowState, error) {
+	if _, err := r.actor(ctx); err != nil {
+		return nil, err
+	}
+	sid, err := parseID("id", id)
+	if err != nil {
+		return nil, err
+	}
+	st, err := loadersFrom(ctx).states.Load(ctx, sid)
+	if err != nil {
+		return nil, err
+	}
+	return stateOut(st), nil
+}
+
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 

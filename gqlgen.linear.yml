@@ -18,6 +18,8 @@ resolver:
 omit_slice_element_pointers: true
 # Fields with a resolver are left out of the generated models.
 omit_resolver_fields: true
+# Every field with arguments (connections) is marked resolver: true below, so
+# its arguments reach a resolver instead of binding to a model field.
 
 models:
   DateTime:
@@ -35,4 +37,28 @@ models:
   User:
     fields:
       createdIssueCount:
+        resolver: true
+  Team:
+    extraFields:
+      Src:
+        type: github.com/askuksov/yalkos/internal/domain/project.Project
+    fields:
+      defaultIssueState:
+        resolver: true
+      issueCount:
+        resolver: true
+      states:
+        resolver: true
+      members:
+        resolver: true
+  WorkflowState:
+    extraFields:
+      ProjectID:
+        type: github.com/google/uuid.UUID
+    fields:
+      team:
+        resolver: true
+  Organization:
+    fields:
+      teams:
         resolver: true
