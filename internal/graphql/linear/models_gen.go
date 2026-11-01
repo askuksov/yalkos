@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/project"
@@ -270,10 +271,38 @@ type Issue struct {
 	Src                    issue.Issue       `json:"-"`
 }
 
+type IssueArchivePayload struct {
+	// The issue as it was before the change.
+	Entity     *Issue  `json:"entity,omitempty"`
+	LastSyncID float64 `json:"lastSyncId"`
+	Success    bool    `json:"success"`
+}
+
 type IssueConnection struct {
 	Nodes    []Issue     `json:"nodes"`
 	Edges    []IssueEdge `json:"edges"`
 	PageInfo *PageInfo   `json:"pageInfo"`
+}
+
+// Fields of a new issue; other fields are not supported.
+type IssueCreateInput struct {
+	// Team UUID or key.
+	TeamID string `json:"teamId"`
+	// Required.
+	Title       *string `json:"title,omitempty"`
+	Description *string `json:"description,omitempty"`
+	AssigneeID  *string `json:"assigneeId,omitempty"`
+	// A state of the team; the team's default state when absent.
+	StateID  *string `json:"stateId,omitempty"`
+	Priority *int    `json:"priority,omitempty"`
+	// Without a type label the default type is added.
+	LabelIds []string `json:"labelIds,omitempty"`
+	// Parent issue UUID or KEY-N, in the same team.
+	ParentID *string `json:"parentId,omitempty"`
+	// Project (milestone) UUID of the team.
+	ProjectID *string    `json:"projectId,omitempty"`
+	DueDate   *time.Time `json:"dueDate,omitempty"`
+	SortOrder *float64   `json:"sortOrder,omitempty"`
 }
 
 type IssueEdge struct {
@@ -302,6 +331,13 @@ type IssueFilter struct {
 	State       *WorkflowStateFilter            `json:"state,omitempty"`
 	Team        *TeamFilter                     `json:"team,omitempty"`
 	Parent      *NullableIssueFilter            `json:"parent,omitempty"`
+}
+
+type IssuePayload struct {
+	// Change time in Unix milliseconds.
+	LastSyncID float64 `json:"lastSyncId"`
+	Issue      *Issue  `json:"issue,omitempty"`
+	Success    bool    `json:"success"`
 }
 
 // Declared for client compatibility; issues here have no relations.
@@ -421,10 +457,32 @@ type IssueSortInput struct {
 	Manual    *ManualSort    `json:"manual,omitempty"`
 }
 
+// Changes to an issue; null clears assigneeId, parentId, projectId and dueDate.
+type IssueUpdateInput struct {
+	Title       *string                    `json:"title,omitempty"`
+	Description *string                    `json:"description,omitempty"`
+	AssigneeID  graphql.Omittable[*string] `json:"assigneeId,omitempty"`
+	StateID     *string                    `json:"stateId,omitempty"`
+	Priority    *int                       `json:"priority,omitempty"`
+	// Replaces all labels, the type included.
+	LabelIds        []string                      `json:"labelIds,omitempty"`
+	AddedLabelIds   []string                      `json:"addedLabelIds,omitempty"`
+	RemovedLabelIds []string                      `json:"removedLabelIds,omitempty"`
+	ParentID        graphql.Omittable[*string]    `json:"parentId,omitempty"`
+	ProjectID       graphql.Omittable[*string]    `json:"projectId,omitempty"`
+	DueDate         graphql.Omittable[*time.Time] `json:"dueDate,omitempty"`
+	SortOrder       *float64                      `json:"sortOrder,omitempty"`
+	// Moves the issue to another team; only stateId may come with it.
+	TeamID *string `json:"teamId,omitempty"`
+}
+
 // Board order.
 type ManualSort struct {
 	Nulls *PaginationNulls     `json:"nulls,omitempty"`
 	Order *PaginationSortOrder `json:"order,omitempty"`
+}
+
+type Mutation struct {
 }
 
 type NullableDateComparator struct {

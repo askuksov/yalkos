@@ -1,6 +1,8 @@
 package linear_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -89,5 +91,28 @@ func TestBranchSearch(t *testing.T) {
 		case want != "" && (out.IssueVcsBranchSearch == nil || out.IssueVcsBranchSearch.Identifier != want):
 			t.Errorf("%s → %+v, want %s", branch, out.IssueVcsBranchSearch, want)
 		}
+	}
+}
+
+func TestBranchSearchCandidateCap(t *testing.T) {
+	f := newIssueFix(t)
+	q := `query($b: String!) { issueVcsBranchSearch(branchName: $b) { identifier } }`
+	var b strings.Builder
+	for i := range 10 {
+		fmt.Fprintf(&b, "zz-%d/", i+1)
+	}
+	var out struct{ IssueVcsBranchSearch *issueNode }
+	f.gql(t, f.ownerKey, q, map[string]any{"b": b.String() + "ylk-1"}).ok(t, &out)
+	if out.IssueVcsBranchSearch != nil {
+		t.Fatalf("11th candidate looked up: %+v", out.IssueVcsBranchSearch)
+	}
+	// Positive control: the 10th candidate is still tried.
+	b.Reset()
+	for i := range 9 {
+		fmt.Fprintf(&b, "zz-%d/", i+1)
+	}
+	f.gql(t, f.ownerKey, q, map[string]any{"b": b.String() + "ylk-1"}).ok(t, &out)
+	if out.IssueVcsBranchSearch == nil || out.IssueVcsBranchSearch.Identifier != "YLK-1" {
+		t.Fatalf("10th candidate: %+v", out.IssueVcsBranchSearch)
 	}
 }

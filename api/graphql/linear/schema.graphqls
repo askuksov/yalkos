@@ -31,3 +31,12 @@ type Query {
   "The issue whose identifier (KEY-N) appears in a branch name, or null."
   issueVcsBranchSearch(branchName: String!): Issue
 }
+
+type Mutation {
+  "Creates an issue."
+  issueCreate(input: IssueCreateInput!): IssuePayload!
+  "Updates an issue; with teamId it moves the issue to that team."
+  issueUpdate(id: String!, input: IssueUpdateInput!): IssuePayload!
+  "Deletes an issue (it can be restored in the app)."
+  issueDelete(id: String!, permanentlyDelete: Boolean): IssueArchivePayload!
+}

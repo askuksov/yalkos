@@ -70,3 +70,6 @@ func parseIDs(field string, ss []string) ([]uuid.UUID, error) {
 	}
 	return out, nil
 }
+
+// lastSync is the sync id of a change: its time in Unix milliseconds.
+func lastSync(t time.Time) float64 { return float64(t.UnixMilli()) }

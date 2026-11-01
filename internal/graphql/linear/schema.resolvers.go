@@ -9,6 +9,21 @@ import (
 	"context"
 )
 
+// IssueCreate is the resolver for the issueCreate field.
+func (r *mutationResolver) IssueCreate(ctx context.Context, input IssueCreateInput) (*IssuePayload, error) {
+	return r.createIssue(ctx, input)
+}
+
+// IssueUpdate is the resolver for the issueUpdate field.
+func (r *mutationResolver) IssueUpdate(ctx context.Context, id string, input IssueUpdateInput) (*IssuePayload, error) {
+	return r.updateIssue(ctx, id, input)
+}
+
+// IssueDelete is the resolver for the issueDelete field.
+func (r *mutationResolver) IssueDelete(ctx context.Context, id string, permanentlyDelete *bool) (*IssueArchivePayload, error) {
+	return r.deleteIssue(ctx, id, permanentlyDelete)
+}
+
 // Viewer is the resolver for the viewer field.
 func (r *queryResolver) Viewer(ctx context.Context) (*User, error) {
 	me, err := r.actor(ctx)
@@ -113,7 +128,13 @@ func (r *queryResolver) IssueVcsBranchSearch(ctx context.Context, branchName str
 	return r.issueByBranch(ctx, branchName)
 }
 
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
+
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
-type queryResolver struct{ *Resolver }
+type (
+	mutationResolver struct{ *Resolver }
+	queryResolver    struct{ *Resolver }
+)

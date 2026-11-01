@@ -305,3 +305,57 @@ type ArchiveResponse {
   databaseVersion: Float!
   includesDependencies: [String!]!
 }
+
+"Fields of a new issue; other fields are not supported."
+input IssueCreateInput {
+  "Team UUID or key."
+  teamId: String!
+  "Required."
+  title: String
+  description: String
+  assigneeId: String
+  "A state of the team; the team's default state when absent."
+  stateId: String
+  priority: Int
+  "Without a type label the default type is added."
+  labelIds: [String!]
+  "Parent issue UUID or KEY-N, in the same team."
+  parentId: String
+  "Project (milestone) UUID of the team."
+  projectId: String
+  dueDate: TimelessDate
+  sortOrder: Float
+}
+
+"Changes to an issue; null clears assigneeId, parentId, projectId and dueDate."
+input IssueUpdateInput {
+  title: String
+  description: String
+  assigneeId: String
+  stateId: String
+  priority: Int
+  "Replaces all labels, the type included."
+  labelIds: [String!]
+  addedLabelIds: [String!]
+  removedLabelIds: [String!]
+  parentId: String
+  projectId: String
+  dueDate: TimelessDate
+  sortOrder: Float
+  "Moves the issue to another team; only stateId may come with it."
+  teamId: String
+}
+
+type IssuePayload {
+  "Change time in Unix milliseconds."
+  lastSyncId: Float!
+  issue: Issue
+  success: Boolean!
+}
+
+type IssueArchivePayload {
+  "The issue as it was before the change."
+  entity: Issue
+  lastSyncId: Float!
+  success: Boolean!
+}
