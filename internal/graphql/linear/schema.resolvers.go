@@ -39,6 +39,21 @@ func (r *mutationResolver) IssueLabelDelete(ctx context.Context, id string) (*De
 	return r.deleteLabel(ctx, id)
 }
 
+// CommentCreate is the resolver for the commentCreate field.
+func (r *mutationResolver) CommentCreate(ctx context.Context, input CommentCreateInput) (*CommentPayload, error) {
+	return r.createComment(ctx, input)
+}
+
+// CommentUpdate is the resolver for the commentUpdate field.
+func (r *mutationResolver) CommentUpdate(ctx context.Context, id string, input CommentUpdateInput, skipEditedAt *bool) (*CommentPayload, error) {
+	return r.updateComment(ctx, id, input)
+}
+
+// CommentDelete is the resolver for the commentDelete field.
+func (r *mutationResolver) CommentDelete(ctx context.Context, id string) (*DeletePayload, error) {
+	return r.deleteComment(ctx, id)
+}
+
 // Viewer is the resolver for the viewer field.
 func (r *queryResolver) Viewer(ctx context.Context) (*User, error) {
 	me, err := r.actor(ctx)
@@ -151,6 +166,16 @@ func (r *queryResolver) IssueLabels(ctx context.Context, after *string, before *
 // IssueLabel is the resolver for the issueLabel field.
 func (r *queryResolver) IssueLabel(ctx context.Context, id string) (*IssueLabel, error) {
 	return r.labelByID(ctx, id)
+}
+
+// Comments is the resolver for the comments field.
+func (r *queryResolver) Comments(ctx context.Context, after *string, before *string, filter *CommentFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*CommentConnection, error) {
+	return r.rootComments(ctx, filter, pageArgs(first, after, last, before))
+}
+
+// Comment is the resolver for the comment field.
+func (r *queryResolver) Comment(ctx context.Context, hash *string, id *string) (*Comment, error) {
+	return r.commentByID(ctx, id)
 }
 
 // Mutation returns MutationResolver implementation.

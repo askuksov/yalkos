@@ -423,5 +423,4 @@ type IssueSharedAccess {
 }
 
 # Placeholders until the full types are declared.
-type Comment { id: ID! }
 type Project { id: ID! }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/askuksov/yalkos/internal/domain/attachment"
+	"github.com/askuksov/yalkos/internal/domain/comment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/project"
@@ -93,8 +94,83 @@ type BooleanComparator struct {
 	Neq *bool `json:"neq,omitempty"`
 }
 
+// A comment on an issue.
 type Comment struct {
-	ID string `json:"id"`
+	ID           string        `json:"id"`
+	AgentSession *AgentSession `json:"agentSession,omitempty"`
+	// The issue URL.
+	URL string `json:"url"`
+	// Always an empty list.
+	ReactionData       JSONObject `json:"reactionData"`
+	Reactions          []Reaction `json:"reactions"`
+	ResolvingCommentID *string    `json:"resolvingCommentId,omitempty"`
+	DocumentContentID  *string    `json:"documentContentId,omitempty"`
+	InitiativeID       *string    `json:"initiativeId,omitempty"`
+	InitiativeUpdateID *string    `json:"initiativeUpdateId,omitempty"`
+	// UUID of the issue.
+	IssueID          *string               `json:"issueId,omitempty"`
+	ParentID         *string               `json:"parentId,omitempty"`
+	ProjectID        *string               `json:"projectId,omitempty"`
+	ProjectUpdateID  *string               `json:"projectUpdateId,omitempty"`
+	BotActor         *ActorBot             `json:"botActor,omitempty"`
+	ResolvingComment *Comment              `json:"resolvingComment,omitempty"`
+	Body             string                `json:"body"`
+	DocumentContent  *DocumentContent      `json:"documentContent,omitempty"`
+	SyncedWith       []ExternalEntityInfo  `json:"syncedWith,omitempty"`
+	ExternalThread   *SyncedExternalThread `json:"externalThread,omitempty"`
+	ExternalUser     *ExternalUser         `json:"externalUser,omitempty"`
+	Initiative       *Initiative           `json:"initiative,omitempty"`
+	InitiativeUpdate *InitiativeUpdate     `json:"initiativeUpdate,omitempty"`
+	UpdatedAt        time.Time             `json:"updatedAt"`
+	Parent           *Comment              `json:"parent,omitempty"`
+	Project          *Project              `json:"project,omitempty"`
+	ProjectUpdate    *ProjectUpdate        `json:"projectUpdate,omitempty"`
+	QuotedText       *string               `json:"quotedText,omitempty"`
+	ArchivedAt       *time.Time            `json:"archivedAt,omitempty"`
+	CreatedAt        time.Time             `json:"createdAt"`
+	// When the body was last changed.
+	EditedAt      *time.Time      `json:"editedAt,omitempty"`
+	ResolvedAt    *time.Time      `json:"resolvedAt,omitempty"`
+	ResolvingUser *User           `json:"resolvingUser,omitempty"`
+	Src           comment.Comment `json:"-"`
+}
+
+type CommentConnection struct {
+	Nodes    []Comment     `json:"nodes"`
+	Edges    []CommentEdge `json:"edges"`
+	PageInfo *PageInfo     `json:"pageInfo"`
+}
+
+type CommentCreateInput struct {
+	// Issue UUID or KEY-N; required.
+	IssueID *string `json:"issueId,omitempty"`
+	// Markdown; required.
+	Body *string `json:"body,omitempty"`
+}
+
+type CommentEdge struct {
+	Node   *Comment `json:"node"`
+	Cursor string   `json:"cursor"`
+}
+
+type CommentFilter struct {
+	// Root comments only: the issue (UUID or KEY-N in id.eq).
+	Issue     *NullableIssueFilter `json:"issue,omitempty"`
+	ID        *IDComparator        `json:"id,omitempty"`
+	Body      *StringComparator    `json:"body,omitempty"`
+	User      *UserFilter          `json:"user,omitempty"`
+	CreatedAt *DateComparator      `json:"createdAt,omitempty"`
+	UpdatedAt *DateComparator      `json:"updatedAt,omitempty"`
+}
+
+type CommentPayload struct {
+	Comment    *Comment `json:"comment"`
+	LastSyncID float64  `json:"lastSyncId"`
+	Success    bool     `json:"success"`
+}
+
+type CommentUpdateInput struct {
+	Body *string `json:"body,omitempty"`
 }
 
 type CreatedAtSort struct {

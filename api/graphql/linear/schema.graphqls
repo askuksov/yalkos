@@ -34,6 +34,10 @@ type Query {
   issueLabels(after: String, before: String, filter: IssueLabelFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): IssueLabelConnection!
   "A label by id."
   issueLabel(id: String!): IssueLabel!
+  "Comments of one issue (filter.issue.id.eq is required), oldest first."
+  comments(after: String, before: String, filter: CommentFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): CommentConnection!
+  "A comment by id (required)."
+  comment(hash: String, id: String): Comment!
 }
 
 type Mutation {
@@ -49,4 +53,10 @@ type Mutation {
   issueLabelUpdate(id: String!, input: IssueLabelUpdateInput!, replaceTeamLabels: Boolean): IssueLabelPayload!
   "Deletes a label (a group must be empty)."
   issueLabelDelete(id: String!): DeletePayload!
+  "Adds a comment to an issue."
+  commentCreate(input: CommentCreateInput!): CommentPayload!
+  "Changes a comment's body (author only)."
+  commentUpdate(id: String!, input: CommentUpdateInput!, skipEditedAt: Boolean): CommentPayload!
+  "Deletes a comment."
+  commentDelete(id: String!): DeletePayload!
 }
