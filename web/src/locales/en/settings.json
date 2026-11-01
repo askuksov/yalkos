@@ -24,8 +24,8 @@
   },
   "apiKeys": {
     "title": "API keys",
-    "hint": "Use a key with any Linear-compatible tool: <code>{{header}}</code>.",
-    "headerExample": "Authorization: <key>",
+    "hint": "Use a key with the Yalkos API, Linear-compatible tools and AI agents: <code>{{header}}</code>.",
+    "headerExample": "Authorization: Bearer <key>",
     "once": "You will not see this key again.",
     "copyNow": "Copy it now.",
     "name": "Key name",
@@ -34,6 +34,13 @@
     "created": "Created",
     "lastUsed": "Last used",
     "never": "never",
-    "revoke": "Revoke"
+    "revoke": "Revoke",
+    "agent": {
+      "title": "Connect an AI agent",
+      "intro": "Claude Code, OpenCode and other MCP clients can find, create and update issues through <code>{{url}}</code>. They act as you, with an API key from this page.",
+      "claudeCode": "Claude Code",
+      "openCode": "OpenCode (opencode.json)",
+      "warning": "Anyone with the key can act as you. Revoke it here if it leaks."
+    }
   }
 }
