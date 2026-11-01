@@ -17,6 +17,11 @@ SELECT * FROM milestones WHERE id = ANY(@ids::uuid[]);
 -- name: ListProjectMilestones :many
 SELECT * FROM milestones WHERE project_id = $1 ORDER BY sort_order, id;
 
+-- name: ListAllMilestones :many
+SELECT m.* FROM milestones m JOIN projects p ON p.id = m.project_id
+WHERE @include_archived::boolean OR p.archived_at IS NULL
+ORDER BY m.created_at, m.id;
+
 -- name: UpdateMilestone :one
 UPDATE milestones SET
     name = @name, description = @description, target_date = @target_date, lead_id = @lead_id,

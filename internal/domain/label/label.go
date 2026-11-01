@@ -34,6 +34,8 @@ type Label struct {
 	IsGroup, Exclusive       bool
 	Name, Description, Color string
 	Position                 float64
+	CreatedBy                *uuid.UUID
+	CreatedAt, UpdatedAt     time.Time
 }
 
 // TypeInfo describes the issue type: the Type group, its labels and the
@@ -65,6 +67,7 @@ func FromRow(l q.Label) Label {
 	return Label{
 		ID: l.ID, ParentID: l.ParentID, IsGroup: l.IsGroup, Exclusive: l.Exclusive,
 		Name: l.Name, Description: l.Description, Color: l.Color, Position: l.Position,
+		CreatedBy: l.CreatedBy, CreatedAt: l.CreatedAt, UpdatedAt: l.UpdatedAt,
 	}
 }
 

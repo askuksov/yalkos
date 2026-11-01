@@ -402,3 +402,24 @@ func TestByIDs(t *testing.T) {
 		t.Errorf("ByIDs = %+v, %v", got, err)
 	}
 }
+
+func TestLabelTimestampsAndCreator(t *testing.T) {
+	e := newEnv(t)
+	l := e.create(t, e.users.Member, label.CreateInput{Name: "Bug"})
+	if l.CreatedAt.IsZero() || !l.UpdatedAt.Equal(l.CreatedAt) || l.CreatedBy == nil || *l.CreatedBy != e.users.Member.ID {
+		t.Fatalf("created = %+v", l)
+	}
+	all, err := e.labels.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range all {
+		if x.ID == l.ID {
+			if !x.CreatedAt.Equal(l.CreatedAt) || !x.UpdatedAt.Equal(l.UpdatedAt) || x.CreatedBy == nil || *x.CreatedBy != e.users.Member.ID {
+				t.Fatalf("listed = %+v", x)
+			}
+			return
+		}
+	}
+	t.Fatal("label not listed")
+}

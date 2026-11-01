@@ -39,6 +39,7 @@ type User struct {
 	Role      Role
 	Disabled  bool
 	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // IsAdmin reports Owner or Admin.
@@ -83,7 +84,23 @@ func New(pool *pgxpool.Pool, now func() time.Time, baseURL string) *Service {
 }
 
 func toUser(u q.User) User {
-	return User{ID: u.ID, Email: u.Email, Name: u.Name, Role: Role(u.Role), Disabled: u.Disabled, CreatedAt: u.CreatedAt}
+	return User{ID: u.ID, Email: u.Email, Name: u.Name, Role: Role(u.Role), Disabled: u.Disabled, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt}
+}
+
+// Workspace is the instance's one workspace.
+type Workspace struct {
+	ID        uuid.UUID
+	Name      string
+	CreatedAt time.Time
+}
+
+// Workspace reads the workspace.
+func (s *Service) Workspace(ctx context.Context) (Workspace, error) {
+	w, err := s.q.GetWorkspace(ctx)
+	if err != nil {
+		return Workspace{}, fmt.Errorf("get workspace: %w", err)
+	}
+	return Workspace{ID: w.ID, Name: w.Name, CreatedAt: w.CreatedAt}, nil
 }
 
 // inTx runs fn in a transaction.

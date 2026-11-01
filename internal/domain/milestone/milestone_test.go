@@ -3,6 +3,7 @@ package milestone_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -324,5 +325,52 @@ func TestDeleteProjectRemovesMilestoneAudit(t *testing.T) {
 	var n int
 	if err := e.pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE entity_id = $1`, m.ID).Scan(&n); err != nil || n != 0 {
 		t.Errorf("milestone audit rows after project delete = %d, %v", n, err)
+	}
+}
+
+func TestListAllMilestones(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	web, err := e.projects.Create(ctx, e.users.Admin, project.CreateInput{Key: "WEB", Name: "Web"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	old, err := e.projects.Create(ctx, e.users.Admin, project.CreateInput{Key: "OLD", Name: "Old"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := e.create(t, "A")
+	b, err := e.milestones.Create(ctx, e.users.Admin, web.ID, milestone.CreateInput{Name: "B"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := e.create(t, "C")
+	o, err := e.milestones.Create(ctx, e.users.Admin, old.ID, milestone.CreateInput{Name: "O"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.projects.SetArchived(ctx, e.users.Admin, old.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	ids := func(ms []milestone.Milestone) []uuid.UUID {
+		out := make([]uuid.UUID, len(ms))
+		for i, m := range ms {
+			out[i] = m.ID
+		}
+		return out
+	}
+	live, err := e.milestones.ListAll(ctx, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := ids(live), []uuid.UUID{a.ID, b.ID, c.ID}; !slices.Equal(got, want) {
+		t.Fatalf("live = %v, want %v", got, want)
+	}
+	everything, err := e.milestones.ListAll(ctx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := ids(everything), []uuid.UUID{a.ID, b.ID, c.ID, o.ID}; !slices.Equal(got, want) {
+		t.Fatalf("all = %v, want %v", got, want)
 	}
 }
