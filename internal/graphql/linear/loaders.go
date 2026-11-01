@@ -9,6 +9,8 @@ import (
 	"github.com/vikstrous/dataloadgen"
 
 	"github.com/askuksov/yalkos/internal/domain/account"
+	"github.com/askuksov/yalkos/internal/domain/attachment"
+	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/project"
 )
@@ -26,6 +28,16 @@ type loaders struct {
 	projectStates  *dataloadgen.Loader[uuid.UUID, []project.State]
 	projectMembers *dataloadgen.Loader[uuid.UUID, []uuid.UUID]
 	projectIssues  *dataloadgen.Loader[uuid.UUID, int]
+
+	issues *dataloadgen.Loader[uuid.UUID, issue.Issue]
+	// By issue id: its sorted label ids and its files.
+	issueLabels      *dataloadgen.Loader[uuid.UUID, []uuid.UUID]
+	issueAttachments *dataloadgen.Loader[uuid.UUID, []attachment.Attachment]
+
+	// Whole lists for relation filters, read once per request.
+	allUsers    memo[[]account.User]
+	allProjects memo[[]project.Project]
+	allStates   memo[[]project.State]
 }
 
 type loadersKey struct{}
@@ -48,6 +60,11 @@ func newLoaders(d Deps) *loaders {
 		projectStates:  dataloadgen.NewLoader(grouped(d.Projects.StatesByProjects), opt),
 		projectMembers: dataloadgen.NewLoader(grouped(d.Projects.MemberIDsByProjects), opt),
 		projectIssues:  dataloadgen.NewLoader(mapped(d.Issues.CountByProjects), opt),
+		issues: dataloadgen.NewLoader(byID("Issue", func(ctx context.Context, ids []uuid.UUID) ([]issue.Issue, error) {
+			return d.Issues.ByIDs(ctx, ids)
+		}, func(i issue.Issue) uuid.UUID { return i.ID }), opt),
+		issueLabels:      dataloadgen.NewLoader(grouped(d.Issues.LabelIDs), opt),
+		issueAttachments: dataloadgen.NewLoader(grouped(d.Attachments.ByIssues), opt),
 	}
 }
 

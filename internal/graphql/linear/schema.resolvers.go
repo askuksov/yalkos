@@ -79,6 +79,23 @@ func (r *queryResolver) WorkflowState(ctx context.Context, id string) (*Workflow
 	return stateOut(st), nil
 }
 
+// Issues is the resolver for the issues field.
+func (r *queryResolver) Issues(ctx context.Context, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, sort []IssueSortInput) (*IssueConnection, error) {
+	return r.issueConn(ctx, issueScope(includeArchived), filter, orderBy, sort, pageArgs(first, after, last, before))
+}
+
+// Issue is the resolver for the issue field.
+func (r *queryResolver) Issue(ctx context.Context, id string) (*Issue, error) {
+	if _, err := r.actor(ctx); err != nil {
+		return nil, err
+	}
+	i, err := r.issueByRef(ctx, "", id)
+	if err != nil {
+		return nil, err
+	}
+	return r.issueOut(i), nil
+}
+
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 

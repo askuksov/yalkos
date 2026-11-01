@@ -65,6 +65,11 @@ func pageOf[T any](items []T, id func(T) uuid.UUID, a page.Args) ([]T, *PageInfo
 	return out, info, nil
 }
 
+// infoOut maps a domain page's info.
+func infoOut(i page.Info) *PageInfo {
+	return &PageInfo{HasNextPage: i.HasNext, HasPreviousPage: i.HasPrev, StartCursor: i.Start, EndCursor: i.End}
+}
+
 // orderByTime sorts newest first by createdAt, or by updatedAt when asked;
 // ties by id, newest first.
 func orderByTime[T any](items []T, id func(T) uuid.UUID, created, updated func(T) time.Time, by *PaginationOrderBy) {

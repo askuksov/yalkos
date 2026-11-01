@@ -10,7 +10,7 @@ import (
 
 // Present runs an error through the /graphql error presenter.
 func Present(err error) *gqlerror.Error {
-	return presenter(func(context.Context, error) {})(context.Background(), err)
+	return presenter(nil, func(context.Context, error) {})(context.Background(), err)
 }
 
 // CostOf validates query against the schema and returns its cost.
@@ -26,3 +26,6 @@ func CostOf(query string, vars map[string]any) (float64, error) {
 func ParseDateOrDuration(field, s string, now time.Time) (time.Time, error) {
 	return parseDateOrDuration(field, s, now)
 }
+
+// BranchName is branchName.
+func BranchName(identifier, title string) string { return branchName(identifier, title) }

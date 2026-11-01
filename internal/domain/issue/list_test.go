@@ -366,3 +366,29 @@ func TestCursorGarbageValues(t *testing.T) {
 		}
 	}
 }
+
+func TestOrderPriorityNoneLastBothWays(t *testing.T) {
+	f := newListFixture(t)
+	asc := f.list(t, issue.Filter{}, issue.Order{Field: issue.PriorityNoneLast}, page.Args{First: ptr(250)}).Items
+	if got := priorities(asc); got != "1,2,3,4,0" {
+		t.Fatalf("ASC = %s", got)
+	}
+	desc := f.list(t, issue.Filter{}, issue.Order{Field: issue.PriorityNoneLast, Desc: true}, page.Args{First: ptr(250)}).Items
+	if got := priorities(desc); got != "4,3,2,1,0" {
+		t.Fatalf("DESC = %s", got)
+	}
+	// Keyset pages walk the same order.
+	var walked []issue.Issue
+	a := page.Args{First: ptr(4)}
+	for {
+		r := f.list(t, issue.Filter{}, issue.Order{Field: issue.PriorityNoneLast, Desc: true}, a)
+		walked = append(walked, r.Items...)
+		if !r.Info.HasNext {
+			break
+		}
+		a.After = r.Info.End
+	}
+	if !slices.Equal(titles(walked), titles(desc)) {
+		t.Fatalf("paged DESC differs:\n%v\n%v", titles(walked), titles(desc))
+	}
+}

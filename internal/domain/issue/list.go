@@ -24,6 +24,8 @@ const (
 	UpdatedAt OrderField = "updatedAt"
 	Priority  OrderField = "priority"
 	DueDate   OrderField = "dueDate"
+	// PriorityNoneLast is Priority with no priority (0) last in both directions.
+	PriorityNoneLast OrderField = "priorityNoneLast"
 )
 
 // Order is a list order; the zero value is SortOrder ascending.
@@ -60,6 +62,11 @@ var orders = map[OrderField]orderSpec{
 		out:  same("(CASE i.priority WHEN 0 THEN 5 ELSE i.priority END)::int"),
 		cast: "int", decode: decodePriorityKey,
 	},
+	PriorityNoneLast: {
+		key:  priorityNoneLastKey,
+		out:  func(desc bool) string { return priorityNoneLastKey(desc) + "::int" },
+		cast: "int", decode: decodePriorityNoneLastKey,
+	},
 	// Issues without a due date come last in both directions.
 	DueDate: {
 		key:  dueKey,
@@ -75,6 +82,25 @@ func decodePriorityKey(raw json.RawMessage) (any, error) {
 		return nil, err
 	}
 	if v < 1 || v > 5 {
+		return nil, fmt.Errorf("priority key %d out of range", v)
+	}
+	return v, nil
+}
+
+func priorityNoneLastKey(desc bool) string {
+	if desc {
+		return "i.priority"
+	}
+	return "(CASE i.priority WHEN 0 THEN 5 ELSE i.priority END)"
+}
+
+// decodePriorityNoneLastKey accepts the keys of both directions (0–5).
+func decodePriorityNoneLastKey(raw json.RawMessage) (any, error) {
+	var v int
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil, err
+	}
+	if v < 0 || v > 5 {
 		return nil, fmt.Errorf("priority key %d out of range", v)
 	}
 	return v, nil

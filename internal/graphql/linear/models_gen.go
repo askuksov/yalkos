@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/askuksov/yalkos/internal/domain/attachment"
+	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/google/uuid"
 )
@@ -38,6 +40,45 @@ type AiPromptRules struct {
 	UpdatedBy  *User      `json:"updatedBy,omitempty"`
 }
 
+// A file uploaded to an issue (read only).
+type Attachment struct {
+	Subtitle *string `json:"subtitle,omitempty"`
+	// File name.
+	Title  string      `json:"title"`
+	Source *JSONObject `json:"source,omitempty"`
+	// size and contentType.
+	Metadata JSONObject `json:"metadata"`
+	// Download URL.
+	URL                 string                `json:"url"`
+	BodyData            *string               `json:"bodyData,omitempty"`
+	OriginalIssue       *Issue                `json:"originalIssue,omitempty"`
+	UpdatedAt           time.Time             `json:"updatedAt"`
+	ExternalUserCreator *ExternalUser         `json:"externalUserCreator,omitempty"`
+	SourceType          *string               `json:"sourceType,omitempty"`
+	ArchivedAt          *time.Time            `json:"archivedAt,omitempty"`
+	CreatedAt           time.Time             `json:"createdAt"`
+	ID                  string                `json:"id"`
+	GroupBySource       bool                  `json:"groupBySource"`
+	Src                 attachment.Attachment `json:"-"`
+}
+
+type AttachmentConnection struct {
+	Nodes    []Attachment     `json:"nodes"`
+	Edges    []AttachmentEdge `json:"edges"`
+	PageInfo *PageInfo        `json:"pageInfo"`
+}
+
+type AttachmentEdge struct {
+	Node   *Attachment `json:"node"`
+	Cursor string      `json:"cursor"`
+}
+
+type AttachmentFilter struct {
+	ID        *IDComparator     `json:"id,omitempty"`
+	Title     *StringComparator `json:"title,omitempty"`
+	CreatedAt *DateComparator   `json:"createdAt,omitempty"`
+}
+
 type BooleanComparator struct {
 	Eq  *bool `json:"eq,omitempty"`
 	Neq *bool `json:"neq,omitempty"`
@@ -45,6 +86,11 @@ type BooleanComparator struct {
 
 type Comment struct {
 	ID string `json:"id"`
+}
+
+type CreatedAtSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
 }
 
 type Cycle struct {
@@ -81,6 +127,12 @@ type DocumentContent struct {
 	CreatedAt        time.Time         `json:"createdAt"`
 	ID               string            `json:"id"`
 	WelcomeMessage   *WelcomeMessage   `json:"welcomeMessage,omitempty"`
+}
+
+// Soonest first, no due date last.
+type DueDateSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
 }
 
 type ExternalEntityInfo struct {
@@ -145,8 +197,126 @@ type IntegrationsSettings struct {
 	ID string `json:"id"`
 }
 
+// An issue.
 type Issue struct {
-	ID string `json:"id"`
+	ID      string `json:"id"`
+	Trashed *bool  `json:"trashed,omitempty"`
+	// Always an empty list.
+	ReactionData          JSONObject          `json:"reactionData"`
+	IntegrationSourceType *IntegrationService `json:"integrationSourceType,omitempty"`
+	URL                   string              `json:"url"`
+	// KEY-N with the team's current key.
+	Identifier          string             `json:"identifier"`
+	PriorityLabel       string             `json:"priorityLabel"`
+	PreviousIdentifiers []string           `json:"previousIdentifiers"`
+	Reactions           []Reaction         `json:"reactions"`
+	CustomerTicketCount int                `json:"customerTicketCount"`
+	SharedAccess        *IssueSharedAccess `json:"sharedAccess"`
+	// Suggested git branch name: identifier and title.
+	BranchName                string               `json:"branchName"`
+	Delegate                  *User                `json:"delegate,omitempty"`
+	BotActor                  *ActorBot            `json:"botActor,omitempty"`
+	SourceComment             *Comment             `json:"sourceComment,omitempty"`
+	Cycle                     *Cycle               `json:"cycle,omitempty"`
+	DueDate                   *time.Time           `json:"dueDate,omitempty"`
+	Estimate                  *float64             `json:"estimate,omitempty"`
+	SyncedWith                []ExternalEntityInfo `json:"syncedWith,omitempty"`
+	ExternalUserCreator       *ExternalUser        `json:"externalUserCreator,omitempty"`
+	AsksExternalUserRequester *ExternalUser        `json:"asksExternalUserRequester,omitempty"`
+	AsksRequester             *User                `json:"asksRequester,omitempty"`
+	Description               *string              `json:"description,omitempty"`
+	Title                     string               `json:"title"`
+	Number                    float64              `json:"number"`
+	LastAppliedTemplate       *Template            `json:"lastAppliedTemplate,omitempty"`
+	UpdatedAt                 time.Time            `json:"updatedAt"`
+	BoardOrder                float64              `json:"boardOrder"`
+	SortOrder                 float64              `json:"sortOrder"`
+	PrioritySortOrder         float64              `json:"prioritySortOrder"`
+	// Order among the parent's sub-issues; null without a parent.
+	SubIssueSortOrder *float64 `json:"subIssueSortOrder,omitempty"`
+	// 0 no priority, 1 urgent, 2 high, 3 medium, 4 low.
+	Priority               float64           `json:"priority"`
+	ProjectMilestone       *ProjectMilestone `json:"projectMilestone,omitempty"`
+	Project                *Project          `json:"project,omitempty"`
+	RecurringIssueTemplate *Template         `json:"recurringIssueTemplate,omitempty"`
+	ArchivedAt             *time.Time        `json:"archivedAt,omitempty"`
+	CreatedAt              time.Time         `json:"createdAt"`
+	StartedTriageAt        *time.Time        `json:"startedTriageAt,omitempty"`
+	TriagedAt              *time.Time        `json:"triagedAt,omitempty"`
+	AddedToCycleAt         *time.Time        `json:"addedToCycleAt,omitempty"`
+	AddedToProjectAt       *time.Time        `json:"addedToProjectAt,omitempty"`
+	AddedToTeamAt          *time.Time        `json:"addedToTeamAt,omitempty"`
+	AutoArchivedAt         *time.Time        `json:"autoArchivedAt,omitempty"`
+	AutoClosedAt           *time.Time        `json:"autoClosedAt,omitempty"`
+	CanceledAt             *time.Time        `json:"canceledAt,omitempty"`
+	CompletedAt            *time.Time        `json:"completedAt,omitempty"`
+	StartedAt              *time.Time        `json:"startedAt,omitempty"`
+	SLAStartedAt           *time.Time        `json:"slaStartedAt,omitempty"`
+	SLABreachesAt          *time.Time        `json:"slaBreachesAt,omitempty"`
+	SLAHighRiskAt          *time.Time        `json:"slaHighRiskAt,omitempty"`
+	SLAMediumRiskAt        *time.Time        `json:"slaMediumRiskAt,omitempty"`
+	SnoozedUntilAt         *time.Time        `json:"snoozedUntilAt,omitempty"`
+	SLAType                *string           `json:"slaType,omitempty"`
+	SnoozedBy              *User             `json:"snoozedBy,omitempty"`
+	Favorite               *Favorite         `json:"favorite,omitempty"`
+	InheritsSharedAccess   bool              `json:"inheritsSharedAccess"`
+	Src                    issue.Issue       `json:"-"`
+}
+
+type IssueConnection struct {
+	Nodes    []Issue     `json:"nodes"`
+	Edges    []IssueEdge `json:"edges"`
+	PageInfo *PageInfo   `json:"pageInfo"`
+}
+
+type IssueEdge struct {
+	Node   *Issue `json:"node"`
+	Cursor string `json:"cursor"`
+}
+
+// Issue filter; conditions are AND-ed, relation filters match by id sets.
+type IssueFilter struct {
+	And []IssueFilter `json:"and,omitempty"`
+	Or  []IssueFilter `json:"or,omitempty"`
+	// Issue UUIDs.
+	ID          *IDComparator             `json:"id,omitempty"`
+	Number      *NumberComparator         `json:"number,omitempty"`
+	Title       *StringComparator         `json:"title,omitempty"`
+	Description *NullableStringComparator `json:"description,omitempty"`
+	// 0 = no priority; null: true matches nothing.
+	Priority    *NullableNumberComparator       `json:"priority,omitempty"`
+	CreatedAt   *DateComparator                 `json:"createdAt,omitempty"`
+	UpdatedAt   *DateComparator                 `json:"updatedAt,omitempty"`
+	CompletedAt *NullableDateComparator         `json:"completedAt,omitempty"`
+	CanceledAt  *NullableDateComparator         `json:"canceledAt,omitempty"`
+	DueDate     *NullableTimelessDateComparator `json:"dueDate,omitempty"`
+	Assignee    *NullableUserFilter             `json:"assignee,omitempty"`
+	Creator     *NullableUserFilter             `json:"creator,omitempty"`
+	State       *WorkflowStateFilter            `json:"state,omitempty"`
+	Team        *TeamFilter                     `json:"team,omitempty"`
+	Parent      *NullableIssueFilter            `json:"parent,omitempty"`
+}
+
+// Declared for client compatibility; issues here have no relations.
+type IssueRelation struct {
+	UpdatedAt    time.Time  `json:"updatedAt"`
+	Issue        *Issue     `json:"issue"`
+	RelatedIssue *Issue     `json:"relatedIssue"`
+	ArchivedAt   *time.Time `json:"archivedAt,omitempty"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	Type         string     `json:"type"`
+	ID           string     `json:"id"`
+}
+
+type IssueRelationConnection struct {
+	Nodes    []IssueRelation     `json:"nodes"`
+	Edges    []IssueRelationEdge `json:"edges"`
+	PageInfo *PageInfo           `json:"pageInfo"`
+}
+
+type IssueRelationEdge struct {
+	Node   *IssueRelation `json:"node"`
+	Cursor string         `json:"cursor"`
 }
 
 // Sharing state of an issue; issues here are never shared outside their team.
@@ -156,6 +326,21 @@ type IssueSharedAccess struct {
 	SharedWithUsers           []User                             `json:"sharedWithUsers"`
 	ViewerHasOnlySharedAccess bool                               `json:"viewerHasOnlySharedAccess"`
 	IsShared                  bool                               `json:"isShared"`
+}
+
+// One element with one key.
+type IssueSortInput struct {
+	Priority  *PrioritySort  `json:"priority,omitempty"`
+	CreatedAt *CreatedAtSort `json:"createdAt,omitempty"`
+	UpdatedAt *UpdatedAtSort `json:"updatedAt,omitempty"`
+	DueDate   *DueDateSort   `json:"dueDate,omitempty"`
+	Manual    *ManualSort    `json:"manual,omitempty"`
+}
+
+// Board order.
+type ManualSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
 }
 
 type NullableDateComparator struct {
@@ -168,6 +353,12 @@ type NullableDateComparator struct {
 	In   []string `json:"in,omitempty"`
 	Nin  []string `json:"nin,omitempty"`
 	Null *bool    `json:"null,omitempty"`
+}
+
+type NullableIssueFilter struct {
+	// Issue UUIDs.
+	ID   *IDComparator `json:"id,omitempty"`
+	Null *bool         `json:"null,omitempty"`
 }
 
 type NullableNumberComparator struct {
@@ -326,6 +517,13 @@ type PaidSubscription struct {
 	CreatedAt         time.Time  `json:"createdAt"`
 	ID                string     `json:"id"`
 	Creator           *User      `json:"creator,omitempty"`
+}
+
+// Urgent first, no priority last.
+type PrioritySort struct {
+	Nulls           *PaginationNulls     `json:"nulls,omitempty"`
+	Order           *PaginationSortOrder `json:"order,omitempty"`
+	NoPriorityFirst *bool                `json:"noPriorityFirst,omitempty"`
 }
 
 type Project struct {
@@ -506,6 +704,11 @@ type Template struct {
 
 type TriageResponsibility struct {
 	ID string `json:"id"`
+}
+
+type UpdatedAtSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
 }
 
 // A workspace user.

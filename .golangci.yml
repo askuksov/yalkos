@@ -8,10 +8,11 @@ linters:
     - gocritic
   exclusions:
     rules:
-      # gqlgen names resolver parameters after schema arguments (stateIds).
+      # gqlgen names resolvers and their parameters after schema fields and
+      # arguments (labelIds, stateIds).
       - path: \.resolvers\.go$
         linters: [revive]
-        text: "var-naming: method parameter"
+        text: "var-naming: method"
       # Resolvers keep every schema argument; some are accepted and ignored.
       - path: \.resolvers\.go$
         linters: [revive]

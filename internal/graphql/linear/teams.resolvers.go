@@ -42,6 +42,11 @@ func (r *teamResolver) States(ctx context.Context, obj *Team, after *string, bef
 	return stateConn(states, teamIndex(obj.Src), filter, orderBy, pageArgs(first, after, last, before))
 }
 
+// Issues is the resolver for the issues field.
+func (r *teamResolver) Issues(ctx context.Context, obj *Team, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, includeSubTeams *bool, last *int, orderBy *PaginationOrderBy) (*IssueConnection, error) {
+	return r.issueConn(ctx, teamScope(obj.Src.ID, includeArchived), filter, orderBy, nil, pageArgs(first, after, last, before))
+}
+
 // Members is the resolver for the members field.
 func (r *teamResolver) Members(ctx context.Context, obj *Team, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) (*UserConnection, error) {
 	me, err := r.actor(ctx)
