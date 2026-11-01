@@ -66,7 +66,10 @@ function MilestoneView({ milestone: m }: { milestone: View }) {
 
   const update = useMutation({
     mutationFn: (input: UpdateMilestoneInput) => request(UpdateMilestoneMutation, { id: m.id, input }),
-    onSuccess: () => setEditing(false),
+    // Only a description save closes the editor; other fields keep the draft.
+    onSuccess: (_d, input) => {
+      if (input.description !== undefined) setEditing(false)
+    },
     onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
     onSettled: () => Promise.all(['milestone', 'milestones'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
   })
