@@ -405,3 +405,36 @@ func TestListComments(t *testing.T) {
 		t.Errorf("bad cursor = %q", got)
 	}
 }
+
+func TestListCommentsBudget(t *testing.T) {
+	e := newEnv(t)
+	p := e.project(t, "YLK", "App")
+	i := e.issue(t, issue.CreateInput{ProjectID: &p.ID, Title: "Logs"})
+	for n := range 25 {
+		e.comment(t, i, fmt.Sprintf("%02d", n+1)+strings.Repeat("x", 4_998))
+	}
+	type page struct {
+		Comments    []commentJSON
+		OlderCursor string
+	}
+	firsts := func(pg page) []string {
+		var out []string
+		for _, c := range pg.Comments {
+			out = append(out, c.Body[:2])
+		}
+		return out
+	}
+	var p1, p2 page
+	text := e.ok(t, "list_comments", map[string]any{"issue": "YLK-1"})
+	decode(t, text, &p1)
+	if !slices.Equal(firsts(p1), []string{"20", "21", "22", "23", "24", "25"}) || p1.OlderCursor == "" {
+		t.Fatalf("page 1 = %v cursor %q", firsts(p1), p1.OlderCursor)
+	}
+	if len(text) > 31_000 {
+		t.Errorf("answer is %d bytes", len(text))
+	}
+	decode(t, e.ok(t, "list_comments", map[string]any{"issue": "YLK-1", "cursor": p1.OlderCursor}), &p2)
+	if !slices.Equal(firsts(p2), []string{"14", "15", "16", "17", "18", "19"}) || p2.OlderCursor == "" {
+		t.Errorf("page 2 = %v cursor %q", firsts(p2), p2.OlderCursor)
+	}
+}

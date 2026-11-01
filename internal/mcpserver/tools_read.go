@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -25,7 +26,10 @@ const (
 	issueComments        = 5
 	maxIssueCommentBody  = 2_000
 	maxCommentBody       = 10_000
-	maxSubIssues         = 50
+	// maxCommentsText caps the comment text of one list_comments answer,
+	// so a page of long comments stays readable for the client.
+	maxCommentsText = 30_000
+	maxSubIssues    = 50
 )
 
 type searchIn struct {
@@ -470,7 +474,7 @@ func registerReadTools(srv *mcp.Server, d *Deps) {
 
 	addTool(srv, d, &mcp.Tool{
 		Name: "list_comments", Title: "List comments", Annotations: readOnly("List comments"),
-		Description: "List the comments of an issue, newest page first, each page in time order. Pass olderCursor back as cursor to read earlier comments.",
+		Description: "List the comments of an issue, newest page first, each page in time order. A page holds up to limit comments and about 30 000 characters of text. Pass olderCursor back as cursor to read earlier comments.",
 	}, func(ctx context.Context, c *call, in listCommentsIn) (any, error) {
 		limit, err := limitOf(in.Limit, defaultCommentsLimit, maxCommentsLimit)
 		if err != nil {
@@ -491,12 +495,27 @@ func registerReadTools(srv *mcp.Server, d *Deps) {
 		if _, err := c.members(ctx); err != nil {
 			return nil, err
 		}
+		all := c.comments(res.Items, maxCommentBody)
+		// Keep the newest comments that fit the budget (at least one); the
+		// older ones of this page come with the next call.
+		start, used := len(all), 0
+		for start > 0 {
+			n := utf8.RuneCountInString(all[start-1].Body)
+			if start < len(all) && used+n > maxCommentsText {
+				break
+			}
+			used += n
+			start--
+		}
 		out := struct {
 			Issue       string       `json:"issue"`
 			Comments    []commentOut `json:"comments"`
 			OlderCursor string       `json:"olderCursor,omitempty"`
-		}{Issue: i.Identifier, Comments: c.comments(res.Items, maxCommentBody)}
-		if res.Info.HasPrev && res.Info.Start != nil {
+		}{Issue: i.Identifier, Comments: all[start:]}
+		switch {
+		case start > 0:
+			out.OlderCursor = res.Cursors[start]
+		case res.Info.HasPrev && res.Info.Start != nil:
 			out.OlderCursor = *res.Info.Start
 		}
 		return out, nil
