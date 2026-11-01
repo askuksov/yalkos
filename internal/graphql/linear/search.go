@@ -67,13 +67,16 @@ func (r *Resolver) searchIssues(ctx context.Context, term string, teamRef *strin
 
 var branchIssueRe = regexp.MustCompile(`(?i)\b([a-z][a-z0-9]{0,6})-(\d+)\b`)
 
+// maxBranchCandidates bounds the lookups one branch name can cause.
+const maxBranchCandidates = 10
+
 // issueByBranch returns the first issue whose KEY-N appears in the branch
-// name, or nil.
+// name (among its first maxBranchCandidates), or nil.
 func (r *Resolver) issueByBranch(ctx context.Context, branch string) (*Issue, error) {
 	if _, err := r.actor(ctx); err != nil {
 		return nil, err
 	}
-	for _, m := range branchIssueRe.FindAllString(branch, -1) {
+	for _, m := range branchIssueRe.FindAllString(branch, maxBranchCandidates) {
 		i, err := r.d.Issues.Get(ctx, m)
 		if errors.Is(err, kit.ErrNotFound) {
 			continue

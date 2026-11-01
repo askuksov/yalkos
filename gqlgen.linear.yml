@@ -115,3 +115,13 @@ models:
         resolver: true
       parent:
         resolver: true
+  IssueUpdateInput:
+    fields:
+      assigneeId:
+        omittable: true
+      parentId:
+        omittable: true
+      projectId:
+        omittable: true
+      dueDate:
+        omittable: true
