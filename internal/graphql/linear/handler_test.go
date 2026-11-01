@@ -20,7 +20,7 @@ type gqlResponse struct {
 
 func post(t *testing.T, query string) (int, gqlResponse) {
 	t.Helper()
-	srv := httptest.NewServer(NewHandler(nil, slog.New(slog.NewJSONHandler(io.Discard, nil))))
+	srv := httptest.NewServer(NewHandler(Deps{Logger: slog.New(slog.NewJSONHandler(io.Discard, nil))}))
 	defer srv.Close()
 	body, _ := json.Marshal(map[string]string{"query": query})
 	resp, err := http.Post(srv.URL, "application/json", bytes.NewReader(body))

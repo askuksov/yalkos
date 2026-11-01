@@ -105,7 +105,11 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 			Milestones: milestones, Labels: labels, Comments: comments, Attachments: attachments,
 			Timeline: timeline.New(pool), Logger: logger,
 		}),
-		LinearGraphQL: linear.NewHandler(accounts, logger),
+		LinearGraphQL: linear.NewHandler(linear.Deps{
+			Accounts: accounts, Projects: projects, Issues: issues, Milestones: milestones,
+			Labels: labels, Comments: comments, Attachments: attachments,
+			BaseURL: baseURL, Logger: logger,
+		}),
 		MCP: mcpserver.NewHandler(mcpserver.Deps{
 			Accounts: accounts, Projects: projects, Issues: issues, Milestones: milestones,
 			Labels: labels, Comments: comments, Attachments: attachments,
