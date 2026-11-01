@@ -61,4 +61,5 @@ func registerTools(srv *mcp.Server, d *Deps) {
 	registerLookupTools(srv, d)
 	registerReadTools(srv, d)
 	registerWriteTools(srv, d)
+	registerMilestoneTools(srv, d)
 }

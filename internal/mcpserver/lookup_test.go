@@ -27,7 +27,7 @@ func decode(t *testing.T, text string, v any) {
 	}
 }
 
-var lookupTools = []string{"list_labels", "list_milestones", "list_projects", "list_states", "list_users"}
+var lookupTools = []string{"get_issue", "list_comments", "list_labels", "list_milestones", "list_projects", "list_states", "list_users", "search_issues"}
 
 func TestListProjects(t *testing.T) {
 	e := newEnv(t)
@@ -167,11 +167,33 @@ func listTools(t *testing.T, e *env) *mcp.ListToolsResult {
 	return res
 }
 
+var allTools = []string{
+	"add_comment", "create_issue", "create_milestone", "get_issue", "list_comments", "list_labels", "list_milestones",
+	"list_projects", "list_states", "list_users", "search_issues", "update_issue", "update_milestone",
+}
+
 func TestToolsListAnnotations(t *testing.T) {
 	e := newEnv(t)
 	byName := map[string]*mcp.Tool{}
+	var names []string
 	for _, tool := range listTools(t, e).Tools {
 		byName[tool.Name] = tool
+		names = append(names, tool.Name)
+	}
+	slices.Sort(names)
+	if !slices.Equal(names, allTools) {
+		t.Errorf("tools = %v", names)
+	}
+	for _, tool := range byName {
+		if tool.OutputSchema != nil || tool.Annotations == nil || tool.Annotations.Title != tool.Title {
+			t.Errorf("%s: output schema %v, annotations %+v", tool.Name, tool.OutputSchema, tool.Annotations)
+		}
+	}
+	for _, name := range []string{"create_milestone", "update_milestone"} {
+		a := byName[name].Annotations
+		if a == nil || a.ReadOnlyHint || a.DestructiveHint == nil || *a.DestructiveHint || a.IdempotentHint != (name == "update_milestone") {
+			t.Errorf("%s annotations = %+v", name, a)
+		}
 	}
 	for _, name := range lookupTools {
 		tool := byName[name]
