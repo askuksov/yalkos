@@ -16,3 +16,23 @@ resolver:
   filename_template: "{name}.resolvers.go"
 
 omit_slice_element_pointers: true
+# Fields with a resolver are left out of the generated models.
+omit_resolver_fields: true
+
+models:
+  DateTime:
+    model: github.com/askuksov/yalkos/internal/graphql/linear.DateTime
+  TimelessDate:
+    model: github.com/askuksov/yalkos/internal/graphql/linear.TimelessDate
+  JSON:
+    model: github.com/askuksov/yalkos/internal/graphql/linear.JSONText
+  JSONObject:
+    model: github.com/askuksov/yalkos/internal/graphql/linear.JSONObject
+  DateTimeOrDuration:
+    model: github.com/99designs/gqlgen/graphql.String
+  TimelessDateOrDuration:
+    model: github.com/99designs/gqlgen/graphql.String
+  User:
+    fields:
+      createdIssueCount:
+        resolver: true

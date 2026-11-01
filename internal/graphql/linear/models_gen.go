@@ -2,14 +2,1492 @@
 
 package linear
 
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+	"time"
+)
+
+type ExternalEntityInfoMetadata interface {
+	IsExternalEntityInfoMetadata()
+}
+
+type ActorBot struct {
+	AvatarURL       *string `json:"avatarUrl,omitempty"`
+	SubType         *string `json:"subType,omitempty"`
+	ID              *string `json:"id,omitempty"`
+	Name            *string `json:"name,omitempty"`
+	UserDisplayName *string `json:"userDisplayName,omitempty"`
+	Type            string  `json:"type"`
+}
+
+type AgentSession struct {
+	ID string `json:"id"`
+}
+
+type AiPromptRules struct {
+	UpdatedAt  time.Time  `json:"updatedAt"`
+	ArchivedAt *time.Time `json:"archivedAt,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	ID         string     `json:"id"`
+	UpdatedBy  *User      `json:"updatedBy,omitempty"`
+}
+
+type BooleanComparator struct {
+	Eq  *bool `json:"eq,omitempty"`
+	Neq *bool `json:"neq,omitempty"`
+}
+
+type Comment struct {
+	ID string `json:"id"`
+}
+
+type Cycle struct {
+	ID string `json:"id"`
+}
+
+type DateComparator struct {
+	Eq  *string  `json:"eq,omitempty"`
+	Neq *string  `json:"neq,omitempty"`
+	Lt  *string  `json:"lt,omitempty"`
+	Lte *string  `json:"lte,omitempty"`
+	Gt  *string  `json:"gt,omitempty"`
+	Gte *string  `json:"gte,omitempty"`
+	In  []string `json:"in,omitempty"`
+	Nin []string `json:"nin,omitempty"`
+}
+
+type Document struct {
+	ID string `json:"id"`
+}
+
+type DocumentContent struct {
+	AiPromptRules    *AiPromptRules    `json:"aiPromptRules,omitempty"`
+	Content          *string           `json:"content,omitempty"`
+	ContentState     *string           `json:"contentState,omitempty"`
+	Document         *Document         `json:"document,omitempty"`
+	Initiative       *Initiative       `json:"initiative,omitempty"`
+	Issue            *Issue            `json:"issue,omitempty"`
+	UpdatedAt        time.Time         `json:"updatedAt"`
+	ProjectMilestone *ProjectMilestone `json:"projectMilestone,omitempty"`
+	Project          *Project          `json:"project,omitempty"`
+	RestoredAt       *time.Time        `json:"restoredAt,omitempty"`
+	ArchivedAt       *time.Time        `json:"archivedAt,omitempty"`
+	CreatedAt        time.Time         `json:"createdAt"`
+	ID               string            `json:"id"`
+	WelcomeMessage   *WelcomeMessage   `json:"welcomeMessage,omitempty"`
+}
+
+type ExternalEntityInfo struct {
+	Metadata ExternalEntityInfoMetadata `json:"metadata,omitempty"`
+	Service  ExternalSyncService        `json:"service"`
+	ID       string                     `json:"id"`
+}
+
+type ExternalEntityInfoGithubMetadata struct {
+	Number *float64 `json:"number,omitempty"`
+	Owner  *string  `json:"owner,omitempty"`
+	Repo   *string  `json:"repo,omitempty"`
+}
+
+func (ExternalEntityInfoGithubMetadata) IsExternalEntityInfoMetadata() {}
+
+type ExternalEntityInfoJiraMetadata struct {
+	IssueTypeID *string `json:"issueTypeId,omitempty"`
+	ProjectID   *string `json:"projectId,omitempty"`
+	IssueKey    *string `json:"issueKey,omitempty"`
+}
+
+func (ExternalEntityInfoJiraMetadata) IsExternalEntityInfoMetadata() {}
+
+type ExternalEntitySlackMetadata struct {
+	MessageURL  *string `json:"messageUrl,omitempty"`
+	ChannelID   *string `json:"channelId,omitempty"`
+	ChannelName *string `json:"channelName,omitempty"`
+	IsFromSlack bool    `json:"isFromSlack"`
+}
+
+func (ExternalEntitySlackMetadata) IsExternalEntityInfoMetadata() {}
+
+type ExternalUser struct {
+	ID string `json:"id"`
+}
+
+type Favorite struct {
+	ID string `json:"id"`
+}
+
+type IDComparator struct {
+	Eq  *string  `json:"eq,omitempty"`
+	Neq *string  `json:"neq,omitempty"`
+	In  []string `json:"in,omitempty"`
+	Nin []string `json:"nin,omitempty"`
+}
+
+type Initiative struct {
+	ID string `json:"id"`
+}
+
+type InitiativeUpdate struct {
+	ID string `json:"id"`
+}
+
+type Integration struct {
+	ID string `json:"id"`
+}
+
+type IntegrationsSettings struct {
+	ID string `json:"id"`
+}
+
+type Issue struct {
+	ID string `json:"id"`
+}
+
+// Sharing state of an issue; issues here are never shared outside their team.
+type IssueSharedAccess struct {
+	DisallowedIssueFields     []IssueSharedAccessDisallowedField `json:"disallowedIssueFields"`
+	SharedWithCount           int                                `json:"sharedWithCount"`
+	SharedWithUsers           []User                             `json:"sharedWithUsers"`
+	ViewerHasOnlySharedAccess bool                               `json:"viewerHasOnlySharedAccess"`
+	IsShared                  bool                               `json:"isShared"`
+}
+
+type NullableDateComparator struct {
+	Eq   *string  `json:"eq,omitempty"`
+	Neq  *string  `json:"neq,omitempty"`
+	Lt   *string  `json:"lt,omitempty"`
+	Lte  *string  `json:"lte,omitempty"`
+	Gt   *string  `json:"gt,omitempty"`
+	Gte  *string  `json:"gte,omitempty"`
+	In   []string `json:"in,omitempty"`
+	Nin  []string `json:"nin,omitempty"`
+	Null *bool    `json:"null,omitempty"`
+}
+
+type NullableNumberComparator struct {
+	Eq   *float64  `json:"eq,omitempty"`
+	Neq  *float64  `json:"neq,omitempty"`
+	Lt   *float64  `json:"lt,omitempty"`
+	Lte  *float64  `json:"lte,omitempty"`
+	Gt   *float64  `json:"gt,omitempty"`
+	Gte  *float64  `json:"gte,omitempty"`
+	In   []float64 `json:"in,omitempty"`
+	Nin  []float64 `json:"nin,omitempty"`
+	Null *bool     `json:"null,omitempty"`
+}
+
+// String comparator for optional values; an empty string counts as no value.
+type NullableStringComparator struct {
+	Eq                    *string  `json:"eq,omitempty"`
+	Neq                   *string  `json:"neq,omitempty"`
+	In                    []string `json:"in,omitempty"`
+	Nin                   []string `json:"nin,omitempty"`
+	EqIgnoreCase          *string  `json:"eqIgnoreCase,omitempty"`
+	NeqIgnoreCase         *string  `json:"neqIgnoreCase,omitempty"`
+	Contains              *string  `json:"contains,omitempty"`
+	NotContains           *string  `json:"notContains,omitempty"`
+	ContainsIgnoreCase    *string  `json:"containsIgnoreCase,omitempty"`
+	NotContainsIgnoreCase *string  `json:"notContainsIgnoreCase,omitempty"`
+	StartsWith            *string  `json:"startsWith,omitempty"`
+	StartsWithIgnoreCase  *string  `json:"startsWithIgnoreCase,omitempty"`
+	NotStartsWith         *string  `json:"notStartsWith,omitempty"`
+	EndsWith              *string  `json:"endsWith,omitempty"`
+	NotEndsWith           *string  `json:"notEndsWith,omitempty"`
+	Null                  *bool    `json:"null,omitempty"`
+}
+
+type NullableTimelessDateComparator struct {
+	Eq   *string  `json:"eq,omitempty"`
+	Neq  *string  `json:"neq,omitempty"`
+	Lt   *string  `json:"lt,omitempty"`
+	Lte  *string  `json:"lte,omitempty"`
+	Gt   *string  `json:"gt,omitempty"`
+	Gte  *string  `json:"gte,omitempty"`
+	In   []string `json:"in,omitempty"`
+	Nin  []string `json:"nin,omitempty"`
+	Null *bool    `json:"null,omitempty"`
+}
+
+// UserFilter that also matches a missing user (null: true).
+type NullableUserFilter struct {
+	And         []NullableUserFilter `json:"and,omitempty"`
+	Or          []NullableUserFilter `json:"or,omitempty"`
+	ID          *IDComparator        `json:"id,omitempty"`
+	Name        *StringComparator    `json:"name,omitempty"`
+	DisplayName *StringComparator    `json:"displayName,omitempty"`
+	Email       *StringComparator    `json:"email,omitempty"`
+	Active      *BooleanComparator   `json:"active,omitempty"`
+	Admin       *BooleanComparator   `json:"admin,omitempty"`
+	Owner       *BooleanComparator   `json:"owner,omitempty"`
+	IsMe        *BooleanComparator   `json:"isMe,omitempty"`
+	Null        *bool                `json:"null,omitempty"`
+}
+
+type NumberComparator struct {
+	Eq  *float64  `json:"eq,omitempty"`
+	Neq *float64  `json:"neq,omitempty"`
+	Lt  *float64  `json:"lt,omitempty"`
+	Lte *float64  `json:"lte,omitempty"`
+	Gt  *float64  `json:"gt,omitempty"`
+	Gte *float64  `json:"gte,omitempty"`
+	In  []float64 `json:"in,omitempty"`
+	Nin []float64 `json:"nin,omitempty"`
+}
+
+type PageInfo struct {
+	StartCursor     *string `json:"startCursor,omitempty"`
+	EndCursor       *string `json:"endCursor,omitempty"`
+	HasPreviousPage bool    `json:"hasPreviousPage"`
+	HasNextPage     bool    `json:"hasNextPage"`
+}
+
+type PaidSubscription struct {
+	CollectionMethod  string     `json:"collectionMethod"`
+	CancelAt          *time.Time `json:"cancelAt,omitempty"`
+	CanceledAt        *time.Time `json:"canceledAt,omitempty"`
+	NextBillingAt     *time.Time `json:"nextBillingAt,omitempty"`
+	UpdatedAt         time.Time  `json:"updatedAt"`
+	SeatsMaximum      *float64   `json:"seatsMaximum,omitempty"`
+	SeatsMinimum      *float64   `json:"seatsMinimum,omitempty"`
+	Seats             float64    `json:"seats"`
+	Type              string     `json:"type"`
+	PendingChangeType *string    `json:"pendingChangeType,omitempty"`
+	ArchivedAt        *time.Time `json:"archivedAt,omitempty"`
+	CreatedAt         time.Time  `json:"createdAt"`
+	ID                string     `json:"id"`
+	Creator           *User      `json:"creator,omitempty"`
+}
+
+type Project struct {
+	ID string `json:"id"`
+}
+
+type ProjectMilestone struct {
+	ID string `json:"id"`
+}
+
+type ProjectUpdate struct {
+	ID string `json:"id"`
+}
+
 type Query struct {
 }
 
+type Reaction struct {
+	Comment          *Comment          `json:"comment,omitempty"`
+	ExternalUser     *ExternalUser     `json:"externalUser,omitempty"`
+	InitiativeUpdate *InitiativeUpdate `json:"initiativeUpdate,omitempty"`
+	Issue            *Issue            `json:"issue,omitempty"`
+	UpdatedAt        time.Time         `json:"updatedAt"`
+	Emoji            string            `json:"emoji"`
+	ProjectUpdate    *ProjectUpdate    `json:"projectUpdate,omitempty"`
+	ArchivedAt       *time.Time        `json:"archivedAt,omitempty"`
+	CreatedAt        time.Time         `json:"createdAt"`
+	ID               string            `json:"id"`
+	User             *User             `json:"user,omitempty"`
+}
+
+type StringComparator struct {
+	Eq                    *string  `json:"eq,omitempty"`
+	Neq                   *string  `json:"neq,omitempty"`
+	In                    []string `json:"in,omitempty"`
+	Nin                   []string `json:"nin,omitempty"`
+	EqIgnoreCase          *string  `json:"eqIgnoreCase,omitempty"`
+	NeqIgnoreCase         *string  `json:"neqIgnoreCase,omitempty"`
+	Contains              *string  `json:"contains,omitempty"`
+	NotContains           *string  `json:"notContains,omitempty"`
+	ContainsIgnoreCase    *string  `json:"containsIgnoreCase,omitempty"`
+	NotContainsIgnoreCase *string  `json:"notContainsIgnoreCase,omitempty"`
+	StartsWith            *string  `json:"startsWith,omitempty"`
+	StartsWithIgnoreCase  *string  `json:"startsWithIgnoreCase,omitempty"`
+	NotStartsWith         *string  `json:"notStartsWith,omitempty"`
+	EndsWith              *string  `json:"endsWith,omitempty"`
+	NotEndsWith           *string  `json:"notEndsWith,omitempty"`
+}
+
+type SyncedExternalThread struct {
+	URL                            *string `json:"url,omitempty"`
+	Name                           *string `json:"name,omitempty"`
+	DisplayName                    *string `json:"displayName,omitempty"`
+	Type                           string  `json:"type"`
+	SubType                        *string `json:"subType,omitempty"`
+	ID                             *string `json:"id,omitempty"`
+	IsPersonalIntegrationRequired  bool    `json:"isPersonalIntegrationRequired"`
+	IsPersonalIntegrationConnected bool    `json:"isPersonalIntegrationConnected"`
+	IsConnected                    bool    `json:"isConnected"`
+}
+
+type TeamMembership struct {
+	ID string `json:"id"`
+}
+
+type Template struct {
+	ID string `json:"id"`
+}
+
+type TriageResponsibility struct {
+	ID string `json:"id"`
+}
+
+// A workspace user.
 type User struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	DisplayName string `json:"displayName"`
-	Email       string `json:"email"`
-	Active      bool   `json:"active"`
-	Admin       bool   `json:"admin"`
+	Description           *string    `json:"description,omitempty"`
+	AvatarURL             *string    `json:"avatarUrl,omitempty"`
+	AvatarBackgroundColor string     `json:"avatarBackgroundColor"`
+	StatusUntilAt         *time.Time `json:"statusUntilAt,omitempty"`
+	StatusEmoji           *string    `json:"statusEmoji,omitempty"`
+	Initials              string     `json:"initials"`
+	UpdatedAt             time.Time  `json:"updatedAt"`
+	LastSeen              *time.Time `json:"lastSeen,omitempty"`
+	Timezone              *string    `json:"timezone,omitempty"`
+	DisableReason         *string    `json:"disableReason,omitempty"`
+	StatusLabel           *string    `json:"statusLabel,omitempty"`
+	ArchivedAt            *time.Time `json:"archivedAt,omitempty"`
+	CreatedAt             time.Time  `json:"createdAt"`
+	ID                    string     `json:"id"`
+	GitHubUserID          *string    `json:"gitHubUserId,omitempty"`
+	DisplayName           string     `json:"displayName"`
+	Email                 string     `json:"email"`
+	Name                  string     `json:"name"`
+	Title                 *string    `json:"title,omitempty"`
+	URL                   string     `json:"url"`
+	// False for disabled users.
+	Active        bool `json:"active"`
+	IsAssignable  bool `json:"isAssignable"`
+	IsMentionable bool `json:"isMentionable"`
+	Guest         bool `json:"guest"`
+	// Owner or admin.
+	Admin bool `json:"admin"`
+	Owner bool `json:"owner"`
+	App   bool `json:"app"`
+	// The user making the request.
+	IsMe                   bool    `json:"isMe"`
+	SupportsAgentSessions  bool    `json:"supportsAgentSessions"`
+	CanAccessAnyPublicTeam bool    `json:"canAccessAnyPublicTeam"`
+	CalendarHash           *string `json:"calendarHash,omitempty"`
+	InviteHash             string  `json:"inviteHash"`
+}
+
+type UserConnection struct {
+	Nodes    []User     `json:"nodes"`
+	Edges    []UserEdge `json:"edges"`
+	PageInfo *PageInfo  `json:"pageInfo"`
+}
+
+type UserDisplayNameSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
+}
+
+type UserEdge struct {
+	Node   *User  `json:"node"`
+	Cursor string `json:"cursor"`
+}
+
+type UserFilter struct {
+	And         []UserFilter       `json:"and,omitempty"`
+	Or          []UserFilter       `json:"or,omitempty"`
+	ID          *IDComparator      `json:"id,omitempty"`
+	Name        *StringComparator  `json:"name,omitempty"`
+	DisplayName *StringComparator  `json:"displayName,omitempty"`
+	Email       *StringComparator  `json:"email,omitempty"`
+	Active      *BooleanComparator `json:"active,omitempty"`
+	Admin       *BooleanComparator `json:"admin,omitempty"`
+	Owner       *BooleanComparator `json:"owner,omitempty"`
+	IsMe        *BooleanComparator `json:"isMe,omitempty"`
+}
+
+type UserNameSort struct {
+	Nulls *PaginationNulls     `json:"nulls,omitempty"`
+	Order *PaginationSortOrder `json:"order,omitempty"`
+}
+
+// One sort key; both sort by name.
+type UserSortInput struct {
+	Name        *UserNameSort        `json:"name,omitempty"`
+	DisplayName *UserDisplayNameSort `json:"displayName,omitempty"`
+}
+
+type WelcomeMessage struct {
+	UpdatedAt  time.Time  `json:"updatedAt"`
+	ArchivedAt *time.Time `json:"archivedAt,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	Title      *string    `json:"title,omitempty"`
+	ID         string     `json:"id"`
+	UpdatedBy  *User      `json:"updatedBy,omitempty"`
+	Enabled    bool       `json:"enabled"`
+}
+
+type DateResolutionType string
+
+const (
+	DateResolutionTypeHalfYear DateResolutionType = "halfYear"
+	DateResolutionTypeMonth    DateResolutionType = "month"
+	DateResolutionTypeQuarter  DateResolutionType = "quarter"
+	DateResolutionTypeYear     DateResolutionType = "year"
+)
+
+var AllDateResolutionType = []DateResolutionType{
+	DateResolutionTypeHalfYear,
+	DateResolutionTypeMonth,
+	DateResolutionTypeQuarter,
+	DateResolutionTypeYear,
+}
+
+func (e DateResolutionType) IsValid() bool {
+	switch e {
+	case DateResolutionTypeHalfYear, DateResolutionTypeMonth, DateResolutionTypeQuarter, DateResolutionTypeYear:
+		return true
+	}
+	return false
+}
+
+func (e DateResolutionType) String() string {
+	return string(e)
+}
+
+func (e *DateResolutionType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = DateResolutionType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid DateResolutionType", str)
+	}
+	return nil
+}
+
+func (e DateResolutionType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *DateResolutionType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e DateResolutionType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type Day string
+
+const (
+	DayFriday    Day = "Friday"
+	DayMonday    Day = "Monday"
+	DaySaturday  Day = "Saturday"
+	DaySunday    Day = "Sunday"
+	DayThursday  Day = "Thursday"
+	DayTuesday   Day = "Tuesday"
+	DayWednesday Day = "Wednesday"
+)
+
+var AllDay = []Day{
+	DayFriday,
+	DayMonday,
+	DaySaturday,
+	DaySunday,
+	DayThursday,
+	DayTuesday,
+	DayWednesday,
+}
+
+func (e Day) IsValid() bool {
+	switch e {
+	case DayFriday, DayMonday, DaySaturday, DaySunday, DayThursday, DayTuesday, DayWednesday:
+		return true
+	}
+	return false
+}
+
+func (e Day) String() string {
+	return string(e)
+}
+
+func (e *Day) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = Day(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid Day", str)
+	}
+	return nil
+}
+
+func (e Day) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *Day) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e Day) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type ExternalSyncService string
+
+const (
+	ExternalSyncServiceGithub ExternalSyncService = "github"
+	ExternalSyncServiceJira   ExternalSyncService = "jira"
+	ExternalSyncServiceSlack  ExternalSyncService = "slack"
+)
+
+var AllExternalSyncService = []ExternalSyncService{
+	ExternalSyncServiceGithub,
+	ExternalSyncServiceJira,
+	ExternalSyncServiceSlack,
+}
+
+func (e ExternalSyncService) IsValid() bool {
+	switch e {
+	case ExternalSyncServiceGithub, ExternalSyncServiceJira, ExternalSyncServiceSlack:
+		return true
+	}
+	return false
+}
+
+func (e ExternalSyncService) String() string {
+	return string(e)
+}
+
+func (e *ExternalSyncService) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ExternalSyncService(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ExternalSyncService", str)
+	}
+	return nil
+}
+
+func (e ExternalSyncService) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ExternalSyncService) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ExternalSyncService) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type FeedSummarySchedule string
+
+const (
+	FeedSummaryScheduleDaily  FeedSummarySchedule = "daily"
+	FeedSummaryScheduleNever  FeedSummarySchedule = "never"
+	FeedSummaryScheduleWeekly FeedSummarySchedule = "weekly"
+)
+
+var AllFeedSummarySchedule = []FeedSummarySchedule{
+	FeedSummaryScheduleDaily,
+	FeedSummaryScheduleNever,
+	FeedSummaryScheduleWeekly,
+}
+
+func (e FeedSummarySchedule) IsValid() bool {
+	switch e {
+	case FeedSummaryScheduleDaily, FeedSummaryScheduleNever, FeedSummaryScheduleWeekly:
+		return true
+	}
+	return false
+}
+
+func (e FeedSummarySchedule) String() string {
+	return string(e)
+}
+
+func (e *FeedSummarySchedule) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = FeedSummarySchedule(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid FeedSummarySchedule", str)
+	}
+	return nil
+}
+
+func (e FeedSummarySchedule) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *FeedSummarySchedule) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e FeedSummarySchedule) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type FrequencyResolutionType string
+
+const (
+	FrequencyResolutionTypeDaily  FrequencyResolutionType = "daily"
+	FrequencyResolutionTypeWeekly FrequencyResolutionType = "weekly"
+)
+
+var AllFrequencyResolutionType = []FrequencyResolutionType{
+	FrequencyResolutionTypeDaily,
+	FrequencyResolutionTypeWeekly,
+}
+
+func (e FrequencyResolutionType) IsValid() bool {
+	switch e {
+	case FrequencyResolutionTypeDaily, FrequencyResolutionTypeWeekly:
+		return true
+	}
+	return false
+}
+
+func (e FrequencyResolutionType) String() string {
+	return string(e)
+}
+
+func (e *FrequencyResolutionType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = FrequencyResolutionType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid FrequencyResolutionType", str)
+	}
+	return nil
+}
+
+func (e FrequencyResolutionType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *FrequencyResolutionType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e FrequencyResolutionType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type IntegrationService string
+
+const (
+	IntegrationServiceAirbyte                       IntegrationService = "airbyte"
+	IntegrationServiceAsksWeb                       IntegrationService = "asksWeb"
+	IntegrationServiceDatadog                       IntegrationService = "datadog"
+	IntegrationServiceDiscord                       IntegrationService = "discord"
+	IntegrationServiceEmail                         IntegrationService = "email"
+	IntegrationServiceFigma                         IntegrationService = "figma"
+	IntegrationServiceFigmaPlugin                   IntegrationService = "figmaPlugin"
+	IntegrationServiceFront                         IntegrationService = "front"
+	IntegrationServiceGithub                        IntegrationService = "github"
+	IntegrationServiceGithubCodeAccessPersonal      IntegrationService = "githubCodeAccessPersonal"
+	IntegrationServiceGithubCommit                  IntegrationService = "githubCommit"
+	IntegrationServiceGithubEnterpriseServer        IntegrationService = "githubEnterpriseServer"
+	IntegrationServiceGithubImport                  IntegrationService = "githubImport"
+	IntegrationServiceGithubPersonal                IntegrationService = "githubPersonal"
+	IntegrationServiceGitlab                        IntegrationService = "gitlab"
+	IntegrationServiceGitlabPersonal                IntegrationService = "gitlabPersonal"
+	IntegrationServiceGong                          IntegrationService = "gong"
+	IntegrationServiceGoogleCalendarPersonal        IntegrationService = "googleCalendarPersonal"
+	IntegrationServiceGoogleSheets                  IntegrationService = "googleSheets"
+	IntegrationServiceIntercom                      IntegrationService = "intercom"
+	IntegrationServiceJira                          IntegrationService = "jira"
+	IntegrationServiceJiraPersonal                  IntegrationService = "jiraPersonal"
+	IntegrationServiceLaunchDarkly                  IntegrationService = "launchDarkly"
+	IntegrationServiceLaunchDarklyPersonal          IntegrationService = "launchDarklyPersonal"
+	IntegrationServiceLoom                          IntegrationService = "loom"
+	IntegrationServiceMcpServer                     IntegrationService = "mcpServer"
+	IntegrationServiceMcpServerPersonal             IntegrationService = "mcpServerPersonal"
+	IntegrationServiceMicrosoftPersonal             IntegrationService = "microsoftPersonal"
+	IntegrationServiceMicrosoftTeams                IntegrationService = "microsoftTeams"
+	IntegrationServiceMicrosoftTeamsProjectPost     IntegrationService = "microsoftTeamsProjectPost"
+	IntegrationServiceNotion                        IntegrationService = "notion"
+	IntegrationServiceOpsgenie                      IntegrationService = "opsgenie"
+	IntegrationServiceOrigin                        IntegrationService = "origin"
+	IntegrationServicePagerDuty                     IntegrationService = "pagerDuty"
+	IntegrationServiceSalesforce                    IntegrationService = "salesforce"
+	IntegrationServiceSentry                        IntegrationService = "sentry"
+	IntegrationServiceSlack                         IntegrationService = "slack"
+	IntegrationServiceSlackAsks                     IntegrationService = "slackAsks"
+	IntegrationServiceSlackCustomViewNotifications  IntegrationService = "slackCustomViewNotifications"
+	IntegrationServiceSlackInitiativePost           IntegrationService = "slackInitiativePost"
+	IntegrationServiceSlackOrgInitiativeUpdatesPost IntegrationService = "slackOrgInitiativeUpdatesPost"
+	IntegrationServiceSlackOrgProjectUpdatesPost    IntegrationService = "slackOrgProjectUpdatesPost"
+	IntegrationServiceSlackPersonal                 IntegrationService = "slackPersonal"
+	IntegrationServiceSlackPost                     IntegrationService = "slackPost"
+	IntegrationServiceSlackProjectPost              IntegrationService = "slackProjectPost"
+	IntegrationServiceSlackProjectUpdatesPost       IntegrationService = "slackProjectUpdatesPost"
+	IntegrationServiceZendesk                       IntegrationService = "zendesk"
+)
+
+var AllIntegrationService = []IntegrationService{
+	IntegrationServiceAirbyte,
+	IntegrationServiceAsksWeb,
+	IntegrationServiceDatadog,
+	IntegrationServiceDiscord,
+	IntegrationServiceEmail,
+	IntegrationServiceFigma,
+	IntegrationServiceFigmaPlugin,
+	IntegrationServiceFront,
+	IntegrationServiceGithub,
+	IntegrationServiceGithubCodeAccessPersonal,
+	IntegrationServiceGithubCommit,
+	IntegrationServiceGithubEnterpriseServer,
+	IntegrationServiceGithubImport,
+	IntegrationServiceGithubPersonal,
+	IntegrationServiceGitlab,
+	IntegrationServiceGitlabPersonal,
+	IntegrationServiceGong,
+	IntegrationServiceGoogleCalendarPersonal,
+	IntegrationServiceGoogleSheets,
+	IntegrationServiceIntercom,
+	IntegrationServiceJira,
+	IntegrationServiceJiraPersonal,
+	IntegrationServiceLaunchDarkly,
+	IntegrationServiceLaunchDarklyPersonal,
+	IntegrationServiceLoom,
+	IntegrationServiceMcpServer,
+	IntegrationServiceMcpServerPersonal,
+	IntegrationServiceMicrosoftPersonal,
+	IntegrationServiceMicrosoftTeams,
+	IntegrationServiceMicrosoftTeamsProjectPost,
+	IntegrationServiceNotion,
+	IntegrationServiceOpsgenie,
+	IntegrationServiceOrigin,
+	IntegrationServicePagerDuty,
+	IntegrationServiceSalesforce,
+	IntegrationServiceSentry,
+	IntegrationServiceSlack,
+	IntegrationServiceSlackAsks,
+	IntegrationServiceSlackCustomViewNotifications,
+	IntegrationServiceSlackInitiativePost,
+	IntegrationServiceSlackOrgInitiativeUpdatesPost,
+	IntegrationServiceSlackOrgProjectUpdatesPost,
+	IntegrationServiceSlackPersonal,
+	IntegrationServiceSlackPost,
+	IntegrationServiceSlackProjectPost,
+	IntegrationServiceSlackProjectUpdatesPost,
+	IntegrationServiceZendesk,
+}
+
+func (e IntegrationService) IsValid() bool {
+	switch e {
+	case IntegrationServiceAirbyte, IntegrationServiceAsksWeb, IntegrationServiceDatadog, IntegrationServiceDiscord, IntegrationServiceEmail, IntegrationServiceFigma, IntegrationServiceFigmaPlugin, IntegrationServiceFront, IntegrationServiceGithub, IntegrationServiceGithubCodeAccessPersonal, IntegrationServiceGithubCommit, IntegrationServiceGithubEnterpriseServer, IntegrationServiceGithubImport, IntegrationServiceGithubPersonal, IntegrationServiceGitlab, IntegrationServiceGitlabPersonal, IntegrationServiceGong, IntegrationServiceGoogleCalendarPersonal, IntegrationServiceGoogleSheets, IntegrationServiceIntercom, IntegrationServiceJira, IntegrationServiceJiraPersonal, IntegrationServiceLaunchDarkly, IntegrationServiceLaunchDarklyPersonal, IntegrationServiceLoom, IntegrationServiceMcpServer, IntegrationServiceMcpServerPersonal, IntegrationServiceMicrosoftPersonal, IntegrationServiceMicrosoftTeams, IntegrationServiceMicrosoftTeamsProjectPost, IntegrationServiceNotion, IntegrationServiceOpsgenie, IntegrationServiceOrigin, IntegrationServicePagerDuty, IntegrationServiceSalesforce, IntegrationServiceSentry, IntegrationServiceSlack, IntegrationServiceSlackAsks, IntegrationServiceSlackCustomViewNotifications, IntegrationServiceSlackInitiativePost, IntegrationServiceSlackOrgInitiativeUpdatesPost, IntegrationServiceSlackOrgProjectUpdatesPost, IntegrationServiceSlackPersonal, IntegrationServiceSlackPost, IntegrationServiceSlackProjectPost, IntegrationServiceSlackProjectUpdatesPost, IntegrationServiceZendesk:
+		return true
+	}
+	return false
+}
+
+func (e IntegrationService) String() string {
+	return string(e)
+}
+
+func (e *IntegrationService) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = IntegrationService(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid IntegrationService", str)
+	}
+	return nil
+}
+
+func (e IntegrationService) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *IntegrationService) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e IntegrationService) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type IssueSharedAccessDisallowedField string
+
+const (
+	IssueSharedAccessDisallowedFieldCycleID            IssueSharedAccessDisallowedField = "cycleId"
+	IssueSharedAccessDisallowedFieldProjectID          IssueSharedAccessDisallowedField = "projectId"
+	IssueSharedAccessDisallowedFieldProjectMilestoneID IssueSharedAccessDisallowedField = "projectMilestoneId"
+	IssueSharedAccessDisallowedFieldTeamID             IssueSharedAccessDisallowedField = "teamId"
+)
+
+var AllIssueSharedAccessDisallowedField = []IssueSharedAccessDisallowedField{
+	IssueSharedAccessDisallowedFieldCycleID,
+	IssueSharedAccessDisallowedFieldProjectID,
+	IssueSharedAccessDisallowedFieldProjectMilestoneID,
+	IssueSharedAccessDisallowedFieldTeamID,
+}
+
+func (e IssueSharedAccessDisallowedField) IsValid() bool {
+	switch e {
+	case IssueSharedAccessDisallowedFieldCycleID, IssueSharedAccessDisallowedFieldProjectID, IssueSharedAccessDisallowedFieldProjectMilestoneID, IssueSharedAccessDisallowedFieldTeamID:
+		return true
+	}
+	return false
+}
+
+func (e IssueSharedAccessDisallowedField) String() string {
+	return string(e)
+}
+
+func (e *IssueSharedAccessDisallowedField) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = IssueSharedAccessDisallowedField(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid IssueSharedAccessDisallowedField", str)
+	}
+	return nil
+}
+
+func (e IssueSharedAccessDisallowedField) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *IssueSharedAccessDisallowedField) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e IssueSharedAccessDisallowedField) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type LabelGroupType string
+
+const (
+	LabelGroupTypeMultiSelect  LabelGroupType = "multiSelect"
+	LabelGroupTypeSingleSelect LabelGroupType = "singleSelect"
+)
+
+var AllLabelGroupType = []LabelGroupType{
+	LabelGroupTypeMultiSelect,
+	LabelGroupTypeSingleSelect,
+}
+
+func (e LabelGroupType) IsValid() bool {
+	switch e {
+	case LabelGroupTypeMultiSelect, LabelGroupTypeSingleSelect:
+		return true
+	}
+	return false
+}
+
+func (e LabelGroupType) String() string {
+	return string(e)
+}
+
+func (e *LabelGroupType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = LabelGroupType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid LabelGroupType", str)
+	}
+	return nil
+}
+
+func (e LabelGroupType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *LabelGroupType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e LabelGroupType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type PaginationNulls string
+
+const (
+	PaginationNullsFirst PaginationNulls = "first"
+	PaginationNullsLast  PaginationNulls = "last"
+)
+
+var AllPaginationNulls = []PaginationNulls{
+	PaginationNullsFirst,
+	PaginationNullsLast,
+}
+
+func (e PaginationNulls) IsValid() bool {
+	switch e {
+	case PaginationNullsFirst, PaginationNullsLast:
+		return true
+	}
+	return false
+}
+
+func (e PaginationNulls) String() string {
+	return string(e)
+}
+
+func (e *PaginationNulls) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PaginationNulls(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PaginationNulls", str)
+	}
+	return nil
+}
+
+func (e PaginationNulls) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PaginationNulls) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PaginationNulls) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type PaginationOrderBy string
+
+const (
+	PaginationOrderByCreatedAt PaginationOrderBy = "createdAt"
+	PaginationOrderByUpdatedAt PaginationOrderBy = "updatedAt"
+)
+
+var AllPaginationOrderBy = []PaginationOrderBy{
+	PaginationOrderByCreatedAt,
+	PaginationOrderByUpdatedAt,
+}
+
+func (e PaginationOrderBy) IsValid() bool {
+	switch e {
+	case PaginationOrderByCreatedAt, PaginationOrderByUpdatedAt:
+		return true
+	}
+	return false
+}
+
+func (e PaginationOrderBy) String() string {
+	return string(e)
+}
+
+func (e *PaginationOrderBy) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PaginationOrderBy(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PaginationOrderBy", str)
+	}
+	return nil
+}
+
+func (e PaginationOrderBy) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PaginationOrderBy) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PaginationOrderBy) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type PaginationSortOrder string
+
+const (
+	PaginationSortOrderAscending  PaginationSortOrder = "Ascending"
+	PaginationSortOrderDescending PaginationSortOrder = "Descending"
+)
+
+var AllPaginationSortOrder = []PaginationSortOrder{
+	PaginationSortOrderAscending,
+	PaginationSortOrderDescending,
+}
+
+func (e PaginationSortOrder) IsValid() bool {
+	switch e {
+	case PaginationSortOrderAscending, PaginationSortOrderDescending:
+		return true
+	}
+	return false
+}
+
+func (e PaginationSortOrder) String() string {
+	return string(e)
+}
+
+func (e *PaginationSortOrder) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PaginationSortOrder(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PaginationSortOrder", str)
+	}
+	return nil
+}
+
+func (e PaginationSortOrder) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PaginationSortOrder) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PaginationSortOrder) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type ProjectStatusType string
+
+const (
+	ProjectStatusTypeBacklog   ProjectStatusType = "backlog"
+	ProjectStatusTypeCanceled  ProjectStatusType = "canceled"
+	ProjectStatusTypeCompleted ProjectStatusType = "completed"
+	ProjectStatusTypePaused    ProjectStatusType = "paused"
+	ProjectStatusTypePlanned   ProjectStatusType = "planned"
+	ProjectStatusTypeStarted   ProjectStatusType = "started"
+)
+
+var AllProjectStatusType = []ProjectStatusType{
+	ProjectStatusTypeBacklog,
+	ProjectStatusTypeCanceled,
+	ProjectStatusTypeCompleted,
+	ProjectStatusTypePaused,
+	ProjectStatusTypePlanned,
+	ProjectStatusTypeStarted,
+}
+
+func (e ProjectStatusType) IsValid() bool {
+	switch e {
+	case ProjectStatusTypeBacklog, ProjectStatusTypeCanceled, ProjectStatusTypeCompleted, ProjectStatusTypePaused, ProjectStatusTypePlanned, ProjectStatusTypeStarted:
+		return true
+	}
+	return false
+}
+
+func (e ProjectStatusType) String() string {
+	return string(e)
+}
+
+func (e *ProjectStatusType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ProjectStatusType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ProjectStatusType", str)
+	}
+	return nil
+}
+
+func (e ProjectStatusType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ProjectStatusType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ProjectStatusType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type ProjectUpdateHealthType string
+
+const (
+	ProjectUpdateHealthTypeAtRisk   ProjectUpdateHealthType = "atRisk"
+	ProjectUpdateHealthTypeOffTrack ProjectUpdateHealthType = "offTrack"
+	ProjectUpdateHealthTypeOnTrack  ProjectUpdateHealthType = "onTrack"
+)
+
+var AllProjectUpdateHealthType = []ProjectUpdateHealthType{
+	ProjectUpdateHealthTypeAtRisk,
+	ProjectUpdateHealthTypeOffTrack,
+	ProjectUpdateHealthTypeOnTrack,
+}
+
+func (e ProjectUpdateHealthType) IsValid() bool {
+	switch e {
+	case ProjectUpdateHealthTypeAtRisk, ProjectUpdateHealthTypeOffTrack, ProjectUpdateHealthTypeOnTrack:
+		return true
+	}
+	return false
+}
+
+func (e ProjectUpdateHealthType) String() string {
+	return string(e)
+}
+
+func (e *ProjectUpdateHealthType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ProjectUpdateHealthType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ProjectUpdateHealthType", str)
+	}
+	return nil
+}
+
+func (e ProjectUpdateHealthType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ProjectUpdateHealthType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ProjectUpdateHealthType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type ProjectUpdateReminderFrequency string
+
+const (
+	ProjectUpdateReminderFrequencyMonth    ProjectUpdateReminderFrequency = "month"
+	ProjectUpdateReminderFrequencyNever    ProjectUpdateReminderFrequency = "never"
+	ProjectUpdateReminderFrequencyTwoWeeks ProjectUpdateReminderFrequency = "twoWeeks"
+	ProjectUpdateReminderFrequencyWeek     ProjectUpdateReminderFrequency = "week"
+)
+
+var AllProjectUpdateReminderFrequency = []ProjectUpdateReminderFrequency{
+	ProjectUpdateReminderFrequencyMonth,
+	ProjectUpdateReminderFrequencyNever,
+	ProjectUpdateReminderFrequencyTwoWeeks,
+	ProjectUpdateReminderFrequencyWeek,
+}
+
+func (e ProjectUpdateReminderFrequency) IsValid() bool {
+	switch e {
+	case ProjectUpdateReminderFrequencyMonth, ProjectUpdateReminderFrequencyNever, ProjectUpdateReminderFrequencyTwoWeeks, ProjectUpdateReminderFrequencyWeek:
+		return true
+	}
+	return false
+}
+
+func (e ProjectUpdateReminderFrequency) String() string {
+	return string(e)
+}
+
+func (e *ProjectUpdateReminderFrequency) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ProjectUpdateReminderFrequency(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ProjectUpdateReminderFrequency", str)
+	}
+	return nil
+}
+
+func (e ProjectUpdateReminderFrequency) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ProjectUpdateReminderFrequency) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ProjectUpdateReminderFrequency) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type ReleaseChannel string
+
+const (
+	ReleaseChannelBeta        ReleaseChannel = "beta"
+	ReleaseChannelDevelopment ReleaseChannel = "development"
+	ReleaseChannelInternal    ReleaseChannel = "internal"
+	ReleaseChannelPreRelease  ReleaseChannel = "preRelease"
+	ReleaseChannelPrivateBeta ReleaseChannel = "privateBeta"
+	ReleaseChannelPublic      ReleaseChannel = "public"
+)
+
+var AllReleaseChannel = []ReleaseChannel{
+	ReleaseChannelBeta,
+	ReleaseChannelDevelopment,
+	ReleaseChannelInternal,
+	ReleaseChannelPreRelease,
+	ReleaseChannelPrivateBeta,
+	ReleaseChannelPublic,
+}
+
+func (e ReleaseChannel) IsValid() bool {
+	switch e {
+	case ReleaseChannelBeta, ReleaseChannelDevelopment, ReleaseChannelInternal, ReleaseChannelPreRelease, ReleaseChannelPrivateBeta, ReleaseChannelPublic:
+		return true
+	}
+	return false
+}
+
+func (e ReleaseChannel) String() string {
+	return string(e)
+}
+
+func (e *ReleaseChannel) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = ReleaseChannel(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid ReleaseChannel", str)
+	}
+	return nil
+}
+
+func (e ReleaseChannel) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *ReleaseChannel) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e ReleaseChannel) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type SLADayCountType string
+
+const (
+	SLADayCountTypeAll              SLADayCountType = "all"
+	SLADayCountTypeOnlyBusinessDays SLADayCountType = "onlyBusinessDays"
+)
+
+var AllSLADayCountType = []SLADayCountType{
+	SLADayCountTypeAll,
+	SLADayCountTypeOnlyBusinessDays,
+}
+
+func (e SLADayCountType) IsValid() bool {
+	switch e {
+	case SLADayCountTypeAll, SLADayCountTypeOnlyBusinessDays:
+		return true
+	}
+	return false
+}
+
+func (e SLADayCountType) String() string {
+	return string(e)
+}
+
+func (e *SLADayCountType) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = SLADayCountType(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid SLADayCountType", str)
+	}
+	return nil
+}
+
+func (e SLADayCountType) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *SLADayCountType) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e SLADayCountType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type TeamVisibility string
+
+const (
+	TeamVisibilityPrivate    TeamVisibility = "private"
+	TeamVisibilityPublic     TeamVisibility = "public"
+	TeamVisibilityRestricted TeamVisibility = "restricted"
+)
+
+var AllTeamVisibility = []TeamVisibility{
+	TeamVisibilityPrivate,
+	TeamVisibilityPublic,
+	TeamVisibilityRestricted,
+}
+
+func (e TeamVisibility) IsValid() bool {
+	switch e {
+	case TeamVisibilityPrivate, TeamVisibilityPublic, TeamVisibilityRestricted:
+		return true
+	}
+	return false
+}
+
+func (e TeamVisibility) String() string {
+	return string(e)
+}
+
+func (e *TeamVisibility) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = TeamVisibility(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid TeamVisibility", str)
+	}
+	return nil
+}
+
+func (e TeamVisibility) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *TeamVisibility) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e TeamVisibility) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }

@@ -1,16 +1,13 @@
-# Linear-compatible API: a hand-written subset of Linear's schema.
-# Names must match Linear exactly.
+# Linear-compatible API: a hand-written subset served at /graphql.
+# Type and field names follow the Linear-compatible names; Team is a Yalkos
+# project, Project a milestone, WorkflowState a state, IssueLabel a label and
+# Organization the workspace.
 
 type Query {
-  "The currently authenticated user."
+  "The user of the API key."
   viewer: User!
-}
-
-type User {
-  id: ID!
-  name: String!
-  displayName: String!
-  email: String!
-  active: Boolean!
-  admin: Boolean!
+  "Workspace users; disabled ones only with includeDisabled."
+  users(after: String, before: String, filter: UserFilter, first: Int, includeArchived: Boolean, includeDisabled: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [UserSortInput!]): UserConnection!
+  "A user by id."
+  user(id: String!): User!
 }

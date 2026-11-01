@@ -12,6 +12,10 @@ linters:
       - path: \.resolvers\.go$
         linters: [revive]
         text: "var-naming: method parameter"
+      # Resolvers keep every schema argument; some are accepted and ignored.
+      - path: \.resolvers\.go$
+        linters: [revive]
+        text: "unused-parameter"
 
 formatters:
   enable:

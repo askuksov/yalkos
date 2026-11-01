@@ -1,0 +1,95 @@
+"A workspace user."
+type User {
+  description: String
+  avatarUrl: String
+  "Live issues the user created."
+  createdIssueCount: Int!
+  avatarBackgroundColor: String!
+  statusUntilAt: DateTime
+  statusEmoji: String
+  initials: String!
+  updatedAt: DateTime!
+  lastSeen: DateTime
+  timezone: String
+  disableReason: String
+  statusLabel: String
+  archivedAt: DateTime
+  createdAt: DateTime!
+  id: ID!
+  gitHubUserId: String
+  displayName: String!
+  email: String!
+  name: String!
+  title: String
+  url: String!
+  "False for disabled users."
+  active: Boolean!
+  isAssignable: Boolean!
+  isMentionable: Boolean!
+  guest: Boolean!
+  "Owner or admin."
+  admin: Boolean!
+  owner: Boolean!
+  app: Boolean!
+  "The user making the request."
+  isMe: Boolean!
+  supportsAgentSessions: Boolean!
+  canAccessAnyPublicTeam: Boolean!
+  calendarHash: String
+  inviteHash: String!
+}
+
+type UserConnection {
+  nodes: [User!]!
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+}
+
+type UserEdge {
+  node: User!
+  cursor: String!
+}
+
+input UserFilter {
+  and: [UserFilter!]
+  or: [UserFilter!]
+  id: IDComparator
+  name: StringComparator
+  displayName: StringComparator
+  email: StringComparator
+  active: BooleanComparator
+  admin: BooleanComparator
+  owner: BooleanComparator
+  isMe: BooleanComparator
+}
+
+"UserFilter that also matches a missing user (null: true)."
+input NullableUserFilter {
+  and: [NullableUserFilter!]
+  or: [NullableUserFilter!]
+  id: IDComparator
+  name: StringComparator
+  displayName: StringComparator
+  email: StringComparator
+  active: BooleanComparator
+  admin: BooleanComparator
+  owner: BooleanComparator
+  isMe: BooleanComparator
+  null: Boolean
+}
+
+"One sort key; both sort by name."
+input UserSortInput {
+  name: UserNameSort
+  displayName: UserDisplayNameSort
+}
+
+input UserNameSort {
+  nulls: PaginationNulls
+  order: PaginationSortOrder
+}
+
+input UserDisplayNameSort {
+  nulls: PaginationNulls
+  order: PaginationSortOrder
+}

@@ -1,0 +1,428 @@
+# Shared scalars, paging, comparators, enums and types that are declared for
+# client compatibility but never produced here.
+
+"Date and time, written as UTC ISO 8601 with milliseconds."
+scalar DateTime
+"Calendar date, YYYY-MM-DD."
+scalar TimelessDate
+"JSON text."
+scalar JSON
+"Any JSON value."
+scalar JSONObject
+"Date-time, date or ISO 8601 duration relative to now (e.g. -P2W)."
+scalar DateTimeOrDuration
+"Date or ISO 8601 duration in days and weeks relative to today."
+scalar TimelessDateOrDuration
+
+type PageInfo {
+  startCursor: String
+  endCursor: String
+  hasPreviousPage: Boolean!
+  hasNextPage: Boolean!
+}
+
+enum PaginationOrderBy {
+  createdAt
+  updatedAt
+}
+
+enum PaginationNulls {
+  first
+  last
+}
+
+enum PaginationSortOrder {
+  Ascending
+  Descending
+}
+
+input IDComparator {
+  eq: ID
+  neq: ID
+  in: [ID!]
+  nin: [ID!]
+}
+
+input StringComparator {
+  eq: String
+  neq: String
+  in: [String!]
+  nin: [String!]
+  eqIgnoreCase: String
+  neqIgnoreCase: String
+  contains: String
+  notContains: String
+  containsIgnoreCase: String
+  notContainsIgnoreCase: String
+  startsWith: String
+  startsWithIgnoreCase: String
+  notStartsWith: String
+  endsWith: String
+  notEndsWith: String
+}
+
+"String comparator for optional values; an empty string counts as no value."
+input NullableStringComparator {
+  eq: String
+  neq: String
+  in: [String!]
+  nin: [String!]
+  eqIgnoreCase: String
+  neqIgnoreCase: String
+  contains: String
+  notContains: String
+  containsIgnoreCase: String
+  notContainsIgnoreCase: String
+  startsWith: String
+  startsWithIgnoreCase: String
+  notStartsWith: String
+  endsWith: String
+  notEndsWith: String
+  null: Boolean
+}
+
+input NumberComparator {
+  eq: Float
+  neq: Float
+  lt: Float
+  lte: Float
+  gt: Float
+  gte: Float
+  in: [Float!]
+  nin: [Float!]
+}
+
+input NullableNumberComparator {
+  eq: Float
+  neq: Float
+  lt: Float
+  lte: Float
+  gt: Float
+  gte: Float
+  in: [Float!]
+  nin: [Float!]
+  null: Boolean
+}
+
+input DateComparator {
+  eq: DateTimeOrDuration
+  neq: DateTimeOrDuration
+  lt: DateTimeOrDuration
+  lte: DateTimeOrDuration
+  gt: DateTimeOrDuration
+  gte: DateTimeOrDuration
+  in: [DateTimeOrDuration!]
+  nin: [DateTimeOrDuration!]
+}
+
+input NullableDateComparator {
+  eq: DateTimeOrDuration
+  neq: DateTimeOrDuration
+  lt: DateTimeOrDuration
+  lte: DateTimeOrDuration
+  gt: DateTimeOrDuration
+  gte: DateTimeOrDuration
+  in: [DateTimeOrDuration!]
+  nin: [DateTimeOrDuration!]
+  null: Boolean
+}
+
+input NullableTimelessDateComparator {
+  eq: TimelessDateOrDuration
+  neq: TimelessDateOrDuration
+  lt: TimelessDateOrDuration
+  lte: TimelessDateOrDuration
+  gt: TimelessDateOrDuration
+  gte: TimelessDateOrDuration
+  in: [TimelessDateOrDuration!]
+  nin: [TimelessDateOrDuration!]
+  null: Boolean
+}
+
+input BooleanComparator {
+  eq: Boolean
+  neq: Boolean
+}
+
+enum IntegrationService {
+  airbyte
+  asksWeb
+  datadog
+  discord
+  email
+  figma
+  figmaPlugin
+  front
+  github
+  githubCodeAccessPersonal
+  githubCommit
+  githubEnterpriseServer
+  githubImport
+  githubPersonal
+  gitlab
+  gitlabPersonal
+  gong
+  googleCalendarPersonal
+  googleSheets
+  intercom
+  jira
+  jiraPersonal
+  launchDarkly
+  launchDarklyPersonal
+  loom
+  mcpServer
+  mcpServerPersonal
+  microsoftPersonal
+  microsoftTeams
+  microsoftTeamsProjectPost
+  notion
+  opsgenie
+  origin
+  pagerDuty
+  salesforce
+  sentry
+  slack
+  slackAsks
+  slackCustomViewNotifications
+  slackInitiativePost
+  slackOrgInitiativeUpdatesPost
+  slackOrgProjectUpdatesPost
+  slackPersonal
+  slackPost
+  slackProjectPost
+  slackProjectUpdatesPost
+  zendesk
+}
+
+enum ExternalSyncService {
+  github
+  jira
+  slack
+}
+
+enum IssueSharedAccessDisallowedField {
+  cycleId
+  projectId
+  projectMilestoneId
+  teamId
+}
+
+enum LabelGroupType {
+  multiSelect
+  singleSelect
+}
+
+enum TeamVisibility {
+  private
+  public
+  restricted
+}
+
+enum Day {
+  Friday
+  Monday
+  Saturday
+  Sunday
+  Thursday
+  Tuesday
+  Wednesday
+}
+
+enum ReleaseChannel {
+  beta
+  development
+  internal
+  preRelease
+  privateBeta
+  public
+}
+
+enum FeedSummarySchedule {
+  daily
+  never
+  weekly
+}
+
+enum ProjectUpdateReminderFrequency {
+  month
+  never
+  twoWeeks
+  week
+}
+
+enum SLADayCountType {
+  all
+  onlyBusinessDays
+}
+
+enum ProjectStatusType {
+  backlog
+  canceled
+  completed
+  paused
+  planned
+  started
+}
+
+enum ProjectUpdateHealthType {
+  atRisk
+  offTrack
+  onTrack
+}
+
+enum DateResolutionType {
+  halfYear
+  month
+  quarter
+  year
+}
+
+enum FrequencyResolutionType {
+  daily
+  weekly
+}
+
+# Declared for client compatibility; always null where used.
+type AgentSession { id: ID! }
+type Cycle { id: ID! }
+type Document { id: ID! }
+type ExternalUser { id: ID! }
+type Favorite { id: ID! }
+type Initiative { id: ID! }
+type InitiativeUpdate { id: ID! }
+type Integration { id: ID! }
+type IntegrationsSettings { id: ID! }
+type ProjectMilestone { id: ID! }
+type ProjectUpdate { id: ID! }
+type Template { id: ID! }
+type TeamMembership { id: ID! }
+type TriageResponsibility { id: ID! }
+
+# Declared in full for client compatibility; never produced.
+type ActorBot {
+  avatarUrl: String
+  subType: String
+  id: ID
+  name: String
+  userDisplayName: String
+  type: String!
+}
+
+type AiPromptRules {
+  updatedAt: DateTime!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  id: ID!
+  updatedBy: User
+}
+
+type DocumentContent {
+  aiPromptRules: AiPromptRules
+  content: String
+  contentState: String
+  document: Document
+  initiative: Initiative
+  issue: Issue
+  updatedAt: DateTime!
+  projectMilestone: ProjectMilestone
+  project: Project
+  restoredAt: DateTime
+  archivedAt: DateTime
+  createdAt: DateTime!
+  id: ID!
+  welcomeMessage: WelcomeMessage
+}
+
+type WelcomeMessage {
+  updatedAt: DateTime!
+  archivedAt: DateTime
+  createdAt: DateTime!
+  title: String
+  id: ID!
+  updatedBy: User
+  enabled: Boolean!
+}
+
+type SyncedExternalThread {
+  url: String
+  name: String
+  displayName: String
+  type: String!
+  subType: String
+  id: ID
+  isPersonalIntegrationRequired: Boolean!
+  isPersonalIntegrationConnected: Boolean!
+  isConnected: Boolean!
+}
+
+type ExternalEntityInfo {
+  metadata: ExternalEntityInfoMetadata
+  service: ExternalSyncService!
+  id: String!
+}
+
+union ExternalEntityInfoMetadata = ExternalEntityInfoGithubMetadata | ExternalEntityInfoJiraMetadata | ExternalEntitySlackMetadata
+
+type ExternalEntityInfoGithubMetadata {
+  number: Float
+  owner: String
+  repo: String
+}
+
+type ExternalEntityInfoJiraMetadata {
+  issueTypeId: String
+  projectId: String
+  issueKey: String
+}
+
+type ExternalEntitySlackMetadata {
+  messageUrl: String
+  channelId: String
+  channelName: String
+  isFromSlack: Boolean!
+}
+
+type PaidSubscription {
+  collectionMethod: String!
+  cancelAt: DateTime
+  canceledAt: DateTime
+  nextBillingAt: DateTime
+  updatedAt: DateTime!
+  seatsMaximum: Float
+  seatsMinimum: Float
+  seats: Float!
+  type: String!
+  pendingChangeType: String
+  archivedAt: DateTime
+  createdAt: DateTime!
+  id: ID!
+  creator: User
+}
+
+type Reaction {
+  comment: Comment
+  externalUser: ExternalUser
+  initiativeUpdate: InitiativeUpdate
+  issue: Issue
+  updatedAt: DateTime!
+  emoji: String!
+  projectUpdate: ProjectUpdate
+  archivedAt: DateTime
+  createdAt: DateTime!
+  id: ID!
+  user: User
+}
+
+"Sharing state of an issue; issues here are never shared outside their team."
+type IssueSharedAccess {
+  disallowedIssueFields: [IssueSharedAccessDisallowedField!]!
+  sharedWithCount: Int!
+  sharedWithUsers: [User!]!
+  viewerHasOnlySharedAccess: Boolean!
+  isShared: Boolean!
+}
+
+# Placeholders until the full types are declared.
+type Issue { id: ID! }
+type Comment { id: ID! }
+type Project { id: ID! }

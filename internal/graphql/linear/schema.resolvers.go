@@ -7,18 +7,33 @@ package linear
 
 import (
 	"context"
-
-	"github.com/askuksov/yalkos/internal/authn"
-	"github.com/askuksov/yalkos/internal/domain/account"
 )
 
 // Viewer is the resolver for the viewer field.
 func (r *queryResolver) Viewer(ctx context.Context) (*User, error) {
-	a, ok := authn.ActorFrom(ctx)
-	if !ok {
-		return nil, account.ErrUnauthenticated
+	me, err := r.actor(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return userOut(a.User), nil
+	return r.userOut(me, me.ID), nil
+}
+
+// Users is the resolver for the users field.
+func (r *queryResolver) Users(ctx context.Context, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) (*UserConnection, error) {
+	me, err := r.actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	users, err := r.d.Accounts.ListMembers(ctx, me)
+	if err != nil {
+		return nil, err
+	}
+	return r.userConn(users, me.ID, filter, includeDisabled, orderBy, sort, pageArgs(first, after, last, before))
+}
+
+// User is the resolver for the user field.
+func (r *queryResolver) User(ctx context.Context, id string) (*User, error) {
+	return r.userByID(ctx, "id", id)
 }
 
 // Query returns QueryResolver implementation.

@@ -3,25 +3,24 @@ package linear
 // This file will not be regenerated automatically.
 
 import (
-	"log/slog"
+	"context"
 
+	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/domain/account"
 )
 
-// Resolver is the root resolver of the Linear-compatible API.
+// Resolver is the root resolver of the Linear-compatible API. Resolvers call
+// domain services and map Yalkos values to this API's shapes; the Yalkos ↔
+// Linear-compatible name mapping lives in this package only.
 type Resolver struct {
-	Accounts *account.Service
-	Logger   *slog.Logger
+	d Deps
 }
 
-// userOut maps a Yalkos user to Linear's User shape; the Yalkos ↔ Linear name mapping lives in this package.
-func userOut(u account.User) *User {
-	return &User{
-		ID:          u.ID.String(),
-		Name:        u.Name,
-		DisplayName: u.Name,
-		Email:       u.Email,
-		Active:      !u.Disabled,
-		Admin:       u.IsAdmin(),
+// actor is the user making the request.
+func (r *Resolver) actor(ctx context.Context) (account.User, error) {
+	a, ok := authn.ActorFrom(ctx)
+	if !ok {
+		return account.User{}, account.ErrUnauthenticated
 	}
+	return a.User, nil
 }
