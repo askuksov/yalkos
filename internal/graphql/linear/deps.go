@@ -34,6 +34,13 @@ type Deps struct {
 	Now func() time.Time
 }
 
+func (d Deps) now() time.Time {
+	if d.Now == nil {
+		return time.Now()
+	}
+	return d.Now()
+}
+
 // base is BASE_URL without a trailing slash.
 func (d Deps) base() string {
 	if d.BaseURL == nil {

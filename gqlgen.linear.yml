@@ -38,6 +38,8 @@ models:
     fields:
       createdIssueCount:
         resolver: true
+      assignedIssues:
+        resolver: true
   Team:
     extraFields:
       Src:
@@ -51,6 +53,8 @@ models:
         resolver: true
       members:
         resolver: true
+      issues:
+        resolver: true
   WorkflowState:
     extraFields:
       ProjectID:
@@ -61,4 +65,36 @@ models:
   Organization:
     fields:
       teams:
+        resolver: true
+  Issue:
+    extraFields:
+      Src:
+        type: github.com/askuksov/yalkos/internal/domain/issue.Issue
+    fields:
+      labelIds:
+        resolver: true
+      team:
+        resolver: true
+      state:
+        resolver: true
+      assignee:
+        resolver: true
+      creator:
+        resolver: true
+      parent:
+        resolver: true
+      children:
+        resolver: true
+      relations:
+        resolver: true
+      attachments:
+        resolver: true
+  Attachment:
+    extraFields:
+      Src:
+        type: github.com/askuksov/yalkos/internal/domain/attachment.Attachment
+    fields:
+      creator:
+        resolver: true
+      issue:
         resolver: true

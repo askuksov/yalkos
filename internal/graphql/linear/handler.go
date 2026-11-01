@@ -18,11 +18,12 @@ func NewHandler(d Deps) http.Handler {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	srv := handler.New(NewExecutableSchema(Config{Resolvers: &Resolver{d: d}}))
+	es := NewExecutableSchema(Config{Resolvers: &Resolver{d: d}})
+	srv := handler.New(es)
 	srv.AddTransport(transport.POST{})
 	srv.Use(extension.Introspection{})
 	srv.Use(costLimit{})
-	srv.SetErrorPresenter(presenter(func(_ context.Context, err error) {
+	srv.SetErrorPresenter(presenter(es.Schema(), func(_ context.Context, err error) {
 		logger.Error("graphql internal error", slog.String("api", "linear"), slog.String("error", err.Error()))
 	}))
 	return withResponse(withLoaders(d, srv))

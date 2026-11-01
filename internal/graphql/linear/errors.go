@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/askuksov/yalkos/internal/domain/kit"
@@ -60,7 +61,7 @@ var domainMessages = map[string]string{
 // presenter builds errors as clients of this API expect them: an error type
 // they map to an error class, a user-presentable message, and field, entity
 // and message names in this API's terms.
-func presenter(logf func(context.Context, error)) graphql.ErrorPresenterFunc {
+func presenter(schema *ast.Schema, logf func(context.Context, error)) graphql.ErrorPresenterFunc {
 	base := gqlerr.Presenter(logf)
 	return func(ctx context.Context, err error) *gqlerror.Error {
 		var ue *userErr
@@ -88,6 +89,8 @@ func presenter(logf func(context.Context, error)) graphql.ErrorPresenterFunc {
 				msg = m
 			}
 			out.Message = "Invalid " + field + ": " + msg
+		case code == "GRAPHQL_VALIDATION_FAILED" && out.Message == "unknown field":
+			out.Message = unknownField(ctx, schema, out.Path)
 		case code == "NOT_FOUND":
 			if m, ok := entityNames[out.Message]; ok {
 				out.Message = m
@@ -101,4 +104,46 @@ func presenter(logf func(context.Context, error)) graphql.ErrorPresenterFunc {
 		}
 		return out
 	}
+}
+
+// unknownField names the field and input type of an unknown field in a
+// variable (path: variable, name, fields and indexes), as for literals.
+func unknownField(ctx context.Context, schema *ast.Schema, path ast.Path) string {
+	var names []string
+	for _, p := range path {
+		if n, ok := p.(ast.PathName); ok {
+			names = append(names, string(n))
+		}
+	}
+	if len(names) < 3 || names[0] != "variable" {
+		return "unknown field"
+	}
+	field := names[len(names)-1]
+	fallback := `Unknown field "` + field + `" in $` + names[1]
+	if schema == nil || !graphql.HasOperationContext(ctx) {
+		return fallback
+	}
+	op := graphql.GetOperationContext(ctx).Operation
+	if op == nil {
+		return fallback
+	}
+	v := op.VariableDefinitions.ForName(names[1])
+	if v == nil {
+		return fallback
+	}
+	def := schema.Types[v.Type.Name()]
+	for _, n := range names[2 : len(names)-1] {
+		if def == nil {
+			return fallback
+		}
+		f := def.Fields.ForName(n)
+		if f == nil {
+			return fallback
+		}
+		def = schema.Types[f.Type.Name()]
+	}
+	if def == nil {
+		return fallback
+	}
+	return `Field "` + field + `" is not defined by type "` + def.Name + `"`
 }

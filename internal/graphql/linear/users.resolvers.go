@@ -18,6 +18,15 @@ func (r *userResolver) CreatedIssueCount(ctx context.Context, obj *User) (int, e
 	return loadersFrom(ctx).createdIssues.Load(ctx, id)
 }
 
+// AssignedIssues is the resolver for the assignedIssues field.
+func (r *userResolver) AssignedIssues(ctx context.Context, obj *User, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*IssueConnection, error) {
+	id, err := parseID("id", obj.ID)
+	if err != nil {
+		return nil, err
+	}
+	return r.issueConn(ctx, assigneeScope(id, includeArchived), filter, orderBy, nil, pageArgs(first, after, last, before))
+}
+
 // User returns UserResolver implementation.
 func (r *Resolver) User() UserResolver { return &userResolver{r} }
 
