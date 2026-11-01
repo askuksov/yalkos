@@ -179,15 +179,15 @@ func (r *Resolver) updateIssue(ctx context.Context, ref string, in IssueUpdateIn
 		return nil, err
 	}
 	if teamRef != nil {
-		// A move and an update run in separate transactions: a move comes alone.
-		if movesWithOthers(in) {
-			return nil, badArg("teamId", "Invalid teamId: move the issue in its own update (teamId with stateId only)")
-		}
 		p, err := r.projectByRef(ctx, "teamId", *teamRef)
 		if err != nil {
 			return nil, err
 		}
 		if p.ID != cur.ProjectID {
+			// A move and an update run in separate transactions: a move comes alone.
+			if movesWithOthers(in) {
+				return nil, badArg("teamId", "Invalid teamId: move the issue in its own update (teamId with stateId only)")
+			}
 			moved, err := r.d.Issues.Move(ctx, actor, cur.ID, p.ID, stateID)
 			if err != nil {
 				return nil, err
