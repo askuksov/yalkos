@@ -587,8 +587,17 @@ func TestIssuesQueryCount(t *testing.T) {
 		}
 		return queries.n.Load()
 	}
-	small, large := count(5), count(50)
-	if large > small+2 {
+	// Loader batches can split on a slow run (-race), so take the best of
+	// three; one relation loaded per issue would add 45 statements or more.
+	best := func(first int) int64 {
+		n := count(first)
+		for range 2 {
+			n = min(n, count(first))
+		}
+		return n
+	}
+	small, large := best(5), best(50)
+	if large > small+5 {
 		t.Fatalf("first 50 ran %d statements, first 5 ran %d: loaders do not batch", large, small)
 	}
 }
