@@ -42,6 +42,8 @@ type Query {
   projects(after: String, before: String, filter: ProjectFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [ProjectSortInput!]): ProjectConnection!
   "A project by id."
   project(id: String!): Project!
+  "One of the four project statuses by id."
+  projectStatus(id: String!): ProjectStatus!
 }
 
 type Mutation {
