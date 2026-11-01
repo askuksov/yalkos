@@ -38,7 +38,7 @@ func (r *Resolver) searchIssues(ctx context.Context, term string, teamRef *strin
 		}
 		scope.Project = &issue.IDCond{Eq: &p.ID}
 	}
-	user, err := r.issueFilter(ctx, f)
+	user, err := r.issueFilter(ctx, f, scope.IncludeArchived)
 	if err != nil {
 		return nil, err
 	}
