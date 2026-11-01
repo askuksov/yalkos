@@ -65,10 +65,19 @@ export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsC
   // Uploads outlive a save or a remount: their results must not reach a later editor.
   const alive = useRef(true)
   const inFlight = useRef(0)
+  const onBusy = useRef(onBusyChange)
+  useLayoutEffect(() => {
+    onBusy.current = onBusyChange
+  })
   useEffect(() => {
     alive.current = true
     return () => {
       alive.current = false
+      // Closing mid-upload must not leave the parent's save disabled.
+      if (inFlight.current > 0) {
+        inFlight.current = 0
+        onBusy.current?.(false)
+      }
     }
   }, [])
 

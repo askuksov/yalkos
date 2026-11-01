@@ -176,4 +176,14 @@ describe('MarkdownEditor', () => {
     await new Promise((r) => setTimeout(r, 10))
     expect(lastValue).toBe('after')
   })
+
+  it('reports not busy when it closes during an upload', async () => {
+    upload.mockReturnValue(new Promise(() => {}))
+    const view = mount({ issueId: 'i1' })
+    const area = await screen.findByRole('textbox', { name: 'Description' })
+    paste(area, [png()])
+    await waitFor(() => expect(busy).toEqual([true]))
+    view.unmount()
+    expect(busy).toEqual([true, false])
+  })
 })
