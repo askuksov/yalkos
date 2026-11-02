@@ -50,18 +50,19 @@ done = @printf '$(GREEN)✓ %s$(NC)\n' '$(1)'
 ##@ Development
 # =============================================================================
 
-dev: web-deps db-up ## Run the Go server and Vite with live reload of the UI
+# dev-go starts PostgreSQL and dev-web installs dependencies, so each also works on its own.
+dev: ## Run the Go server and Vite with live reload of the UI
 	@printf '\n$(BLUE)Endpoints:$(NC)\n'
 	@printf '  $(GREEN)App (Vite):$(NC)  http://localhost:$(YALKOS_WEB_PORT)\n'
 	@printf '  $(GREEN)Go server:$(NC)   http://localhost:$(YALKOS_PORT)\n'
 	@printf '  $(GREEN)PostgreSQL:$(NC)  localhost:$(YALKOS_DB_PORT)\n\n'
 	$(MAKE) -j2 dev-go dev-web
 
-dev-go: ## Run only the Go server (YALKOS_PORT, default 8080)
+dev-go: db-up ## Run only the Go server (YALKOS_PORT, default 8080)
 	# BASE_URL is the Vite origin: the browser talks to Vite, which proxies to Go.
 	DATABASE_URL="$(DEV_DATABASE_URL)" LISTEN_ADDR=:$(YALKOS_PORT) BASE_URL=http://localhost:$(YALKOS_WEB_PORT) go run ./cmd/yalkos serve
 
-dev-web: ## Run only the Vite dev server (YALKOS_WEB_PORT, default 5173)
+dev-web: web-deps ## Run only the Vite dev server (YALKOS_WEB_PORT, default 5173)
 	$(PNPM) dev --port $(YALKOS_WEB_PORT) --strictPort
 
 db-up: ## Start local PostgreSQL (Docker Compose, YALKOS_DB_PORT, default 54320)
@@ -92,7 +93,9 @@ migrate-status: db-up ## Show migration status of the development database
 ##@ Build
 # =============================================================================
 
-build: build-web build-go ## Build the frontend and bin/yalkos with the UI embedded
+# Sequential even under -j: bin/yalkos embeds web/dist.
+build: build-web ## Build the frontend and bin/yalkos with the UI embedded
+	@$(MAKE) --no-print-directory build-go
 	$(call done,Built bin/yalkos)
 
 web-deps: ## Install frontend dependencies (from the lockfile)
@@ -141,7 +144,9 @@ lint: web-deps ## Run Go and frontend linters
 	$(PNPM) lint
 	$(call done,Linters passed)
 
-check: lint check-generated ## Run linters and check generated code (what CI checks besides tests)
+# Sequential even under -j: generation rewrites files the linters read.
+check: check-generated ## Run linters and check generated code (what CI checks besides tests)
+	@$(MAKE) --no-print-directory lint
 	$(call done,All checks passed)
 
 # =============================================================================
