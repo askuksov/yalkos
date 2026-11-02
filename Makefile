@@ -40,7 +40,7 @@ done = @printf '$(GREEN)✓ %s$(NC)\n' '$(1)'
 
 .DEFAULT_GOAL := help
 .PHONY: help \
-	dev dev-go dev-web db-up db-down db-shell db-logs migrate-up migrate-status \
+	dev dev-go dev-web serve-go serve-web db-up db-down db-shell db-logs migrate-up migrate-status \
 	build web-deps build-web build-go docker \
 	generate check-generated fmt lint check \
 	test test-go test-web \
@@ -50,20 +50,30 @@ done = @printf '$(GREEN)✓ %s$(NC)\n' '$(1)'
 ##@ Development
 # =============================================================================
 
-# dev-go starts PostgreSQL and dev-web installs dependencies, so each also works on its own.
-dev: ## Run the Go server and Vite with live reload of the UI
+# BASE_URL is the Vite origin: the browser talks to Vite, which proxies to Go.
+SERVE_GO  = DATABASE_URL="$(DEV_DATABASE_URL)" LISTEN_ADDR=:$(YALKOS_PORT) BASE_URL=http://localhost:$(YALKOS_WEB_PORT) go run ./cmd/yalkos serve
+SERVE_WEB = $(PNPM) dev --port $(YALKOS_WEB_PORT) --strictPort
+
+# Setup finishes before either server starts, so a failed step leaves nothing running.
+dev: db-up web-deps ## Run the Go server and Vite with live reload of the UI
 	@printf '\n$(BLUE)Endpoints:$(NC)\n'
 	@printf '  $(GREEN)App (Vite):$(NC)  http://localhost:$(YALKOS_WEB_PORT)\n'
 	@printf '  $(GREEN)Go server:$(NC)   http://localhost:$(YALKOS_PORT)\n'
 	@printf '  $(GREEN)PostgreSQL:$(NC)  localhost:$(YALKOS_DB_PORT)\n\n'
-	$(MAKE) -j2 dev-go dev-web
+	@$(MAKE) --no-print-directory -j2 serve-go serve-web
 
 dev-go: db-up ## Run only the Go server (YALKOS_PORT, default 8080)
-	# BASE_URL is the Vite origin: the browser talks to Vite, which proxies to Go.
-	DATABASE_URL="$(DEV_DATABASE_URL)" LISTEN_ADDR=:$(YALKOS_PORT) BASE_URL=http://localhost:$(YALKOS_WEB_PORT) go run ./cmd/yalkos serve
+	$(SERVE_GO)
 
 dev-web: web-deps ## Run only the Vite dev server (YALKOS_WEB_PORT, default 5173)
-	$(PNPM) dev --port $(YALKOS_WEB_PORT) --strictPort
+	$(SERVE_WEB)
+
+# Servers without setup steps, for dev.
+serve-go:
+	$(SERVE_GO)
+
+serve-web:
+	$(SERVE_WEB)
 
 db-up: ## Start local PostgreSQL (Docker Compose, YALKOS_DB_PORT, default 54320)
 	$(call step,Starting PostgreSQL)
