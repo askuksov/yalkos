@@ -239,17 +239,24 @@ Requirements: Go 1.26+, Node.js 24+, pnpm (via `corepack enable`), Docker, golan
 
 | Command | What it does |
 | :--- | :--- |
-| `make build` | Build the frontend and `bin/yalkos` with the UI embedded |
 | `make dev` | Start PostgreSQL (Docker), the Go server and the Vite dev server |
-| `make test` | Go tests (with `-race`, against PostgreSQL in Docker) and frontend tests |
+| `make dev-go` / `make dev-web` | Run only the Go server / only the Vite dev server |
 | `make db-up` / `make db-down` | Start / stop the local PostgreSQL container |
-| `make generate` | Regenerate GraphQL code after editing `api/graphql/**` |
-| `make lint` | golangci-lint and oxlint |
-| `make fmt` | Format Go code |
+| `make db-shell` / `make db-logs` | Open psql in the development database / follow its logs |
+| `make migrate-up` / `make migrate-status` | Apply / show migrations of the development database (`serve` also applies them on start) |
+| `make build` | Build the frontend and `bin/yalkos` with the UI embedded |
 | `make docker` | Build the `yalkos:dev` image |
+| `make generate` | Regenerate GraphQL code after editing `api/graphql/**` |
+| `make check-generated` | Fail if generated code is out of date |
+| `make lint` | golangci-lint and oxlint |
+| `make check` | `lint` and `check-generated` together |
+| `make fmt` | Format Go code |
+| `make test` | Go tests (with `-race`, against PostgreSQL in Docker) and frontend tests |
+| `make test-go` / `make test-web` | Only the Go tests / only the frontend tests |
 | `make clean` | Remove build outputs |
+| `make clean-all` | Remove build outputs and `web/node_modules` |
 
-Run `make` with no target to list everything. The `.githooks/` directory holds the maintainer's opt-in local hooks.
+Run `make` with no target to list everything by group (`NO_COLOR=1` turns colors off). The `.githooks/` directory holds the maintainer's opt-in local hooks.
 
 Server configuration (environment variables):
 
