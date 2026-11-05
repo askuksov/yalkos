@@ -1,5 +1,22 @@
 # syntax=docker/dockerfile:1
 
+# 0. Development images (source is bind-mounted; see docker-compose.dev.yml).
+#    Everything a developer needs runs here: Go, air, golangci-lint, Node and pnpm.
+FROM golang:1.26-alpine AS dev
+# git: Go version stamping and tooling; build-base: gcc/musl for `go test -race`.
+RUN apk add --no-cache git make ca-certificates tzdata build-base
+COPY --from=golangci/golangci-lint:v2.12.2-alpine /usr/bin/golangci-lint /usr/local/bin/golangci-lint
+RUN go install github.com/air-verse/air@v1.67.1
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+
+FROM node:24.11.1-alpine AS web-dev
+RUN corepack enable
+WORKDIR /src/web
+COPY web/package.json web/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
 # 1. Frontend build
 FROM node:24-alpine AS web
 RUN corepack enable

@@ -235,28 +235,50 @@ Keyboard shortcuts (shortcuts follow the physical key, so they work with any key
 
 ## Development
 
-Requirements: Go 1.26+, Node.js 24+, pnpm (via `corepack enable`), Docker, golangci-lint v2.
+Requirements: **Docker only** (with the Compose plugin). Go 1.26, Node.js 24, pnpm, air and golangci-lint are installed in the development images, so nothing else needs to be installed locally.
+
+```sh
+make dev     # build the images and start PostgreSQL + Go + Vite
+```
+
+Open http://localhost:5173. The first run builds the images (a few minutes); later runs are fast. Saving a Go or SQL file rebuilds and restarts the server with [air](.air.toml); saving a frontend file hot-reloads it in Vite. The Go server serves the API on :8080 and Vite on :5173 proxies `/api`, `/graphql`, `/healthz` and `/readyz` to it. Uploaded files appear in `./data`.
+
+Optional settings live in `deploy/.env` (copy `deploy/.env.example`): the database password and the three ports. The defaults work without a file.
 
 | Command | What it does |
 | :--- | :--- |
-| `make dev` | Start PostgreSQL (Docker), the Go server and the Vite dev server |
-| `make dev-go` / `make dev-web` | Run only the Go server / only the Vite dev server |
-| `make db-up` / `make db-down` | Start / stop the local PostgreSQL container |
+| `make dev` / `make up` | Build and start PostgreSQL, the Go server and Vite in Docker |
+| `make stop` / `make down` | Stop the stack / stop and remove its containers (data is kept) |
+| `make restart` / `make rebuild` | Restart the containers / rebuild the images and recreate them |
+| `make ps` / `make logs` | Show container state / follow all logs |
+| `make logs-app` / `make logs-web` / `make logs-db` | Follow one service's logs |
+| `make shell` / `make web-shell` | Open a shell in the Go / Node container |
+| `make db-up` / `make db-down` | Start / stop only PostgreSQL |
 | `make db-shell` / `make db-logs` | Open psql in the development database / follow its logs |
-| `make migrate-up` / `make migrate-status` | Apply / show migrations of the development database (`serve` also applies them on start) |
-| `make build` | Build the frontend and `bin/yalkos` with the UI embedded |
-| `make docker` | Build the `yalkos:dev` image |
-| `make generate` | Regenerate GraphQL code after editing `api/graphql/**` |
+| `make migrate-up` / `make migrate-down` | Apply pending migrations / roll back the most recent one |
+| `make migrate-status` | Show migration status of the development database (`serve` also applies migrations on start) |
+| `make build` | Build the frontend and `bin/yalkos` with the UI embedded (in containers) |
+| `make docker` | Build the production `yalkos:dev` image |
+| `make generate` | Regenerate sqlc, gqlgen and web GraphQL types after editing `api/graphql/**` or `db/queries/**` |
 | `make check-generated` | Fail if generated code is out of date |
-| `make lint` | golangci-lint and oxlint |
+| `make lint` | golangci-lint and oxlint in containers |
 | `make check` | `lint` and `check-generated` together |
 | `make fmt` | Format Go code |
 | `make test` | Go tests (with `-race`, against PostgreSQL in Docker) and frontend tests |
 | `make test-go` / `make test-web` | Only the Go tests / only the frontend tests |
-| `make clean` | Remove build outputs |
-| `make clean-all` | Remove build outputs and `web/node_modules` |
+| `make clean` / `make clean-all` | Remove build outputs / also remove dev caches |
 
 Run `make` with no target to list everything by group (`NO_COLOR=1` turns colors off). The `.githooks/` directory holds the maintainer's opt-in local hooks.
+
+The stack is defined in `deploy/docker-compose.yml` plus `deploy/docker-compose.dev.yml`; the development images are the `dev` and `web-dev` stages of `deploy/Dockerfile`. If you do have a local Go/Node toolchain and prefer it for the one-off commands (`generate`, `lint`, `test`, `build`), add `TOOLS=host`:
+
+```sh
+make lint TOOLS=host
+```
+
+CI uses `TOOLS=host` as well. `make dev` always runs in Docker.
+
+`make build` and `make docker` produce artifacts for deployment: the build itself runs in the Linux development container, so `bin/yalkos` is a Linux binary (use `make dev` for local work).
 
 Server configuration (environment variables):
 

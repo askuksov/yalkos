@@ -12,6 +12,11 @@ concurrency:
 permissions:
   contents: read
 
+# CI already installs Go, Node, pnpm and golangci-lint; run make targets with
+# those instead of building the development Docker images.
+env:
+  TOOLS: host
+
 jobs:
   go:
     runs-on: ubuntu-latest

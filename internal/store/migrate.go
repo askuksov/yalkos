@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 
@@ -39,6 +40,23 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) error {
 		}
 		return nil
 	})
+}
+
+// Rollback reverts the most recently applied migration under a Postgres advisory
+// lock. It returns the reverted version, or 0 when there was nothing to revert.
+func Rollback(ctx context.Context, pool *pgxpool.Pool, migrations fs.FS) (version int64, err error) {
+	err = withProvider(pool, migrations, true, func(p *goose.Provider) error {
+		res, err := p.Down(ctx)
+		if errors.Is(err, goose.ErrNoNextVersion) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("roll back migration: %w", err)
+		}
+		version = res.Source.Version
+		return nil
+	})
+	return version, err
 }
 
 // MigrationStatus returns the applied (current) and newest embedded (latest) versions.

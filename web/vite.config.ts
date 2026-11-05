@@ -2,8 +2,9 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// Go server started by `make dev` (port from YALKOS_PORT); Vite forwards API calls to it.
-const backend = `http://localhost:${process.env.YALKOS_PORT ?? '8080'}`
+// Go server: `make dev` sets VITE_PROXY_TARGET (http://app:8080) inside Docker;
+// when Vite runs on the host it falls back to the port from YALKOS_PORT.
+const backend = process.env.VITE_PROXY_TARGET ?? `http://localhost:${process.env.YALKOS_PORT ?? '8080'}`
 
 // https://vite.dev/config/
 export default defineConfig({

@@ -40,6 +40,7 @@ const usage = `Usage: yalkos <command>
 Commands:
   serve           Run the server (applies migrations first)
   migrate up      Apply pending database migrations
+  migrate down    Roll back the most recent migration
   migrate status  Show applied and latest migration versions
   user set-password --email <email>
                   Set a user's password (read from stdin) and end their sessions
@@ -71,8 +72,8 @@ func Run(args []string, env Env) int {
 		}
 		return setPassword(args[2:], env)
 	case "migrate":
-		if len(args) < 2 || (args[1] != "up" && args[1] != "status") {
-			_, _ = fmt.Fprintf(env.Stderr, "migrate: expected \"up\" or \"status\"\n\n%s", usage)
+		if len(args) < 2 || (args[1] != "up" && args[1] != "down" && args[1] != "status") {
+			_, _ = fmt.Fprintf(env.Stderr, "migrate: expected \"up\", \"down\" or \"status\"\n\n%s", usage)
 			return 2
 		}
 		return migrate(args[1], env)
@@ -114,6 +115,18 @@ func migrate(sub string, env Env) int {
 		if err := store.Migrate(ctx, pool, db.Migrations()); err != nil {
 			_, _ = fmt.Fprintln(env.Stderr, err)
 			return 1
+		}
+	}
+	if sub == "down" {
+		version, err := store.Rollback(ctx, pool, db.Migrations())
+		if err != nil {
+			_, _ = fmt.Fprintln(env.Stderr, err)
+			return 1
+		}
+		if version == 0 {
+			_, _ = fmt.Fprintln(env.Stdout, "nothing to roll back")
+		} else {
+			_, _ = fmt.Fprintf(env.Stdout, "rolled back %d\n", version)
 		}
 	}
 	current, latest, err := store.MigrationStatus(ctx, pool, db.Migrations())

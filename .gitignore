@@ -10,12 +10,14 @@
 
 # Go
 /bin/
+/tmp/
 *.test
 *.out
 coverage.*
 
 # Frontend
 node_modules/
+.pnpm-store/
 web/dist/*
 !web/dist/.gitkeep
 

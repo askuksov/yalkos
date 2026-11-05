@@ -1,5 +1,101 @@
-# Development override: exposes PostgreSQL on localhost only, for `make db-up` / `make test`.
+# Development override for docker-compose.yml — everything runs in containers:
+#   db   PostgreSQL (exposed on 127.0.0.1 for `make test` / `make db-shell`)
+#   app  Go server with air live reload (source bind-mounted)
+#   web  Vite dev server with HMR (source bind-mounted)
+#
+# Use `make dev` instead of calling docker compose directly; see `make help`.
 services:
   db:
     ports:
       - "127.0.0.1:${YALKOS_DB_PORT:-54320}:5432"
+    environment:
+      # Development default, so `make dev` works without a deploy/.env file.
+      POSTGRES_PASSWORD: ${YALKOS_DB_PASSWORD:-yalkos}
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: dev
+    # Distinct tag: `make docker` keeps the production yalkos:dev image intact.
+    image: yalkos-dev:local
+    init: true
+    working_dir: /src
+    # go mod download keeps the module cache current after go.mod changes; air rebuilds on save.
+    command: sh -c "go mod download && air -c .air.toml"
+    environment:
+      DATABASE_URL: postgres://yalkos:${YALKOS_DB_PASSWORD:-yalkos}@db:5432/yalkos?sslmode=disable
+      LISTEN_ADDR: :8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # The browser talks to Vite; the app must answer requests with this origin.
+      BASE_URL: http://localhost:${YALKOS_WEB_PORT:-5173}
+      DATA_DIR: /data
+    volumes:
+      - type: bind
+        source: ..
+        target: /src
+      # Uploads are visible on the host under ./data (gitignored).
+      - type: bind
+        source: ../data
+        target: /data
+      # Named volumes keep the Go module/build cache between container restarts;
+      # they are seeded from the image, so the first start needs no download.
+      - type: volume
+        source: yalkos-dev-gomod
+        target: /go/pkg/mod
+      - type: volume
+        source: yalkos-dev-gocache
+        target: /root/.cache/go-build
+    ports:
+      - "${YALKOS_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: web-dev
+    image: yalkos-web-dev:local
+    init: true
+    working_dir: /src/web
+    command: sh -c "pnpm install --frozen-lockfile && pnpm dev --host 0.0.0.0 --port 5173 --strictPort"
+    environment:
+      # Vite proxies /api, /graphql, /healthz and /readyz to the Go container.
+      VITE_PROXY_TARGET: http://app:8080
+      # Keep the pnpm store off the bind-mounted repo (and cache it across restarts).
+      npm_config_store_dir: /pnpm-store
+      # Allows pnpm to repair the mounted node_modules volume without a TTY.
+      CI: "true"
+    volumes:
+      - type: bind
+        source: ..
+        target: /src
+      # Seeded from the image (pnpm install in web-dev); survives container recreation.
+      - type: volume
+        source: yalkos-dev-node-modules
+        target: /src/web/node_modules
+      - type: volume
+        source: yalkos-dev-pnpm-store
+        target: /pnpm-store
+    ports:
+      - "${YALKOS_WEB_PORT:-5173}:5173"
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5173/ >/dev/null || exit 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+
+volumes:
+  yalkos-dev-gomod:
+  yalkos-dev-gocache:
+  yalkos-dev-node-modules:
+  yalkos-dev-pnpm-store:

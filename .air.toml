@@ -1,0 +1,29 @@
+# Live reload for the Go server inside the development container (`make dev`).
+# Air rebuilds and restarts `yalkos serve` whenever a Go or SQL file changes.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -buildvcs=false -o ./tmp/yalkos ./cmd/yalkos"
+  bin = "./tmp/yalkos"
+  args_bin = ["serve"]
+  delay = 500
+  include_ext = ["go", "sql"]
+  exclude_dir = ["bin", "data", "deploy", "tmp", "web", ".git"]
+  exclude_regex = ["_test\\.go"]
+  exclude_unchanged = true
+  stop_on_error = true
+  send_interrupt = true
+  kill_delay = "1s"
+
+[log]
+  time = true
+
+[color]
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[misc]
+  clean_on_exit = false

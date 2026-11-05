@@ -129,6 +129,38 @@ func TestRunMigrateStatus(t *testing.T) {
 	}
 }
 
+func TestRunMigrateDown(t *testing.T) {
+	url, _ := testdb.New(t)
+	env := Env{Ctx: context.Background(), Getenv: func(k string) string {
+		if k == "DATABASE_URL" {
+			return url
+		}
+		return ""
+	}}
+	if code, _, errOut := run([]string{"migrate", "up"}, env); code != 0 {
+		t.Fatalf("migrate up exit = %d, stderr %q", code, errOut)
+	}
+	files, _ := fs.Glob(db.Migrations(), "*.sql")
+	latest := int64(len(files))
+
+	code, out, errOut := run([]string{"migrate", "down"}, env)
+	want := fmt.Sprintf("rolled back %d\ncurrent %d, latest %d\n", latest, latest-1, latest)
+	if code != 0 || out != want {
+		t.Fatalf("migrate down → %d %q (stderr %q), want 0 %q", code, out, errOut, want)
+	}
+
+	for range latest - 1 {
+		if code, _, errOut := run([]string{"migrate", "down"}, env); code != 0 {
+			t.Fatalf("migrate down exit = %d, stderr %q", code, errOut)
+		}
+	}
+	code, out, errOut = run([]string{"migrate", "down"}, env)
+	want = fmt.Sprintf("nothing to roll back\ncurrent 0, latest %d\n", latest)
+	if code != 0 || out != want {
+		t.Errorf("migrate down at zero → %d %q (stderr %q), want 0 %q", code, out, errOut, want)
+	}
+}
+
 func TestRunMigrateUnknown(t *testing.T) {
 	env := Env{Ctx: context.Background(), Getenv: func(string) string { return "postgres://x" }}
 	for _, args := range [][]string{{"migrate"}, {"migrate", "sideways"}} {

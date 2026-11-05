@@ -39,6 +39,50 @@ func TestMigrateAppliesAll(t *testing.T) {
 	}
 }
 
+func TestRollbackRevertsLatest(t *testing.T) {
+	ctx := context.Background()
+	_, pool := testdb.New(t)
+
+	if err := store.Migrate(ctx, pool, db.Migrations()); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	latest := latestVersion(t)
+	version, err := store.Rollback(ctx, pool, db.Migrations())
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if version != latest {
+		t.Errorf("rolled back version = %d, want %d", version, latest)
+	}
+	current, last, err := store.MigrationStatus(ctx, pool, db.Migrations())
+	if err != nil {
+		t.Fatalf("MigrationStatus: %v", err)
+	}
+	if current != latest-1 || last != latest {
+		t.Errorf("status = current %d, latest %d; want %d, %d", current, last, latest-1, latest)
+	}
+	var exists bool
+	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.milestones') IS NOT NULL`).Scan(&exists); err != nil {
+		t.Fatal(err)
+	}
+	if exists {
+		t.Error("table milestones still exists after rollback")
+	}
+}
+
+func TestRollbackWithoutMigrations(t *testing.T) {
+	ctx := context.Background()
+	_, pool := testdb.New(t)
+
+	version, err := store.Rollback(ctx, pool, db.Migrations())
+	if err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if version != 0 {
+		t.Errorf("rolled back version = %d, want 0", version)
+	}
+}
+
 func TestMigrateIdempotent(t *testing.T) {
 	ctx := context.Background()
 	_, pool := testdb.New(t)

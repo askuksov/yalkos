@@ -2,7 +2,8 @@ name: yalkos
 
 # Production-style setup: only the app port is published.
 # Requires YALKOS_DB_PASSWORD (e.g. in deploy/.env, see README).
-# Local development adds docker-compose.dev.yml (database port on 127.0.0.1).
+# Local development (`make dev`) adds docker-compose.dev.yml: the app runs with
+# live reload, plus Vite and a database port published on 127.0.0.1.
 
 services:
   app:
