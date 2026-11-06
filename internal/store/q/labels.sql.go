@@ -325,23 +325,38 @@ func (q *Queries) ListLabelsByIDs(ctx context.Context, ids []uuid.UUID) ([]Label
 	return items, nil
 }
 
-const lockLabelChildren = `-- name: LockLabelChildren :many
-SELECT id FROM labels WHERE parent_id = $1 ORDER BY id FOR UPDATE
+const lockLabelsForUpdate = `-- name: LockLabelsForUpdate :many
+SELECT id, workspace_id, parent_id, is_group, exclusive, name, description, color, position, created_by, created_at, updated_at FROM labels WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE
 `
 
-func (q *Queries) LockLabelChildren(ctx context.Context, parentID *uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, lockLabelChildren, parentID)
+// Locks in id order, the same order issue label writes share-lock labels and
+// their groups in, so the two never wait on each other in a cycle.
+func (q *Queries) LockLabelsForUpdate(ctx context.Context, ids []uuid.UUID) ([]Label, error) {
+	rows, err := q.db.Query(ctx, lockLabelsForUpdate, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	var items []Label
 	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
+		var i Label
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.ParentID,
+			&i.IsGroup,
+			&i.Exclusive,
+			&i.Name,
+			&i.Description,
+			&i.Color,
+			&i.Position,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

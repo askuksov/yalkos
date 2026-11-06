@@ -70,9 +70,13 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		}
 		desc = &d
 	}
+	var newGroup *uuid.UUID
+	if p.ParentID.Set {
+		newGroup = p.ParentID.Value
+	}
 	var out Label
 	err := s.inTx(ctx, func(tx *q.Queries) error {
-		cur, err := s.lock(ctx, tx, id)
+		cur, locked, err := s.lockForChange(ctx, tx, id, newGroup)
 		if err != nil {
 			return err
 		}
@@ -94,7 +98,7 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 			next.Position = *p.Position
 		}
 		regrouped := false
-		var newGroup *q.Label
+		var target *q.Label
 		if p.ParentID.Set && !sameID(p.ParentID.Value, cur.ParentID) {
 			if cur.IsGroup {
 				return kit.Input("parentId", kit.ReasonNotAllowed, "groups cannot be nested")
@@ -103,7 +107,8 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 				if *p.ParentID.Value == id {
 					return kit.Input("parentId", kit.ReasonNotAllowed, "a label cannot contain itself")
 				}
-				g, err := group(ctx, tx, *p.ParentID.Value)
+				row, found := locked[*p.ParentID.Value]
+				g, err := asGroup(row, found)
 				if err != nil {
 					return err
 				}
@@ -116,7 +121,7 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 						return conflictErr("parentId", int(n))
 					}
 				}
-				newGroup = &g
+				target = &g
 			}
 			next.ParentID = p.ParentID.Value
 			regrouped = true
@@ -136,10 +141,9 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 			case id == *st.TypeGroupID:
 				return kit.Input("exclusive", kit.ReasonNotAllowed, "the type group is always exclusive")
 			}
+			// The group's row lock is enough: moving a label into or out of the
+			// group locks the group too, and so does every issue label write.
 			if *p.Exclusive {
-				if _, err := tx.LockLabelChildren(ctx, &id); err != nil {
-					return fmt.Errorf("lock group labels: %w", err)
-				}
 				n, err := tx.CountGroupConflicts(ctx, id)
 				if err != nil {
 					return fmt.Errorf("count conflicts: %w", err)
@@ -169,8 +173,8 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		}
 		if regrouped {
 			var g *uuid.UUID
-			if newGroup != nil && newGroup.Exclusive {
-				g = &newGroup.ID
+			if target != nil && target.Exclusive {
+				g = &target.ID
 			}
 			if err := tx.SetLabelExclusiveGroup(ctx, q.SetLabelExclusiveGroupParams{GroupID: g, LabelID: id}); err != nil {
 				return fmt.Errorf("issue label groups: %w", err)
@@ -192,6 +196,45 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		return Label{}, err
 	}
 	return out, nil
+}
+
+// lockForChange locks the label, its current group and newGroup (when set) in
+// one statement ordered by id, the order issue label writes use, and returns
+// the locked rows by id. A label moved to another group meanwhile is locked
+// again with that group.
+func (s *Service) lockForChange(ctx context.Context, tx *q.Queries, id uuid.UUID, newGroup *uuid.UUID) (Label, map[uuid.UUID]q.Label, error) {
+	for range 3 {
+		row, err := tx.GetLabel(ctx, id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Label{}, nil, errNotFound
+		}
+		if err != nil {
+			return Label{}, nil, fmt.Errorf("get label: %w", err)
+		}
+		ids := []uuid.UUID{id}
+		if row.ParentID != nil {
+			ids = append(ids, *row.ParentID)
+		}
+		if newGroup != nil {
+			ids = append(ids, *newGroup)
+		}
+		rows, err := tx.LockLabelsForUpdate(ctx, ids)
+		if err != nil {
+			return Label{}, nil, fmt.Errorf("lock labels: %w", err)
+		}
+		locked := make(map[uuid.UUID]q.Label, len(rows))
+		for _, r := range rows {
+			locked[r.ID] = r
+		}
+		cur, ok := locked[id]
+		if !ok {
+			return Label{}, nil, errNotFound
+		}
+		if sameID(cur.ParentID, row.ParentID) {
+			return FromRow(cur), locked, nil
+		}
+	}
+	return Label{}, nil, errors.New("label: moved concurrently, try again")
 }
 
 func sameID(a, b *uuid.UUID) bool {
