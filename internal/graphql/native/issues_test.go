@@ -389,7 +389,19 @@ func seedIssues(t *testing.T, owner *client) {
 	}
 }
 
+// countList runs an issue list with selection and returns the fewest SQL
+// statements of three runs: loader batches can split on a slow run (-race),
+// while one relation loaded per issue would add 50 statements every time.
 func countList(t *testing.T, owner *client, queries *counter, selection string) int64 {
+	t.Helper()
+	n := countListOnce(t, owner, queries, selection)
+	for range 2 {
+		n = min(n, countListOnce(t, owner, queries, selection))
+	}
+	return n
+}
+
+func countListOnce(t *testing.T, owner *client, queries *counter, selection string) int64 {
 	t.Helper()
 	queries.n.Store(0)
 	var conn struct {
