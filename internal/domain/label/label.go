@@ -119,10 +119,18 @@ func settings(ctx context.Context, db *q.Queries) (q.GetLabelSettingsRow, error)
 func group(ctx context.Context, tx *q.Queries, id uuid.UUID) (q.Label, error) {
 	g, err := tx.GetLabelForUpdate(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return q.Label{}, kit.Input("parentId", kit.ReasonNotFound, "no such group")
+		return asGroup(g, false)
 	}
 	if err != nil {
 		return q.Label{}, fmt.Errorf("get group: %w", err)
+	}
+	return asGroup(g, true)
+}
+
+// asGroup checks a label read for parentId: it must exist and be a group.
+func asGroup(g q.Label, found bool) (q.Label, error) {
+	if !found {
+		return q.Label{}, kit.Input("parentId", kit.ReasonNotFound, "no such group")
 	}
 	if !g.IsGroup {
 		return q.Label{}, kit.Input("parentId", kit.ReasonNotAllowed, "labels can only be placed in a group")

@@ -10,8 +10,10 @@ SELECT * FROM labels WHERE id = $1;
 -- name: GetLabelForUpdate :one
 SELECT * FROM labels WHERE id = $1 FOR UPDATE;
 
--- name: LockLabelChildren :many
-SELECT id FROM labels WHERE parent_id = $1 ORDER BY id FOR UPDATE;
+-- name: LockLabelsForUpdate :many
+-- Locks in id order, the same order issue label writes share-lock labels and
+-- their groups in, so the two never wait on each other in a cycle.
+SELECT * FROM labels WHERE id = ANY(@ids::uuid[]) ORDER BY id FOR UPDATE;
 
 -- name: GetLabelSettings :one
 SELECT type_group_id, default_type_label_id FROM workspaces LIMIT 1;
