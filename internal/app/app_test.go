@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -237,7 +238,11 @@ func TestRunRateLimitsAPIKeys(t *testing.T) {
 	if r := post("/api/graphql", "Bearer "+key); r.StatusCode != 200 || r.Header.Get("X-RateLimit-Requests-Remaining") != "0" {
 		t.Fatalf("2nd key request: %d %v", r.StatusCode, r.Header)
 	}
-	if r := post("/mcp", key); r.StatusCode != http.StatusTooManyRequests || r.Header.Get("Retry-After") != "1800" {
+	// Limit 2 per hour: one token every 1800 s. A slow runner may pass a second
+	// or more before the header is computed, so any wait from 1 to 1800 s is right.
+	r := post("/mcp", key)
+	wait, err := strconv.Atoi(r.Header.Get("Retry-After"))
+	if r.StatusCode != http.StatusTooManyRequests || err != nil || wait < 1 || wait > 1800 {
 		t.Fatalf("3rd key request on /mcp: %d %v", r.StatusCode, r.Header)
 	}
 }
