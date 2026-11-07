@@ -7,8 +7,9 @@ import issue from '../locales/en/issue.json'
 import issues from '../locales/en/issues.json'
 import projects from '../locales/en/projects.json'
 import settings from '../locales/en/settings.json'
+import webhooks from '../locales/en/webhooks.json'
 
 /** English catalogs, bundled; other languages will load on demand. */
-export const en = { common, auth, settings, issues, board, issue, command, projects, errors }
+export const en = { common, auth, settings, issues, board, issue, command, projects, errors, webhooks }
 
 export const namespaces = Object.keys(en) as (keyof typeof en)[]

@@ -31,6 +31,15 @@ type Documents = {
     "\n  mutation RevokeApiKey($id: ID!) {\n    revokeApiKey(id: $id)\n  }\n": typeof types.RevokeApiKeyDocument,
     "\n  query Projects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 250) {\n      nodes { id key name icon color archivedAt isMember }\n    }\n  }\n": typeof types.ProjectsDocument,
     "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": typeof types.ProjectDocument,
+    "\n  fragment WebhookDeliveryFields on WebhookDelivery {\n    id resource action entityId status attempts responseStatus error durationMs\n    createdAt lastAttemptAt nextAttemptAt\n  }\n": typeof types.WebhookDeliveryFieldsFragmentDoc,
+    "\n  fragment WebhookFields on Webhook {\n    id name url secret enabled disabledReason disabledAt resources\n    project { id key name }\n    createdAt updatedAt\n  }\n": typeof types.WebhookFieldsFragmentDoc,
+    "\n  query Webhooks {\n    webhooks {\n      id name url enabled disabledReason resources\n      project { id key }\n      deliveries(first: 1) { ...WebhookDeliveryFields }\n    }\n  }\n": typeof types.WebhooksDocument,
+    "\n  query Webhook($id: ID!) {\n    webhook(id: $id) {\n      ...WebhookFields\n      deliveries(first: 50) { ...WebhookDeliveryFields }\n    }\n  }\n": typeof types.WebhookDocument,
+    "\n  mutation CreateWebhook($input: CreateWebhookInput!) {\n    createWebhook(input: $input) { id }\n  }\n": typeof types.CreateWebhookDocument,
+    "\n  mutation UpdateWebhook($id: ID!, $input: UpdateWebhookInput!) {\n    updateWebhook(id: $id, input: $input) { ...WebhookFields }\n  }\n": typeof types.UpdateWebhookDocument,
+    "\n  mutation DeleteWebhook($id: ID!) {\n    deleteWebhook(id: $id)\n  }\n": typeof types.DeleteWebhookDocument,
+    "\n  mutation RotateWebhookSecret($id: ID!) {\n    rotateWebhookSecret(id: $id) { id secret }\n  }\n": typeof types.RotateWebhookSecretDocument,
+    "\n  mutation TestWebhook($id: ID!) {\n    testWebhook(id: $id) { ...WebhookDeliveryFields }\n  }\n": typeof types.TestWebhookDocument,
     "\n  query PaletteIssue($id: String!) {\n    issue(id: $id) { id identifier title project { id key } }\n  }\n": typeof types.PaletteIssueDocument,
     "\n  query PaletteSearch($filter: IssueFilter, $first: Int) {\n    issues(filter: $filter, first: $first, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title project { id key } state { name type color } }\n    }\n  }\n": typeof types.PaletteSearchDocument,
     "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } milestone { id } }\n  }\n": typeof types.PaletteChildCountDocument,
@@ -99,6 +108,15 @@ const documents: Documents = {
     "\n  mutation RevokeApiKey($id: ID!) {\n    revokeApiKey(id: $id)\n  }\n": types.RevokeApiKeyDocument,
     "\n  query Projects($includeArchived: Boolean) {\n    projects(includeArchived: $includeArchived, first: 250) {\n      nodes { id key name icon color archivedAt isMember }\n    }\n  }\n": types.ProjectsDocument,
     "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n": types.ProjectDocument,
+    "\n  fragment WebhookDeliveryFields on WebhookDelivery {\n    id resource action entityId status attempts responseStatus error durationMs\n    createdAt lastAttemptAt nextAttemptAt\n  }\n": types.WebhookDeliveryFieldsFragmentDoc,
+    "\n  fragment WebhookFields on Webhook {\n    id name url secret enabled disabledReason disabledAt resources\n    project { id key name }\n    createdAt updatedAt\n  }\n": types.WebhookFieldsFragmentDoc,
+    "\n  query Webhooks {\n    webhooks {\n      id name url enabled disabledReason resources\n      project { id key }\n      deliveries(first: 1) { ...WebhookDeliveryFields }\n    }\n  }\n": types.WebhooksDocument,
+    "\n  query Webhook($id: ID!) {\n    webhook(id: $id) {\n      ...WebhookFields\n      deliveries(first: 50) { ...WebhookDeliveryFields }\n    }\n  }\n": types.WebhookDocument,
+    "\n  mutation CreateWebhook($input: CreateWebhookInput!) {\n    createWebhook(input: $input) { id }\n  }\n": types.CreateWebhookDocument,
+    "\n  mutation UpdateWebhook($id: ID!, $input: UpdateWebhookInput!) {\n    updateWebhook(id: $id, input: $input) { ...WebhookFields }\n  }\n": types.UpdateWebhookDocument,
+    "\n  mutation DeleteWebhook($id: ID!) {\n    deleteWebhook(id: $id)\n  }\n": types.DeleteWebhookDocument,
+    "\n  mutation RotateWebhookSecret($id: ID!) {\n    rotateWebhookSecret(id: $id) { id secret }\n  }\n": types.RotateWebhookSecretDocument,
+    "\n  mutation TestWebhook($id: ID!) {\n    testWebhook(id: $id) { ...WebhookDeliveryFields }\n  }\n": types.TestWebhookDocument,
     "\n  query PaletteIssue($id: String!) {\n    issue(id: $id) { id identifier title project { id key } }\n  }\n": types.PaletteIssueDocument,
     "\n  query PaletteSearch($filter: IssueFilter, $first: Int) {\n    issues(filter: $filter, first: $first, orderBy: { field: UPDATED_AT, direction: DESC }) {\n      nodes { id identifier title project { id key } state { name type color } }\n    }\n  }\n": types.PaletteSearchDocument,
     "\n  query PaletteChildCount($id: String!) {\n    issue(id: $id) { id children(first: 1) { totalCount } milestone { id } }\n  }\n": types.PaletteChildCountDocument,
@@ -232,6 +250,42 @@ export function graphql(source: "\n  query Projects($includeArchived: Boolean) {
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n"): (typeof documents)["\n  query Project($id: String!) {\n    project(id: $id) {\n      id key name description icon color archivedAt isMember\n      states { id name type color position isDefault }\n      members { id name }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  fragment WebhookDeliveryFields on WebhookDelivery {\n    id resource action entityId status attempts responseStatus error durationMs\n    createdAt lastAttemptAt nextAttemptAt\n  }\n"): (typeof documents)["\n  fragment WebhookDeliveryFields on WebhookDelivery {\n    id resource action entityId status attempts responseStatus error durationMs\n    createdAt lastAttemptAt nextAttemptAt\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  fragment WebhookFields on Webhook {\n    id name url secret enabled disabledReason disabledAt resources\n    project { id key name }\n    createdAt updatedAt\n  }\n"): (typeof documents)["\n  fragment WebhookFields on Webhook {\n    id name url secret enabled disabledReason disabledAt resources\n    project { id key name }\n    createdAt updatedAt\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Webhooks {\n    webhooks {\n      id name url enabled disabledReason resources\n      project { id key }\n      deliveries(first: 1) { ...WebhookDeliveryFields }\n    }\n  }\n"): (typeof documents)["\n  query Webhooks {\n    webhooks {\n      id name url enabled disabledReason resources\n      project { id key }\n      deliveries(first: 1) { ...WebhookDeliveryFields }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Webhook($id: ID!) {\n    webhook(id: $id) {\n      ...WebhookFields\n      deliveries(first: 50) { ...WebhookDeliveryFields }\n    }\n  }\n"): (typeof documents)["\n  query Webhook($id: ID!) {\n    webhook(id: $id) {\n      ...WebhookFields\n      deliveries(first: 50) { ...WebhookDeliveryFields }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateWebhook($input: CreateWebhookInput!) {\n    createWebhook(input: $input) { id }\n  }\n"): (typeof documents)["\n  mutation CreateWebhook($input: CreateWebhookInput!) {\n    createWebhook(input: $input) { id }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation UpdateWebhook($id: ID!, $input: UpdateWebhookInput!) {\n    updateWebhook(id: $id, input: $input) { ...WebhookFields }\n  }\n"): (typeof documents)["\n  mutation UpdateWebhook($id: ID!, $input: UpdateWebhookInput!) {\n    updateWebhook(id: $id, input: $input) { ...WebhookFields }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteWebhook($id: ID!) {\n    deleteWebhook(id: $id)\n  }\n"): (typeof documents)["\n  mutation DeleteWebhook($id: ID!) {\n    deleteWebhook(id: $id)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RotateWebhookSecret($id: ID!) {\n    rotateWebhookSecret(id: $id) { id secret }\n  }\n"): (typeof documents)["\n  mutation RotateWebhookSecret($id: ID!) {\n    rotateWebhookSecret(id: $id) { id secret }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation TestWebhook($id: ID!) {\n    testWebhook(id: $id) { ...WebhookDeliveryFields }\n  }\n"): (typeof documents)["\n  mutation TestWebhook($id: ID!) {\n    testWebhook(id: $id) { ...WebhookDeliveryFields }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

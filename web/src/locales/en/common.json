@@ -58,6 +58,7 @@
     "settings": "Settings",
     "members": "Members",
     "apiKeys": "API keys",
+    "webhooks": "Webhooks",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Show sidebar",
     "userMenu": "Account",

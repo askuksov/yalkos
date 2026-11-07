@@ -1,0 +1,146 @@
+{
+  "title": "Webhooks",
+  "description": "Send issue, comment, label and milestone changes to other services. Requests are signed in the Linear-compatible format.",
+  "new": "New webhook",
+  "empty": "No webhooks yet.",
+  "list": {
+    "name": "Name",
+    "scope": "Scope",
+    "events": "Events",
+    "status": "Status",
+    "lastDelivery": "Last delivery",
+    "none": "—"
+  },
+  "scope": {
+    "all": "All projects"
+  },
+  "resource": {
+    "ISSUE": "Issues",
+    "COMMENT": "Comments",
+    "LABEL": "Labels",
+    "MILESTONE": "Milestones"
+  },
+  "listSeparator": ", ",
+  "state": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "failures": "Disabled after failures"
+  },
+  "form": {
+    "url": "URL",
+    "name": "Name",
+    "project": "Project",
+    "events": "Events",
+    "secret": "Secret",
+    "secretHint": "Leave empty to generate one",
+    "enabled": "Enabled",
+    "create": "Create webhook",
+    "save": "Save changes"
+  },
+  "errors": {
+    "url": {
+      "invalid_format": "Use an absolute http or https URL",
+      "too_long": "The URL is too long",
+      "not_allowed": "This address is not allowed",
+      "too_many": "A workspace can have at most {{max}} webhooks"
+    },
+    "resources": {
+      "required": "Choose at least one event type"
+    },
+    "name": {
+      "too_long": "The name is too long"
+    },
+    "secret": {
+      "too_short": "The secret is too short",
+      "too_long": "The secret is too long"
+    },
+    "projectId": {
+      "not_found": "No such project"
+    }
+  },
+  "banner": {
+    "failures": "Disabled after repeated failed deliveries on {{date}}.",
+    "enable": "Enable",
+    "failuresNoDate": "Disabled after repeated failed deliveries."
+  },
+  "secret": {
+    "title": "Signing secret",
+    "show": "Show",
+    "hide": "Hide",
+    "copy": "Copy",
+    "copyHint": "Copy the secret into your receiver",
+    "masked": "yal_wh_••••",
+    "maskedCustom": "••••••••",
+    "rotate": "Rotate secret",
+    "rotateTitle": "Rotate secret",
+    "rotateBody": "Rotate the secret? Deliveries signed with the old secret stop being accepted by the receiver until you update it.",
+    "rotateConfirm": "Rotate",
+    "rotated": "Secret rotated"
+  },
+  "test": {
+    "send": "Send test",
+    "delivered": "Delivered: HTTP {{status}} in {{ms}} ms",
+    "failed": "Failed: {{error}}",
+    "failedNoReason": "Failed: no response"
+  },
+  "delete": {
+    "button": "Delete webhook",
+    "title": "Delete webhook",
+    "body": "Delete this webhook? Pending deliveries are dropped.",
+    "confirm": "Delete",
+    "deleted": "Webhook deleted"
+  },
+  "deliveries": {
+    "title": "Deliveries",
+    "refresh": "Refresh",
+    "empty": "No deliveries yet.",
+    "time": "Time",
+    "event": "Event",
+    "status": "Status",
+    "response": "Response",
+    "attempts": "Attempts",
+    "duration": "Duration",
+    "nextAttempt": "Next attempt",
+    "attemptsOf": "{{attempts}} of {{max}}",
+    "ms": "{{ms}} ms",
+    "none": "—",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "error": "Error",
+    "noError": "No error recorded.",
+    "id": "Delivery ID"
+  },
+  "event": {
+    "issue": {
+      "create": "Issue created",
+      "update": "Issue updated",
+      "remove": "Issue removed"
+    },
+    "comment": {
+      "create": "Comment created",
+      "update": "Comment updated",
+      "remove": "Comment removed"
+    },
+    "label": {
+      "create": "Label created",
+      "update": "Label updated",
+      "remove": "Label removed"
+    },
+    "milestone": {
+      "create": "Milestone created",
+      "update": "Milestone updated",
+      "remove": "Milestone removed"
+    },
+    "test": {
+      "test": "Test"
+    }
+  },
+  "status": {
+    "PENDING": "Pending",
+    "RETRYING": "Retrying",
+    "SUCCEEDED": "Delivered",
+    "FAILED": "Failed",
+    "CANCELED": "Canceled"
+  },
+  "saved": "Saved"
+}
