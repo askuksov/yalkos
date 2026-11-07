@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -242,10 +241,10 @@ func TestRunRateLimitsAPIKeys(t *testing.T) {
 	}
 	// Limit 2 per hour: one token every 1800 s, counted from the first request.
 	// A slow runner may spend seconds before the header is computed, so the wait
-	// is 1800 s minus the time spent since then, never less.
+	// is 1800 s minus the whole seconds spent since then, never less.
 	r := post("/mcp", key)
 	wait, err := strconv.Atoi(r.Header.Get("Retry-After"))
-	minWait := max(1, 1800-int(math.Ceil(time.Since(began).Seconds())))
+	minWait := max(1, 1800-int(time.Since(began).Seconds()))
 	if r.StatusCode != http.StatusTooManyRequests || err != nil || wait < minWait || wait > 1800 {
 		t.Fatalf("3rd key request on /mcp: %d %v", r.StatusCode, r.Header)
 	}
