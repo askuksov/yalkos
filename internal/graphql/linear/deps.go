@@ -3,7 +3,6 @@ package linear
 import (
 	"log/slog"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,6 +15,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/webhook/linearpayload"
 )
 
 // Deps are the services behind the Linear-compatible API.
@@ -43,10 +43,7 @@ func (d Deps) now() time.Time {
 
 // base is BASE_URL without a trailing slash.
 func (d Deps) base() string {
-	if d.BaseURL == nil {
-		return ""
-	}
-	return strings.TrimSuffix(d.BaseURL.String(), "/")
+	return linearpayload.BaseURL(d.BaseURL)
 }
 
 // parseID reads a UUID argument.

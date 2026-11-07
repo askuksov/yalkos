@@ -7,6 +7,8 @@ package linear
 
 import (
 	"context"
+
+	"github.com/askuksov/yalkos/internal/webhook/linearpayload"
 )
 
 // URL is the resolver for the url field.
@@ -15,7 +17,7 @@ func (r *projectResolver) URL(ctx context.Context, obj *Project) (string, error)
 	if err != nil {
 		return "", err
 	}
-	return r.d.base() + "/p/" + p.Key + "/milestones/" + obj.ID, nil
+	return linearpayload.MilestoneURL(r.d.base(), p.Key, obj.Src.ID), nil
 }
 
 // Status is the resolver for the status field.

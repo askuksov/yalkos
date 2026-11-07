@@ -15,26 +15,21 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/page"
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/webhook/linearpayload"
 )
 
 const projectColor = "#6B7280"
 
-// statusIndex is the position of a milestone status among projectStatuses.
-var statusIndex = map[milestone.Status]int{milestone.Planned: 0, milestone.InProgress: 1, milestone.Done: 2, milestone.Canceled: 3}
-
 // statusFor is the project status of a milestone status.
 func statusFor(s milestone.Status, ws account.Workspace) ProjectStatus {
-	return projectStatuses(ws)[statusIndex[s]]
-}
-
-// statusByID reads a project status id.
-func statusByID(id string) (milestone.Status, bool) {
-	for s, i := range statusIndex {
-		if statusRows[i].id == id {
-			return s, true
+	id := linearpayload.StatusOf(s).ID
+	all := projectStatuses(ws)
+	for _, ps := range all {
+		if ps.ID == id {
+			return ps
 		}
 	}
-	return "", false
+	return all[0]
 }
 
 // projectOut maps a milestone; status, progress and links are resolved.
@@ -42,7 +37,7 @@ func projectOut(m milestone.Milestone) *Project {
 	return &Project{
 		ID: m.ID.String(), Name: m.Name, Description: m.Description, Content: nonEmpty(m.Description), SlugID: m.ID.String(),
 		TargetDate: m.TargetDate, SortOrder: m.SortOrder, PrioritySortOrder: m.SortOrder, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
-		Color: projectColor, PriorityLabel: priorityLabels[0], FrequencyResolution: FrequencyResolutionTypeWeekly,
+		Color: projectColor, PriorityLabel: linearpayload.PriorityLabel(0), FrequencyResolution: FrequencyResolutionTypeWeekly,
 		LabelIds: []string{}, CompletedScopeHistory: []float64{}, CompletedIssueCountHistory: []float64{},
 		InProgressScopeHistory: []float64{}, IssueCountHistory: []float64{}, ScopeHistory: []float64{},
 		Src: m,
@@ -370,7 +365,7 @@ func (r *Resolver) updateProject(ctx context.Context, id string, in ProjectUpdat
 	if v, set := in.StatusID.ValueOK(); set {
 		p.Status = kit.Opt[milestone.Status]{Set: true}
 		if v != nil {
-			s, ok := statusByID(*v)
+			s, ok := linearpayload.StatusByID(*v)
 			if !ok {
 				return nil, badArg("statusId", "Invalid statusId: no such project status")
 			}
@@ -413,7 +408,7 @@ func (r *Resolver) projectStatusByID(ctx context.Context, id string) (*ProjectSt
 	if _, err := r.actor(ctx); err != nil {
 		return nil, err
 	}
-	s, ok := statusByID(id)
+	s, ok := linearpayload.StatusByID(id)
 	if !ok {
 		return nil, kit.NotFoundError{Entity: "ProjectStatus"}
 	}
