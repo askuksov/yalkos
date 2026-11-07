@@ -15,7 +15,7 @@ import (
 // withProvider runs fn with a goose provider over pool. Closing the provider's
 // *sql.DB does not close the pgx pool.
 func withProvider(pool *pgxpool.Pool, migrations fs.FS, locked bool, fn func(*goose.Provider) error) error {
-	var opts []goose.ProviderOption
+	opts := []goose.ProviderOption{goose.WithGoMigrations(riverStep(pool))}
 	if locked {
 		// Postgres advisory lock: concurrent instances apply migrations one at a time.
 		locker, err := lock.NewPostgresSessionLocker()

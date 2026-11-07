@@ -122,7 +122,8 @@ func TestRunMigrateStatus(t *testing.T) {
 		t.Fatalf("migrate up exit = %d, stderr %q", code, errOut)
 	}
 	files, _ := fs.Glob(db.Migrations(), "*.sql")
-	want := fmt.Sprintf("current %d, latest %d\n", len(files), len(files))
+	n := len(files) + 1 // +1: the River Go step is not a *.sql file
+	want := fmt.Sprintf("current %d, latest %d\n", n, n)
 	code, out, _ := run([]string{"migrate", "status"}, env)
 	if code != 0 || out != want {
 		t.Errorf("migrate status → %d %q, want 0 %q", code, out, want)
@@ -141,7 +142,7 @@ func TestRunMigrateDown(t *testing.T) {
 		t.Fatalf("migrate up exit = %d, stderr %q", code, errOut)
 	}
 	files, _ := fs.Glob(db.Migrations(), "*.sql")
-	latest := int64(len(files))
+	latest := int64(len(files)) + 1 // +1: the River Go step is not a *.sql file
 
 	code, out, errOut := run([]string{"migrate", "down"}, env)
 	want := fmt.Sprintf("rolled back %d\ncurrent %d, latest %d\n", latest, latest-1, latest)
