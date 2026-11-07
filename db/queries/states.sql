@@ -41,7 +41,7 @@ SELECT EXISTS (SELECT 1 FROM issues WHERE state_id = $1);
 -- Moves every issue (deleted ones too) of from_state to to_state. When
 -- keep_times is false, completed_at/canceled_at become the given values.
 WITH old AS (
-    SELECT i.id, i.completed_at, i.canceled_at FROM issues i WHERE i.state_id = @from_state::uuid FOR UPDATE
+    SELECT i.id, i.completed_at, i.canceled_at, i.updated_at FROM issues i WHERE i.state_id = @from_state::uuid FOR UPDATE
 )
 UPDATE issues SET
     state_id = @to_state::uuid,
@@ -51,6 +51,7 @@ UPDATE issues SET
 FROM old
 WHERE issues.id = old.id
 RETURNING issues.id, issues.project_id, old.completed_at AS old_completed_at, old.canceled_at AS old_canceled_at,
+    old.updated_at AS old_updated_at,
     issues.completed_at, issues.canceled_at, issues.deleted_at;
 
 -- name: ListStatesByProjectIDs :many

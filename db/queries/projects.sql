@@ -9,6 +9,13 @@ SELECT * FROM projects WHERE id = $1;
 -- name: GetProjectForUpdate :one
 SELECT * FROM projects WHERE id = $1 FOR UPDATE;
 
+-- name: LockProjectsForUpdate :many
+-- Locks in id order, the order every writer that holds several projects uses.
+SELECT id FROM projects WHERE id = ANY(@ids::uuid[]) ORDER BY id FOR UPDATE;
+
+-- name: ListProjectLiveIssueIDs :many
+SELECT id FROM issues WHERE project_id = $1 AND deleted_at IS NULL ORDER BY id;
+
 -- name: GetProjectByKey :one
 -- Current or former key.
 SELECT p.* FROM projects p JOIN project_keys k ON k.project_id = p.id WHERE k.key = @key;

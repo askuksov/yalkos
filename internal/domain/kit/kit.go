@@ -31,9 +31,15 @@ const attempts = 3
 // ends with ErrStartOver is rolled back, releasing its locks, and runs again,
 // up to three times in all.
 func InTx(ctx context.Context, pool *pgxpool.Pool, base *q.Queries, fn func(*q.Queries) error) error {
+	return InTxWith(ctx, pool, base, func(_ pgx.Tx, tx *q.Queries) error { return fn(tx) })
+}
+
+// InTxWith is InTx for callers that need the pgx.Tx as well, for example to
+// queue a River job in the same transaction.
+func InTxWith(ctx context.Context, pool *pgxpool.Pool, base *q.Queries, fn func(pgx.Tx, *q.Queries) error) error {
 	var err error
 	for range attempts {
-		err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error { return fn(base.WithTx(tx)) })
+		err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error { return fn(tx, base.WithTx(tx)) })
 		if !errors.Is(err, ErrStartOver) {
 			return err
 		}

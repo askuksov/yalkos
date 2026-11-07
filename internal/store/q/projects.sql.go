@@ -163,6 +163,30 @@ func (q *Queries) InsertProjectKey(ctx context.Context, arg InsertProjectKeyPara
 	return err
 }
 
+const listProjectLiveIssueIDs = `-- name: ListProjectLiveIssueIDs :many
+SELECT id FROM issues WHERE project_id = $1 AND deleted_at IS NULL ORDER BY id
+`
+
+func (q *Queries) ListProjectLiveIssueIDs(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listProjectLiveIssueIDs, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjectsBackward = `-- name: ListProjectsBackward :many
 SELECT projects.id, projects.workspace_id, projects.key, projects.name, projects.description, projects.icon, projects.color, projects.sequence_counter, projects.created_by, projects.archived_at, projects.created_at, projects.updated_at, lower(name)::text AS sort_name FROM projects
 WHERE ($1::bool OR archived_at IS NULL)
@@ -311,6 +335,31 @@ func (q *Queries) ListProjectsForward(ctx context.Context, arg ListProjectsForwa
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockProjectsForUpdate = `-- name: LockProjectsForUpdate :many
+SELECT id FROM projects WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE
+`
+
+// Locks in id order, the order every writer that holds several projects uses.
+func (q *Queries) LockProjectsForUpdate(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, lockProjectsForUpdate, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
