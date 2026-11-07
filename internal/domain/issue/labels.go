@@ -78,25 +78,28 @@ func exclusiveGroup(l label.Label, labels map[uuid.UUID]label.Label) *uuid.UUID 
 	return nil
 }
 
-// lockLabels share-locks the labels referenced by ids and their groups. A
-// label moved to another group while this waited for its lock is locked again
-// with its new group, so a concurrent change of that group (making it
-// exclusive, say) waits for this write instead of missing it.
+// errLabelsMoved makes an issue write start over: a label it locked moved to
+// another group while the write waited for it (see lockLabels).
+var errLabelsMoved = errors.New("issue: labels moved concurrently, try again")
+
+// lockLabels share-locks the labels referenced by ids and their groups in one
+// statement ordered by id. When a label moved to another group while this
+// waited for its lock, the new group is not locked; locking it now could wait
+// for a change that waits for the label, so the write starts over instead
+// (errLabelsMoved, handled by inTx) and releases the label first.
 func lockLabels(ctx context.Context, tx *q.Queries, ids []uuid.UUID) (map[uuid.UUID]label.Label, error) {
-	for range 3 {
-		rows, err := tx.LockLabelsForShare(ctx, ids)
-		if err != nil {
-			return nil, fmt.Errorf("lock labels: %w", err)
-		}
-		out := make(map[uuid.UUID]label.Label, len(rows))
-		for _, r := range rows {
-			out[r.ID] = label.FromRow(r)
-		}
-		if groupsLocked(out) {
-			return out, nil
-		}
+	rows, err := tx.LockLabelsForShare(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("lock labels: %w", err)
 	}
-	return nil, errors.New("issue: labels moved concurrently, try again")
+	out := make(map[uuid.UUID]label.Label, len(rows))
+	for _, r := range rows {
+		out[r.ID] = label.FromRow(r)
+	}
+	if !groupsLocked(out) {
+		return nil, errLabelsMoved
+	}
+	return out, nil
 }
 
 // groupsLocked reports whether the group of every label in m is in m too.

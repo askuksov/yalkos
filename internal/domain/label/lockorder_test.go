@@ -59,8 +59,8 @@ func update(e env, id uuid.UUID, p label.Patch) <-chan error {
 	return done
 }
 
-// blocked reports whether another session of this database waits for a lock.
-func blocked(t *testing.T, e env) bool {
+// waiting counts the other sessions of this database that wait for a lock.
+func waiting(t *testing.T, e env) int {
 	t.Helper()
 	var n int
 	err := e.pool.QueryRow(context.Background(), `SELECT count(*) FROM pg_stat_activity
@@ -68,8 +68,11 @@ func blocked(t *testing.T, e env) bool {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return n > 0
+	return n
 }
+
+// blocked reports whether another session of this database waits for a lock.
+func blocked(t *testing.T, e env) bool { return waiting(t, e) > 0 }
 
 // waitBlocked waits until another session of this database waits for a lock.
 func waitBlocked(t *testing.T, e env) {
@@ -225,6 +228,58 @@ func TestIssueWriteLocksNewGroupOfMovedLabel(t *testing.T) {
 	}
 	change.commit()
 	if err := <-done; err != nil {
+		t.Fatalf("issue write: %v", err)
+	}
+	if got := e.issueLabels(t, i.ID); len(got) != 1 || got[0] != "Web:-" {
+		t.Errorf("issue labels = %v, want [Web:-]", got)
+	}
+}
+
+// When the moved label's new group sorts before it and a concurrent label
+// change holds that group while waiting for the label, an issue write must
+// let the label go before it waits for the group: it starts over.
+func TestIssueWriteRestartsWhenMovedLabelGroupIsHeld(t *testing.T) {
+	e := newEnv(t)
+	to := e.create(t, e.users.Admin, label.CreateInput{Name: "To", IsGroup: true, Exclusive: ptr(false)})
+	from := e.create(t, e.users.Admin, label.CreateInput{Name: "From", IsGroup: true, Exclusive: ptr(false)})
+	l := e.create(t, e.users.Admin, label.CreateInput{Name: "Web", ParentID: &from.ID})
+	if !lower(to.ID, l.ID) {
+		t.Fatal("fixture: the new group's id must sort before the label's")
+	}
+	i := e.issueWith(t)
+
+	move := hold(t, e) // a label move in progress
+	if err := move.lock(l.ID, "UPDATE"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := move.tx.Exec(context.Background(), `UPDATE labels SET parent_id = $1 WHERE id = $2`, to.ID, l.ID); err != nil {
+		t.Fatal(err)
+	}
+	// A label change holding the new group (NO KEY UPDATE: see above) that
+	// next wants the label.
+	change := hold(t, e)
+	if err := change.lock(to.ID, "NO KEY UPDATE"); err != nil {
+		t.Fatal(err)
+	}
+	written := make(chan error, 1)
+	go func() {
+		_, err := e.issues.Update(context.Background(), e.users.Member, i.ID, issue.Patch{AddLabelIDs: []uuid.UUID{l.ID}})
+		written <- err
+	}()
+	waitBlocked(t, e)
+	locked := make(chan error, 1)
+	go func() { locked <- change.lock(l.ID, "UPDATE") }()
+	for deadline := time.Now().Add(5 * time.Second); waiting(t, e) < 2; time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the change does not wait for the label")
+		}
+	}
+	move.commit()
+	if err := <-locked; err != nil {
+		t.Fatalf("label change locking the label: %v", err)
+	}
+	change.commit()
+	if err := <-written; err != nil {
 		t.Fatalf("issue write: %v", err)
 	}
 	if got := e.issueLabels(t, i.ID); len(got) != 1 || got[0] != "Web:-" {

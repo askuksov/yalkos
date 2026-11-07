@@ -71,8 +71,17 @@ func New(pool *pgxpool.Pool, projects *project.Service, now func() time.Time) *S
 	return &Service{pool: pool, q: q.New(pool), projects: projects, now: now}
 }
 
+// inTx runs fn in a transaction; a write whose labels moved meanwhile
+// (errLabelsMoved) starts over, up to three times.
 func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
-	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+	var err error
+	for range 3 {
+		err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+		if !errors.Is(err, errLabelsMoved) {
+			return err
+		}
+	}
+	return err
 }
 
 func toIssue(i q.Issue, key string) Issue {
