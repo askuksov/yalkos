@@ -148,8 +148,8 @@ const mine = await client.issues({ filter: { assignee: { isMe: { eq: true } } } 
 
 - Tested with `@linear/sdk` 100.x. The SDK requires an `https://` URL except on `localhost`.
 - Names: a Team is a Yalkos project, a Project is a milestone, a WorkflowState is a state, an IssueLabel is a label (issue types are the labels of the Type group), the Organization is the workspace.
-- Supported: the viewer, users, teams with their states, members and labels, workflow states, issues (read, filter, sort, search, create, update, move to another team with `teamId`, delete), comments, labels and label groups, projects with their statuses, and the files uploaded to an issue (read only). `issue(id:)` and `team(id:)` also take `YLK-12` and `YLK`.
-- Not available: estimates, cycles, issue relations, archiving issues, link attachments and webhooks. An input or filter field that is not supported is rejected with an error naming it, never ignored.
+- Supported: the viewer, users, teams with their states, members and labels, workflow states, issues (read, filter, sort, search, create, update, move to another team with `teamId`, delete), comments, labels and label groups, projects with their statuses, webhooks (`webhooks`, `webhook`, `Team.webhooks`, `webhookCreate`, `webhookUpdate`, `webhookDelete`, `webhookRotateSecret`; [below](#webhooks)), and the files uploaded to an issue (read only). `issue(id:)` and `team(id:)` also take `YLK-12` and `YLK`.
+- Not available: estimates, cycles, issue relations, archiving issues and link attachments. An input or filter field that is not supported is rejected with an error naming it, never ignored.
 - After `deleteIssue` or `deleteProject` the deleted item can no longer be read: use `payload.success` and `payload.entityId`, not `await payload.entity`.
 - Query cost: each query may cost up to 10 000 points (0.1 per field, 1 per object, times the page size for lists); the `X-Complexity` response header shows a query's cost. With the SDK's full selections keep `first` at 200 or below.
 - Other tools need a configurable endpoint: `LINEAR_GRAPHQL_ENDPOINT=https://<host>/graphql` for linear-cli; SDK-based tools need `apiUrl`.
@@ -200,6 +200,84 @@ curl -s -o shot.png -H "Authorization: $KEY" http://localhost:8080/api/attachmen
 ```
 
   The server detects the file type from its content. PNG, JPEG, GIF, WebP and PDF open in the browser; every other file (SVG and HTML included) downloads. Links in Markdown are stored relative (`/api/attachments/…`). `issue { attachments }` lists an issue's files, `deleteAttachment` removes one (uploader, Owner or Admin); `limits { maxUploadMb }` is the size limit.
+
+### Webhooks
+
+Owners and Admins can send changes to other services: **Settings → Webhooks**, the Yalkos API (`createWebhook` at `POST /api/graphql`) or the Linear-compatible API (`webhookCreate`). Events are issues, comments, labels and milestones (sent as `Issue`, `Comment`, `IssueLabel` and `Project`) on create, update and remove, for all projects or for one project. Webhook management works with API keys too, so tools can register their own webhooks; Members cannot see or manage webhooks.
+
+Create one in the app with **New webhook** (URL, events, an optional project, an optional secret), or from a script:
+
+```sh
+curl -s http://localhost:8080/api/graphql -H "Authorization: $KEY" -H 'Content-Type: application/json' \
+  -d '{"query":"mutation($in: CreateWebhookInput!) { createWebhook(input: $in) { id secret } }",
+       "variables":{"in":{"url":"https://example.com/hook","resources":["ISSUE","COMMENT"]}}}'
+```
+
+```js
+import { LinearClient } from "@linear/sdk";
+
+const client = new LinearClient({ apiKey: process.env.YALKOS_API_KEY, apiUrl: "http://localhost:8080/graphql" });
+const { webhook } = await client.createWebhook({
+  url: "https://example.com/hook",
+  allPublicTeams: true, // or teamId: "YLK" for one project
+  resourceTypes: ["Issue", "Comment", "IssueLabel", "Project"],
+});
+console.log((await webhook).secret); // generated when you do not pass `secret`
+```
+
+Without `secret` the server generates one (`yal_wh_…`); a secret you pass is used as is. Owners and Admins can read it on the webhook's page (hidden until **Show**) and through the API.
+
+Requests use the Linear-compatible format, so a receiver written for it works unchanged. Each one is a `POST` with a compact JSON body (`action`, `type`, `actor`, `createdAt`, `data`, `url`, `updatedFrom` on updates, `organizationId`, `webhookId`, `webhookTimestamp`) and these headers:
+
+| Header | Value |
+| :--- | :--- |
+| `Linear-Signature` | hex HMAC-SHA256 of the raw body, keyed with the webhook's secret |
+| `Linear-Event` | the payload `type`: `Issue`, `Comment`, `IssueLabel` or `Project` |
+| `Linear-Delivery` | delivery id; the same on every retry, so a receiver can drop duplicates |
+| `Linear-Timestamp` | the body's `webhookTimestamp` (Unix ms) |
+| `User-Agent` | `Yalkos-Webhook/<version>` |
+
+Check the signature on the raw bytes, before parsing. With the SDK helper:
+
+```js
+import http from "node:http";
+import { LinearWebhookClient } from "@linear/sdk/webhooks";
+
+const handler = new LinearWebhookClient(process.env.WEBHOOK_SECRET).createHandler();
+handler.on("Issue", (event) => console.log(event.action, event.data.identifier));
+http.createServer(handler).listen(3000);
+```
+
+Without the SDK:
+
+```js
+import crypto from "node:crypto";
+
+function verify(rawBody, signature, secret) {
+  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  const a = Buffer.from(expected), b = Buffer.from(signature ?? "");
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
+  const { webhookTimestamp } = JSON.parse(rawBody.toString());
+  return typeof webhookTimestamp === "number" && Math.abs(Date.now() - webhookTimestamp) <= 60_000;
+}
+```
+
+Every attempt gets a fresh `webhookTimestamp` and signature, so receivers may reject anything older than a minute.
+
+What is sent and when:
+
+| Change | `type` | `action` |
+| :--- | :--- | :--- |
+| Issue created, changed (moves and cascades included) or deleted | `Issue` | `create`, `update`, `remove` |
+| Comment created, edited or deleted | `Comment` | `create`, `update`, `remove` |
+| Label created, changed or deleted | `IssueLabel` | `create`, `update`, `remove` |
+| Milestone created, changed (status included), reordered or deleted | `Project` | `create`, `update`, `remove` |
+
+A change that cascades sends its own events: deleting a label or a milestone sends an `Issue` update for every issue that carried it. `updatedFrom` holds the previous values of the changed fields and always `updatedAt`. Events are delivered at least once and in no guaranteed order; use `data.updatedAt` to order them.
+
+A delivery succeeds on any 2xx answer within 5 seconds; redirects are not followed and count as failures. A failed delivery is tried up to four times in total: at once, then after 1 minute, 1 hour and 6 hours. When a delivery fails all four attempts and nothing reached the receiver since it was created, the webhook is disabled; the page shows a banner, and **Enable** turns it on again (earlier deliveries are not resent). The webhook's page lists its newest 50 deliveries with status, response, attempts and error, and the same list is available as `Webhook.deliveries` in the Yalkos API. **Send test** posts a signed test delivery (`type: "WebhookTest"`, `action: "test"`) straight away; it works for disabled webhooks, appears in the log and never disables a webhook. **Rotate secret** replaces the secret at once; update the receiver as well, because deliveries signed with the new secret fail on the old one.
+
+Destinations: `http` or `https` URLs. Webhooks may point at private networks (a receiver on the same host or LAN); `WEBHOOK_ALLOW_PRIVATE=false` forbids loopback and private ranges. Link-local and cloud metadata addresses (such as `169.254.169.254`) are always refused, the address is checked when the connection is made (so DNS tricks do not help), redirects are not followed and proxy settings from the environment are ignored. A workspace can have at most 50 webhooks. Changes to webhooks themselves are not recorded in issue history and send no webhooks.
 
 ## Using Yalkos
 
@@ -291,6 +369,7 @@ Server configuration (environment variables):
 | `DATA_DIR` | `./data` (`/data` in Docker) | Uploaded files (created with mode 0700) |
 | `MAX_UPLOAD_MB` | `25` | Largest file to upload, 1–1024 |
 | `API_RATE_LIMIT` | `5000` | API-key requests per hour and user on every endpoint; `0` turns the limit off |
+| `WEBHOOK_ALLOW_PRIVATE` | `true` | `false` blocks webhook destinations on loopback and private networks; link-local and cloud metadata addresses are always blocked |
 
 Local ports used by `make dev` / `make test`, override if they are taken:
 
