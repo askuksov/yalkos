@@ -432,6 +432,7 @@ func TestSenderBlocksResolvedMetadataIP(t *testing.T) {
 	resolver := fixedResolver(map[string][]string{
 		"metadata.test": {"169.254.169.254"},
 		"mapped.test":   {"::ffff:169.254.169.254"},
+		"nat64.test":    {"64:ff9b::a9fe:a9fe"},
 		"loopback.test": {"127.0.0.1"},
 		"mixed.test":    {"169.254.169.254", "127.0.0.1"},
 	})
@@ -446,6 +447,7 @@ func TestSenderBlocksResolvedMetadataIP(t *testing.T) {
 		{"metadata name, private allowed", true, port("metadata.test"), "address not allowed: 169.254.169.254", 0},
 		{"metadata name, private denied", false, port("metadata.test"), "address not allowed: 169.254.169.254", 0},
 		{"mapped metadata name", true, port("mapped.test"), "address not allowed: 169.254.169.254", 0},
+		{"nat64 metadata name", true, port("nat64.test"), "address not allowed: 64:ff9b::a9fe:a9fe", 0},
 		{"metadata literal", true, port("169.254.169.254"), "address not allowed: 169.254.169.254", 0},
 		{"loopback name, private denied", false, port("loopback.test"), "address not allowed: 127.0.0.1", 0},
 		{"loopback literal, private denied", false, port("127.0.0.1"), "address not allowed: 127.0.0.1", 0},
