@@ -16,6 +16,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/domain/webhook"
 	"github.com/google/uuid"
 )
 
@@ -1250,6 +1251,71 @@ type UserNameSort struct {
 type UserSortInput struct {
 	Name        *UserNameSort        `json:"name,omitempty"`
 	DisplayName *UserDisplayNameSort `json:"displayName,omitempty"`
+}
+
+// A webhook: where the workspace's changes are sent.
+type Webhook struct {
+	ID string `json:"id"`
+	// A name for the webhook.
+	Label *string `json:"label,omitempty"`
+	// The key that signs deliveries. Only workspace owners and admins can read it.
+	Secret    *string   `json:"secret,omitempty"`
+	URL       *string   `json:"url,omitempty"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	// Issue, Comment, IssueLabel or Project.
+	ResourceTypes []string   `json:"resourceTypes"`
+	ArchivedAt    *time.Time `json:"archivedAt,omitempty"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	Enabled       bool       `json:"enabled"`
+	// True when the webhook covers all teams.
+	AllPublicTeams bool            `json:"allPublicTeams"`
+	Src            webhook.Webhook `json:"-"`
+}
+
+type WebhookConnection struct {
+	Nodes    []Webhook     `json:"nodes"`
+	Edges    []WebhookEdge `json:"edges"`
+	PageInfo *PageInfo     `json:"pageInfo"`
+}
+
+type WebhookCreateInput struct {
+	URL string `json:"url"`
+	// Issue, Comment, IssueLabel or Project.
+	ResourceTypes []string `json:"resourceTypes"`
+	// A team id or key; give either teamId or allPublicTeams: true.
+	TeamID         *string `json:"teamId,omitempty"`
+	AllPublicTeams *bool   `json:"allPublicTeams,omitempty"`
+	Label          *string `json:"label,omitempty"`
+	// Used as given; generated when left out (1 to 255 characters).
+	Secret  *string `json:"secret,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
+}
+
+type WebhookEdge struct {
+	Node   *Webhook `json:"node"`
+	Cursor string   `json:"cursor"`
+}
+
+type WebhookPayload struct {
+	LastSyncID float64  `json:"lastSyncId"`
+	Webhook    *Webhook `json:"webhook"`
+	Success    bool     `json:"success"`
+}
+
+type WebhookRotateSecretPayload struct {
+	LastSyncID float64 `json:"lastSyncId"`
+	// The new secret.
+	Secret  string `json:"secret"`
+	Success bool   `json:"success"`
+}
+
+type WebhookUpdateInput struct {
+	URL           *string  `json:"url,omitempty"`
+	ResourceTypes []string `json:"resourceTypes,omitempty"`
+	// Null clears the name.
+	Label   graphql.Omittable[*string] `json:"label,omitempty"`
+	Secret  *string                    `json:"secret,omitempty"`
+	Enabled *bool                      `json:"enabled,omitempty"`
 }
 
 type WelcomeMessage struct {

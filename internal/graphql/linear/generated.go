@@ -38,6 +38,7 @@ type ResolverRoot interface {
 	Query() QueryResolver
 	Team() TeamResolver
 	User() UserResolver
+	Webhook() WebhookResolver
 	WorkflowState() WorkflowStateResolver
 }
 
@@ -468,18 +469,22 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CommentCreate    func(childComplexity int, input CommentCreateInput) int
-		CommentDelete    func(childComplexity int, id string) int
-		CommentUpdate    func(childComplexity int, id string, input CommentUpdateInput, skipEditedAt *bool) int
-		IssueCreate      func(childComplexity int, input IssueCreateInput) int
-		IssueDelete      func(childComplexity int, id string, permanentlyDelete *bool) int
-		IssueLabelCreate func(childComplexity int, input IssueLabelCreateInput, replaceTeamLabels *bool) int
-		IssueLabelDelete func(childComplexity int, id string) int
-		IssueLabelUpdate func(childComplexity int, id string, input IssueLabelUpdateInput, replaceTeamLabels *bool) int
-		IssueUpdate      func(childComplexity int, id string, input IssueUpdateInput) int
-		ProjectCreate    func(childComplexity int, input ProjectCreateInput, aiConversationID *string, projectDraftID *string, slackChannelName *string) int
-		ProjectDelete    func(childComplexity int, id string) int
-		ProjectUpdate    func(childComplexity int, id string, input ProjectUpdateInput) int
+		CommentCreate       func(childComplexity int, input CommentCreateInput) int
+		CommentDelete       func(childComplexity int, id string) int
+		CommentUpdate       func(childComplexity int, id string, input CommentUpdateInput, skipEditedAt *bool) int
+		IssueCreate         func(childComplexity int, input IssueCreateInput) int
+		IssueDelete         func(childComplexity int, id string, permanentlyDelete *bool) int
+		IssueLabelCreate    func(childComplexity int, input IssueLabelCreateInput, replaceTeamLabels *bool) int
+		IssueLabelDelete    func(childComplexity int, id string) int
+		IssueLabelUpdate    func(childComplexity int, id string, input IssueLabelUpdateInput, replaceTeamLabels *bool) int
+		IssueUpdate         func(childComplexity int, id string, input IssueUpdateInput) int
+		ProjectCreate       func(childComplexity int, input ProjectCreateInput, aiConversationID *string, projectDraftID *string, slackChannelName *string) int
+		ProjectDelete       func(childComplexity int, id string) int
+		ProjectUpdate       func(childComplexity int, id string, input ProjectUpdateInput) int
+		WebhookCreate       func(childComplexity int, input WebhookCreateInput) int
+		WebhookDelete       func(childComplexity int, id string) int
+		WebhookRotateSecret func(childComplexity int, id string) int
+		WebhookUpdate       func(childComplexity int, id string, input WebhookUpdateInput) int
 	}
 
 	Organization struct {
@@ -692,6 +697,8 @@ type ComplexityRoot struct {
 		User                 func(childComplexity int, id string) int
 		Users                func(childComplexity int, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) int
 		Viewer               func(childComplexity int) int
+		Webhook              func(childComplexity int, id string) int
+		Webhooks             func(childComplexity int, after *string, before *string, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
 		WorkflowState        func(childComplexity int, id string) int
 		WorkflowStates       func(childComplexity int, after *string, before *string, filter *WorkflowStateFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
 	}
@@ -800,6 +807,7 @@ type ComplexityRoot struct {
 		ViewerCanLeave                 func(childComplexity int) int
 		ViewerMembership               func(childComplexity int) int
 		Visibility                     func(childComplexity int) int
+		Webhooks                       func(childComplexity int, after *string, before *string, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
 	}
 
 	TeamConnection struct {
@@ -871,6 +879,44 @@ type ComplexityRoot struct {
 	UserEdge struct {
 		Cursor func(childComplexity int) int
 		Node   func(childComplexity int) int
+	}
+
+	Webhook struct {
+		AllPublicTeams func(childComplexity int) int
+		ArchivedAt     func(childComplexity int) int
+		CreatedAt      func(childComplexity int) int
+		Creator        func(childComplexity int) int
+		Enabled        func(childComplexity int) int
+		ID             func(childComplexity int) int
+		Label          func(childComplexity int) int
+		ResourceTypes  func(childComplexity int) int
+		Secret         func(childComplexity int) int
+		Team           func(childComplexity int) int
+		URL            func(childComplexity int) int
+		UpdatedAt      func(childComplexity int) int
+	}
+
+	WebhookConnection struct {
+		Edges    func(childComplexity int) int
+		Nodes    func(childComplexity int) int
+		PageInfo func(childComplexity int) int
+	}
+
+	WebhookEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
+	}
+
+	WebhookPayload struct {
+		LastSyncID func(childComplexity int) int
+		Success    func(childComplexity int) int
+		Webhook    func(childComplexity int) int
+	}
+
+	WebhookRotateSecretPayload struct {
+		LastSyncID func(childComplexity int) int
+		Secret     func(childComplexity int) int
+		Success    func(childComplexity int) int
 	}
 
 	WelcomeMessage struct {
@@ -974,6 +1020,10 @@ type MutationResolver interface {
 	ProjectCreate(ctx context.Context, input ProjectCreateInput, aiConversationID *string, projectDraftID *string, slackChannelName *string) (*ProjectPayload, error)
 	ProjectUpdate(ctx context.Context, id string, input ProjectUpdateInput) (*ProjectPayload, error)
 	ProjectDelete(ctx context.Context, id string) (*ProjectArchivePayload, error)
+	WebhookCreate(ctx context.Context, input WebhookCreateInput) (*WebhookPayload, error)
+	WebhookUpdate(ctx context.Context, id string, input WebhookUpdateInput) (*WebhookPayload, error)
+	WebhookDelete(ctx context.Context, id string) (*DeletePayload, error)
+	WebhookRotateSecret(ctx context.Context, id string) (*WebhookRotateSecretPayload, error)
 }
 type OrganizationResolver interface {
 	Teams(ctx context.Context, obj *Organization, after *string, before *string, filter *TeamFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*TeamConnection, error)
@@ -1014,6 +1064,8 @@ type QueryResolver interface {
 	Projects(ctx context.Context, after *string, before *string, filter *ProjectFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy, sort []ProjectSortInput) (*ProjectConnection, error)
 	Project(ctx context.Context, id string) (*Project, error)
 	ProjectStatus(ctx context.Context, id string) (*ProjectStatus, error)
+	Webhooks(ctx context.Context, after *string, before *string, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*WebhookConnection, error)
+	Webhook(ctx context.Context, id string) (*Webhook, error)
 }
 type TeamResolver interface {
 	DefaultIssueState(ctx context.Context, obj *Team) (*WorkflowState, error)
@@ -1024,11 +1076,17 @@ type TeamResolver interface {
 	Issues(ctx context.Context, obj *Team, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, includeSubTeams *bool, last *int, orderBy *PaginationOrderBy) (*IssueConnection, error)
 	Labels(ctx context.Context, obj *Team, after *string, before *string, filter *IssueLabelFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*IssueLabelConnection, error)
 	Members(ctx context.Context, obj *Team, after *string, before *string, filter *UserFilter, first *int, includeArchived *bool, includeDisabled *bool, last *int, orderBy *PaginationOrderBy, sort []UserSortInput) (*UserConnection, error)
+	Webhooks(ctx context.Context, obj *Team, after *string, before *string, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*WebhookConnection, error)
 }
 type UserResolver interface {
 	CreatedIssueCount(ctx context.Context, obj *User) (int, error)
 
 	AssignedIssues(ctx context.Context, obj *User, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*IssueConnection, error)
+}
+type WebhookResolver interface {
+	Team(ctx context.Context, obj *Webhook) (*Team, error)
+
+	Creator(ctx context.Context, obj *Webhook) (*User, error)
 }
 type WorkflowStateResolver interface {
 	Team(ctx context.Context, obj *WorkflowState) (*Team, error)
@@ -3061,6 +3119,50 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.ProjectUpdate(childComplexity, args["id"].(string), args["input"].(ProjectUpdateInput)), true
+	case "Mutation.webhookCreate":
+		if e.ComplexityRoot.Mutation.WebhookCreate == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_webhookCreate_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.WebhookCreate(childComplexity, args["input"].(WebhookCreateInput)), true
+	case "Mutation.webhookDelete":
+		if e.ComplexityRoot.Mutation.WebhookDelete == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_webhookDelete_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.WebhookDelete(childComplexity, args["id"].(string)), true
+	case "Mutation.webhookRotateSecret":
+		if e.ComplexityRoot.Mutation.WebhookRotateSecret == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_webhookRotateSecret_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.WebhookRotateSecret(childComplexity, args["id"].(string)), true
+	case "Mutation.webhookUpdate":
+		if e.ComplexityRoot.Mutation.WebhookUpdate == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_webhookUpdate_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.WebhookUpdate(childComplexity, args["id"].(string), args["input"].(WebhookUpdateInput)), true
 
 	case "Organization.aiDiscussionSummariesEnabled":
 		if e.ComplexityRoot.Organization.AiDiscussionSummariesEnabled == nil {
@@ -4225,6 +4327,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Viewer(childComplexity), true
+	case "Query.webhook":
+		if e.ComplexityRoot.Query.Webhook == nil {
+			break
+		}
+
+		args, err := ec.field_Query_webhook_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Webhook(childComplexity, args["id"].(string)), true
+	case "Query.webhooks":
+		if e.ComplexityRoot.Query.Webhooks == nil {
+			break
+		}
+
+		args, err := ec.field_Query_webhooks_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.Webhooks(childComplexity, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["includeArchived"].(*bool), args["last"].(*int), args["orderBy"].(*PaginationOrderBy)), true
 	case "Query.workflowState":
 		if e.ComplexityRoot.Query.WorkflowState == nil {
 			break
@@ -4852,6 +4976,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Team.Visibility(childComplexity), true
+	case "Team.webhooks":
+		if e.ComplexityRoot.Team.Webhooks == nil {
+			break
+		}
+
+		args, err := ec.field_Team_webhooks_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Team.Webhooks(childComplexity, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["includeArchived"].(*bool), args["last"].(*int), args["orderBy"].(*PaginationOrderBy)), true
 
 	case "TeamConnection.edges":
 		if e.ComplexityRoot.TeamConnection.Edges == nil {
@@ -5148,6 +5283,149 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.UserEdge.Node(childComplexity), true
 
+	case "Webhook.allPublicTeams":
+		if e.ComplexityRoot.Webhook.AllPublicTeams == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.AllPublicTeams(childComplexity), true
+	case "Webhook.archivedAt":
+		if e.ComplexityRoot.Webhook.ArchivedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.ArchivedAt(childComplexity), true
+	case "Webhook.createdAt":
+		if e.ComplexityRoot.Webhook.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.CreatedAt(childComplexity), true
+	case "Webhook.creator":
+		if e.ComplexityRoot.Webhook.Creator == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.Creator(childComplexity), true
+	case "Webhook.enabled":
+		if e.ComplexityRoot.Webhook.Enabled == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.Enabled(childComplexity), true
+	case "Webhook.id":
+		if e.ComplexityRoot.Webhook.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.ID(childComplexity), true
+	case "Webhook.label":
+		if e.ComplexityRoot.Webhook.Label == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.Label(childComplexity), true
+	case "Webhook.resourceTypes":
+		if e.ComplexityRoot.Webhook.ResourceTypes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.ResourceTypes(childComplexity), true
+	case "Webhook.secret":
+		if e.ComplexityRoot.Webhook.Secret == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.Secret(childComplexity), true
+	case "Webhook.team":
+		if e.ComplexityRoot.Webhook.Team == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.Team(childComplexity), true
+	case "Webhook.url":
+		if e.ComplexityRoot.Webhook.URL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.URL(childComplexity), true
+	case "Webhook.updatedAt":
+		if e.ComplexityRoot.Webhook.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.UpdatedAt(childComplexity), true
+
+	case "WebhookConnection.edges":
+		if e.ComplexityRoot.WebhookConnection.Edges == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookConnection.Edges(childComplexity), true
+	case "WebhookConnection.nodes":
+		if e.ComplexityRoot.WebhookConnection.Nodes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookConnection.Nodes(childComplexity), true
+	case "WebhookConnection.pageInfo":
+		if e.ComplexityRoot.WebhookConnection.PageInfo == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookConnection.PageInfo(childComplexity), true
+
+	case "WebhookEdge.cursor":
+		if e.ComplexityRoot.WebhookEdge.Cursor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookEdge.Cursor(childComplexity), true
+	case "WebhookEdge.node":
+		if e.ComplexityRoot.WebhookEdge.Node == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookEdge.Node(childComplexity), true
+
+	case "WebhookPayload.lastSyncId":
+		if e.ComplexityRoot.WebhookPayload.LastSyncID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookPayload.LastSyncID(childComplexity), true
+	case "WebhookPayload.success":
+		if e.ComplexityRoot.WebhookPayload.Success == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookPayload.Success(childComplexity), true
+	case "WebhookPayload.webhook":
+		if e.ComplexityRoot.WebhookPayload.Webhook == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookPayload.Webhook(childComplexity), true
+
+	case "WebhookRotateSecretPayload.lastSyncId":
+		if e.ComplexityRoot.WebhookRotateSecretPayload.LastSyncID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookRotateSecretPayload.LastSyncID(childComplexity), true
+	case "WebhookRotateSecretPayload.secret":
+		if e.ComplexityRoot.WebhookRotateSecretPayload.Secret == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookRotateSecretPayload.Secret(childComplexity), true
+	case "WebhookRotateSecretPayload.success":
+		if e.ComplexityRoot.WebhookRotateSecretPayload.Success == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookRotateSecretPayload.Success(childComplexity), true
+
 	case "WelcomeMessage.archivedAt":
 		if e.ComplexityRoot.WelcomeMessage.ArchivedAt == nil {
 			break
@@ -5343,6 +5621,8 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			graphql.NewInputUnmarshaler("UserFilter", ec.unmarshalInputUserFilter),
 			graphql.NewInputUnmarshaler("UserNameSort", ec.unmarshalInputUserNameSort),
 			graphql.NewInputUnmarshaler("UserSortInput", ec.unmarshalInputUserSortInput),
+			graphql.NewInputUnmarshaler("WebhookCreateInput", ec.unmarshalInputWebhookCreateInput),
+			graphql.NewInputUnmarshaler("WebhookUpdateInput", ec.unmarshalInputWebhookUpdateInput),
 			graphql.NewInputUnmarshaler("WorkflowStateFilter", ec.unmarshalInputWorkflowStateFilter),
 		)
 	}
@@ -6602,6 +6882,10 @@ type Query {
   project(id: String!): Project!
   "One of the four project statuses by id."
   projectStatus(id: String!): ProjectStatus!
+  "Webhooks, newest first. Owners and admins only."
+  webhooks(after: String, before: String, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): WebhookConnection!
+  "A webhook by id. Owners and admins only."
+  webhook(id: String!): Webhook!
 }
 
 type Mutation {
@@ -6629,6 +6913,14 @@ type Mutation {
   projectUpdate(id: String!, input: ProjectUpdateInput!): ProjectPayload!
   "Deletes a project; its issues stay without one."
   projectDelete(id: String!): ProjectArchivePayload!
+  "Creates a webhook for one team or for all teams. Owners and admins only."
+  webhookCreate(input: WebhookCreateInput!): WebhookPayload!
+  "Updates a webhook. Owners and admins only."
+  webhookUpdate(id: String!, input: WebhookUpdateInput!): WebhookPayload!
+  "Deletes a webhook. Owners and admins only."
+  webhookDelete(id: String!): DeletePayload!
+  "Replaces the secret of a webhook with a new one. Owners and admins only."
+  webhookRotateSecret(id: String!): WebhookRotateSecretPayload!
 }
 `, BuiltIn: false},
 	{Name: "../../../api/graphql/linear/teams.graphqls", Input: `"A team is a Yalkos project."
@@ -6716,6 +7008,8 @@ type Team {
   labels(after: String, before: String, filter: IssueLabelFilter, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): IssueLabelConnection!
   "Members of the team."
   members(after: String, before: String, filter: UserFilter, first: Int, includeArchived: Boolean, includeDisabled: Boolean, last: Int, orderBy: PaginationOrderBy, sort: [UserSortInput!]): UserConnection!
+  "Webhooks limited to this team. Owners and admins only."
+  webhooks(after: String, before: String, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): WebhookConnection!
 }
 
 type TeamConnection {
@@ -6949,6 +7243,73 @@ input UserNameSort {
 input UserDisplayNameSort {
   nulls: PaginationNulls
   order: PaginationSortOrder
+}
+`, BuiltIn: false},
+	{Name: "../../../api/graphql/linear/webhooks.graphqls", Input: `"A webhook: where the workspace's changes are sent."
+type Webhook {
+  id: ID!
+  "A name for the webhook."
+  label: String
+  "The key that signs deliveries. Only workspace owners and admins can read it."
+  secret: String
+  url: String
+  updatedAt: DateTime!
+  "Issue, Comment, IssueLabel or Project."
+  resourceTypes: [String!]!
+  "The team the webhook is limited to; null for all teams."
+  team: Team
+  archivedAt: DateTime
+  createdAt: DateTime!
+  creator: User
+  enabled: Boolean!
+  "True when the webhook covers all teams."
+  allPublicTeams: Boolean!
+}
+
+type WebhookConnection {
+  nodes: [Webhook!]!
+  edges: [WebhookEdge!]!
+  pageInfo: PageInfo!
+}
+
+type WebhookEdge {
+  node: Webhook!
+  cursor: String!
+}
+
+input WebhookCreateInput {
+  url: String!
+  "Issue, Comment, IssueLabel or Project."
+  resourceTypes: [String!]!
+  "A team id or key; give either teamId or allPublicTeams: true."
+  teamId: String
+  allPublicTeams: Boolean
+  label: String
+  "Used as given; generated when left out (1 to 255 characters)."
+  secret: String
+  enabled: Boolean = true
+}
+
+input WebhookUpdateInput {
+  url: String
+  resourceTypes: [String!]
+  "Null clears the name."
+  label: String
+  secret: String
+  enabled: Boolean
+}
+
+type WebhookPayload {
+  lastSyncId: Float!
+  webhook: Webhook!
+  success: Boolean!
+}
+
+type WebhookRotateSecretPayload {
+  lastSyncId: Float!
+  "The new secret."
+  secret: String!
+  success: Boolean!
 }
 `, BuiltIn: false},
 }
@@ -8354,6 +8715,8 @@ func (ec *executionContext) childFields_Team(ctx context.Context, field graphql.
 		return ec.fieldContext_Team_labels(ctx, field)
 	case "members":
 		return ec.fieldContext_Team_members(ctx, field)
+	case "webhooks":
+		return ec.fieldContext_Team_webhooks(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Team", field.Name)
 }
@@ -8498,6 +8861,82 @@ func (ec *executionContext) childFields_UserEdge(ctx context.Context, field grap
 		return ec.fieldContext_UserEdge_cursor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type UserEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_Webhook(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Webhook_id(ctx, field)
+	case "label":
+		return ec.fieldContext_Webhook_label(ctx, field)
+	case "secret":
+		return ec.fieldContext_Webhook_secret(ctx, field)
+	case "url":
+		return ec.fieldContext_Webhook_url(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_Webhook_updatedAt(ctx, field)
+	case "resourceTypes":
+		return ec.fieldContext_Webhook_resourceTypes(ctx, field)
+	case "team":
+		return ec.fieldContext_Webhook_team(ctx, field)
+	case "archivedAt":
+		return ec.fieldContext_Webhook_archivedAt(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_Webhook_createdAt(ctx, field)
+	case "creator":
+		return ec.fieldContext_Webhook_creator(ctx, field)
+	case "enabled":
+		return ec.fieldContext_Webhook_enabled(ctx, field)
+	case "allPublicTeams":
+		return ec.fieldContext_Webhook_allPublicTeams(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Webhook", field.Name)
+}
+
+func (ec *executionContext) childFields_WebhookConnection(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "nodes":
+		return ec.fieldContext_WebhookConnection_nodes(ctx, field)
+	case "edges":
+		return ec.fieldContext_WebhookConnection_edges(ctx, field)
+	case "pageInfo":
+		return ec.fieldContext_WebhookConnection_pageInfo(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type WebhookConnection", field.Name)
+}
+
+func (ec *executionContext) childFields_WebhookEdge(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "node":
+		return ec.fieldContext_WebhookEdge_node(ctx, field)
+	case "cursor":
+		return ec.fieldContext_WebhookEdge_cursor(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type WebhookEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_WebhookPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "lastSyncId":
+		return ec.fieldContext_WebhookPayload_lastSyncId(ctx, field)
+	case "webhook":
+		return ec.fieldContext_WebhookPayload_webhook(ctx, field)
+	case "success":
+		return ec.fieldContext_WebhookPayload_success(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type WebhookPayload", field.Name)
+}
+
+func (ec *executionContext) childFields_WebhookRotateSecretPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "lastSyncId":
+		return ec.fieldContext_WebhookRotateSecretPayload_lastSyncId(ctx, field)
+	case "secret":
+		return ec.fieldContext_WebhookRotateSecretPayload_secret(ctx, field)
+	case "success":
+		return ec.fieldContext_WebhookRotateSecretPayload_success(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type WebhookRotateSecretPayload", field.Name)
 }
 
 func (ec *executionContext) childFields_WelcomeMessage(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -9236,6 +9675,70 @@ func (ec *executionContext) field_Mutation_projectUpdate_args(ctx context.Contex
 	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (ProjectUpdateInput, error) {
 			return ec.unmarshalNProjectUpdateInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐProjectUpdateInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_webhookCreate_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (WebhookCreateInput, error) {
+			return ec.unmarshalNWebhookCreateInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookCreateInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_webhookDelete_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_webhookRotateSecret_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_webhookUpdate_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (WebhookUpdateInput, error) {
+			return ec.unmarshalNWebhookUpdateInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookUpdateInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -10124,6 +10627,74 @@ func (ec *executionContext) field_Query_users_args(ctx context.Context, rawArgs 
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_webhook_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_webhooks_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "includeArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeArchived"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*PaginationOrderBy, error) {
+			return ec.unmarshalOPaginationOrderBy2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaginationOrderBy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg5
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_workflowState_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -10469,6 +11040,60 @@ func (ec *executionContext) field_Team_states_args(ctx context.Context, rawArgs 
 		return nil, err
 	}
 	args["orderBy"] = arg6
+	return args, nil
+}
+
+func (ec *executionContext) field_Team_webhooks_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["after"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["before"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "first",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["first"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "includeArchived",
+		func(ctx context.Context, v any) (*bool, error) {
+			return ec.unmarshalOBoolean2ᚖbool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["includeArchived"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "last",
+		func(ctx context.Context, v any) (*int, error) {
+			return ec.unmarshalOInt2ᚖint(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["last"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "orderBy",
+		func(ctx context.Context, v any) (*PaginationOrderBy, error) {
+			return ec.unmarshalOPaginationOrderBy2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPaginationOrderBy(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["orderBy"] = arg5
 	return args, nil
 }
 
@@ -19132,6 +19757,182 @@ func (ec *executionContext) fieldContext_Mutation_projectDelete(ctx context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_webhookCreate(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_webhookCreate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().WebhookCreate(ctx, fc.Args["input"].(WebhookCreateInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WebhookPayload) graphql.Marshaler {
+			return ec.marshalNWebhookPayload2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookPayload(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_webhookCreate(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WebhookPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_webhookCreate_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_webhookUpdate(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_webhookUpdate(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().WebhookUpdate(ctx, fc.Args["id"].(string), fc.Args["input"].(WebhookUpdateInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WebhookPayload) graphql.Marshaler {
+			return ec.marshalNWebhookPayload2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookPayload(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_webhookUpdate(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WebhookPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_webhookUpdate_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_webhookDelete(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_webhookDelete(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().WebhookDelete(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *DeletePayload) graphql.Marshaler {
+			return ec.marshalNDeletePayload2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐDeletePayload(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_webhookDelete(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_DeletePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_webhookDelete_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_webhookRotateSecret(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_webhookRotateSecret(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().WebhookRotateSecret(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WebhookRotateSecretPayload) graphql.Marshaler {
+			return ec.marshalNWebhookRotateSecretPayload2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookRotateSecretPayload(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_webhookRotateSecret(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WebhookRotateSecretPayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_webhookRotateSecret_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Organization_allowedAuthServices(ctx context.Context, field graphql.CollectedField, obj *Organization) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -23865,6 +24666,94 @@ func (ec *executionContext) fieldContext_Query_projectStatus(ctx context.Context
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_webhooks(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_webhooks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Webhooks(ctx, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["first"].(*int), fc.Args["includeArchived"].(*bool), fc.Args["last"].(*int), fc.Args["orderBy"].(*PaginationOrderBy))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WebhookConnection) graphql.Marshaler {
+			return ec.marshalNWebhookConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_webhooks(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WebhookConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_webhooks_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_webhook(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_webhook(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().Webhook(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Webhook) graphql.Marshaler {
+			return ec.marshalNWebhook2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhook(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_webhook(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Webhook(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_webhook_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -26454,6 +27343,50 @@ func (ec *executionContext) fieldContext_Team_members(ctx context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Team_webhooks(ctx context.Context, field graphql.CollectedField, obj *Team) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Team_webhooks(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Team().Webhooks(ctx, obj, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["first"].(*int), fc.Args["includeArchived"].(*bool), fc.Args["last"].(*int), fc.Args["orderBy"].(*PaginationOrderBy))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *WebhookConnection) graphql.Marshaler {
+			return ec.marshalNWebhookConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookConnection(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Team_webhooks(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Team",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WebhookConnection(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Team_webhooks_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _TeamConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *TeamConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -27626,6 +28559,598 @@ func (ec *executionContext) _UserEdge_cursor(ctx context.Context, field graphql.
 }
 func (ec *executionContext) fieldContext_UserEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("UserEdge", field, false, false, "String")
+}
+
+func (ec *executionContext) _Webhook_id(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "ID")
+}
+
+func (ec *executionContext) _Webhook_label(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_label(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Label, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_label(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "String")
+}
+
+func (ec *executionContext) _Webhook_secret(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_secret(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Secret, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_secret(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "String")
+}
+
+func (ec *executionContext) _Webhook_url(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_url(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.URL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "String")
+}
+
+func (ec *executionContext) _Webhook_updatedAt(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Webhook_resourceTypes(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_resourceTypes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ResourceTypes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_resourceTypes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "String")
+}
+
+func (ec *executionContext) _Webhook_team(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_team(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Webhook().Team(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Team) graphql.Marshaler {
+			return ec.marshalOTeam2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐTeam(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_team(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Webhook",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Team(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Webhook_archivedAt(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_archivedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ArchivedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_archivedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Webhook_createdAt(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _Webhook_creator(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_creator(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Webhook().Creator(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_creator(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Webhook",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Webhook_enabled(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_enabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Enabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_enabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _Webhook_allPublicTeams(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_allPublicTeams(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AllPublicTeams, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_allPublicTeams(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Webhook", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _WebhookConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *WebhookConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookConnection_nodes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []Webhook) graphql.Marshaler {
+			return ec.marshalNWebhook2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WebhookConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Webhook(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WebhookConnection_edges(ctx context.Context, field graphql.CollectedField, obj *WebhookConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookConnection_edges(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Edges, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []WebhookEdge) graphql.Marshaler {
+			return ec.marshalNWebhookEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookEdgeᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WebhookConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WebhookEdge(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WebhookConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *WebhookConnection) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookConnection_pageInfo(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PageInfo, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *PageInfo) graphql.Marshaler {
+			return ec.marshalNPageInfo2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐPageInfo(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WebhookConnection",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PageInfo(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WebhookEdge_node(ctx context.Context, field graphql.CollectedField, obj *WebhookEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookEdge_node(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Node, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Webhook) graphql.Marshaler {
+			return ec.marshalNWebhook2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhook(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WebhookEdge",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Webhook(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WebhookEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *WebhookEdge) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookEdge_cursor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Cursor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookEdge", field, false, false, "String")
+}
+
+func (ec *executionContext) _WebhookPayload_lastSyncId(ctx context.Context, field graphql.CollectedField, obj *WebhookPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookPayload_lastSyncId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LastSyncID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookPayload_lastSyncId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookPayload", field, false, false, "Float")
+}
+
+func (ec *executionContext) _WebhookPayload_webhook(ctx context.Context, field graphql.CollectedField, obj *WebhookPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookPayload_webhook(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Webhook, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Webhook) graphql.Marshaler {
+			return ec.marshalNWebhook2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhook(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookPayload_webhook(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WebhookPayload",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Webhook(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WebhookPayload_success(ctx context.Context, field graphql.CollectedField, obj *WebhookPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookPayload_success(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Success, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookPayload_success(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookPayload", field, false, false, "Boolean")
+}
+
+func (ec *executionContext) _WebhookRotateSecretPayload_lastSyncId(ctx context.Context, field graphql.CollectedField, obj *WebhookRotateSecretPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookRotateSecretPayload_lastSyncId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LastSyncID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookRotateSecretPayload_lastSyncId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookRotateSecretPayload", field, false, false, "Float")
+}
+
+func (ec *executionContext) _WebhookRotateSecretPayload_secret(ctx context.Context, field graphql.CollectedField, obj *WebhookRotateSecretPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookRotateSecretPayload_secret(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Secret, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookRotateSecretPayload_secret(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookRotateSecretPayload", field, false, false, "String")
+}
+
+func (ec *executionContext) _WebhookRotateSecretPayload_success(ctx context.Context, field graphql.CollectedField, obj *WebhookRotateSecretPayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookRotateSecretPayload_success(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Success, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookRotateSecretPayload_success(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookRotateSecretPayload", field, false, false, "Boolean")
 }
 
 func (ec *executionContext) _WelcomeMessage_updatedAt(ctx context.Context, field graphql.CollectedField, obj *WelcomeMessage) (ret graphql.Marshaler) {
@@ -32555,6 +34080,164 @@ func UnmarshalUserSortInput(ctx context.Context, raw any) (UserSortInput, error)
 	return out, err
 }
 
+func (ec *executionContext) unmarshalInputWebhookCreateInput(ctx context.Context, obj any) (WebhookCreateInput, error) {
+	var it WebhookCreateInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	if _, present := asMap["enabled"]; !present {
+		asMap["enabled"] = true
+	}
+
+	fieldsInOrder := [...]string{"url", "resourceTypes", "teamId", "allPublicTeams", "label", "secret", "enabled"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "url":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("url"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.URL = data
+		case "resourceTypes":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("resourceTypes"))
+			data, err := ec.unmarshalNString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ResourceTypes = data
+		case "teamId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("teamId"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.TeamID = data
+		case "allPublicTeams":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("allPublicTeams"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.AllPublicTeams = data
+		case "label":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("label"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Label = data
+		case "secret":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("secret"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Secret = data
+		case "enabled":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("enabled"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Enabled = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalWebhookCreateInput unmarshals raw into the WebhookCreateInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalWebhookCreateInput(ctx context.Context, raw any) (WebhookCreateInput, error) {
+	var out WebhookCreateInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "WebhookCreateInput", raw, &out)
+	return out, err
+}
+
+func (ec *executionContext) unmarshalInputWebhookUpdateInput(ctx context.Context, obj any) (WebhookUpdateInput, error) {
+	var it WebhookUpdateInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"url", "resourceTypes", "label", "secret", "enabled"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "url":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("url"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.URL = data
+		case "resourceTypes":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("resourceTypes"))
+			data, err := ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ResourceTypes = data
+		case "label":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("label"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Label = graphql.OmittableOf(data)
+		case "secret":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("secret"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Secret = data
+		case "enabled":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("enabled"))
+			data, err := ec.unmarshalOBoolean2ᚖbool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Enabled = data
+		}
+	}
+	return it, nil
+}
+
+// UnmarshalWebhookUpdateInput unmarshals raw into the WebhookUpdateInput input type, using the
+// unmarshaler bound to ctx's request. Call it from a resolver to decode an input
+// object that was not passed as a field argument.
+//
+// ctx must come from a gqlgen request; outside one there is no unmarshaler to use
+// and the returned error says so.
+func UnmarshalWebhookUpdateInput(ctx context.Context, raw any) (WebhookUpdateInput, error) {
+	var out WebhookUpdateInput
+	err := graphql.UnmarshalNamedInputFromContext(ctx, "WebhookUpdateInput", raw, &out)
+	return out, err
+}
+
 func (ec *executionContext) unmarshalInputWorkflowStateFilter(ctx context.Context, obj any) (WorkflowStateFilter, error) {
 	var it WorkflowStateFilter
 	if obj == nil {
@@ -35432,6 +37115,34 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "webhookCreate":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_webhookCreate(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "webhookUpdate":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_webhookUpdate(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "webhookDelete":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_webhookDelete(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "webhookRotateSecret":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_webhookRotateSecret(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -36696,6 +38407,18 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_projectStatus(ctx, field)
 				})
+		case "webhooks":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_webhooks(ctx, field)
+				})
+		case "webhook":
+			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Query_webhook(ctx, field)
+				})
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -37285,6 +39008,12 @@ func (ec *executionContext) _Team(ctx context.Context, sel ast.SelectionSet, obj
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Team_members(ctx, field, obj)
 				})
+		case "webhooks":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Team_webhooks(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -37743,6 +39472,263 @@ func (ec *executionContext) _UserEdge(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "cursor":
 			out.Values[i] = ec._UserEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var webhookImplementors = []string{"Webhook"}
+
+func (ec *executionContext) _Webhook(ctx context.Context, sel ast.SelectionSet, obj *Webhook) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, webhookImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Webhook")
+		case "id":
+			out.Values[i] = ec._Webhook_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "label":
+			out.Values[i] = ec._Webhook_label(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "secret":
+			out.Values[i] = ec._Webhook_secret(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "url":
+			out.Values[i] = ec._Webhook_url(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Webhook_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "resourceTypes":
+			out.Values[i] = ec._Webhook_resourceTypes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "team":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Webhook_team(ctx, field, obj)
+				})
+		case "archivedAt":
+			out.Values[i] = ec._Webhook_archivedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "createdAt":
+			out.Values[i] = ec._Webhook_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "creator":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Webhook_creator(ctx, field, obj)
+				})
+		case "enabled":
+			out.Values[i] = ec._Webhook_enabled(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "allPublicTeams":
+			out.Values[i] = ec._Webhook_allPublicTeams(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var webhookConnectionImplementors = []string{"WebhookConnection"}
+
+func (ec *executionContext) _WebhookConnection(ctx context.Context, sel ast.SelectionSet, obj *WebhookConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, webhookConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WebhookConnection")
+		case "nodes":
+			out.Values[i] = ec._WebhookConnection_nodes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "edges":
+			out.Values[i] = ec._WebhookConnection_edges(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pageInfo":
+			out.Values[i] = ec._WebhookConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var webhookEdgeImplementors = []string{"WebhookEdge"}
+
+func (ec *executionContext) _WebhookEdge(ctx context.Context, sel ast.SelectionSet, obj *WebhookEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, webhookEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WebhookEdge")
+		case "node":
+			out.Values[i] = ec._WebhookEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._WebhookEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var webhookPayloadImplementors = []string{"WebhookPayload"}
+
+func (ec *executionContext) _WebhookPayload(ctx context.Context, sel ast.SelectionSet, obj *WebhookPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, webhookPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WebhookPayload")
+		case "lastSyncId":
+			out.Values[i] = ec._WebhookPayload_lastSyncId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "webhook":
+			out.Values[i] = ec._WebhookPayload_webhook(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "success":
+			out.Values[i] = ec._WebhookPayload_success(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var webhookRotateSecretPayloadImplementors = []string{"WebhookRotateSecretPayload"}
+
+func (ec *executionContext) _WebhookRotateSecretPayload(ctx context.Context, sel ast.SelectionSet, obj *WebhookRotateSecretPayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, webhookRotateSecretPayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WebhookRotateSecretPayload")
+		case "lastSyncId":
+			out.Values[i] = ec._WebhookRotateSecretPayload_lastSyncId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "secret":
+			out.Values[i] = ec._WebhookRotateSecretPayload_secret(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "success":
+			out.Values[i] = ec._WebhookRotateSecretPayload_success(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -39351,6 +41337,88 @@ func (ec *executionContext) unmarshalNUserFilter2githubᚗcomᚋaskuksovᚋyalko
 
 func (ec *executionContext) unmarshalNUserSortInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUserSortInput(ctx context.Context, v any) (UserSortInput, error) {
 	res, err := ec.unmarshalInputUserSortInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNWebhook2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhook(ctx context.Context, sel ast.SelectionSet, v Webhook) graphql.Marshaler {
+	return ec._Webhook(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNWebhook2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookᚄ(ctx context.Context, sel ast.SelectionSet, v []Webhook) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNWebhook2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhook(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNWebhook2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhook(ctx context.Context, sel ast.SelectionSet, v *Webhook) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "Webhook!")
+		return graphql.Null
+	}
+	return ec._Webhook(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNWebhookConnection2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookConnection(ctx context.Context, sel ast.SelectionSet, v *WebhookConnection) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "WebhookConnection!")
+		return graphql.Null
+	}
+	return ec._WebhookConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNWebhookCreateInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookCreateInput(ctx context.Context, v any) (WebhookCreateInput, error) {
+	res, err := ec.unmarshalInputWebhookCreateInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNWebhookEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookEdge(ctx context.Context, sel ast.SelectionSet, v WebhookEdge) graphql.Marshaler {
+	return ec._WebhookEdge(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNWebhookEdge2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookEdgeᚄ(ctx context.Context, sel ast.SelectionSet, v []WebhookEdge) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNWebhookEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNWebhookPayload2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookPayload(ctx context.Context, sel ast.SelectionSet, v *WebhookPayload) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "WebhookPayload!")
+		return graphql.Null
+	}
+	return ec._WebhookPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNWebhookRotateSecretPayload2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookRotateSecretPayload(ctx context.Context, sel ast.SelectionSet, v *WebhookRotateSecretPayload) graphql.Marshaler {
+	if v == nil {
+		graphql.AddInvalidNullError(ctx, "WebhookRotateSecretPayload!")
+		return graphql.Null
+	}
+	return ec._WebhookRotateSecretPayload(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNWebhookUpdateInput2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookUpdateInput(ctx context.Context, v any) (WebhookUpdateInput, error) {
+	res, err := ec.unmarshalInputWebhookUpdateInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 

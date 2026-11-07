@@ -24,6 +24,9 @@ func TestCostFormula(t *testing.T) {
 		{`{ users(first: 0) { nodes { id } } }`, nil, 2.1},
 		{`{ a: viewer { ...F } b: viewer { id } } fragment F on User { id name }`, nil, 2.3},
 		{`{ viewer { ... on User { id } } }`, nil, 1.1},
+		{`query($first: Int) { webhooks(first: $first) { nodes { id } } }`, map[string]any{"first": 10}, 21},
+		{`{ team(id: "YLK") { webhooks { nodes { id } } } }`, nil, 1 + 105},
+		{`mutation($input: WebhookCreateInput!) { webhookCreate(input: $input) { success webhook { id } } }`, nil, 2.2},
 	}
 	for _, c := range cases {
 		got, err := linear.CostOf(c.q, c.vars)

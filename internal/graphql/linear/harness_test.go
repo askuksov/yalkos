@@ -27,6 +27,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/domain/webhook"
 	"github.com/askuksov/yalkos/internal/graphql/linear"
 	"github.com/askuksov/yalkos/internal/store"
 	"github.com/askuksov/yalkos/internal/testdb"
@@ -86,7 +87,9 @@ func newEnvOn(t *testing.T, pool *pgxpool.Pool) *env {
 		Accounts: accounts, Projects: projects, Issues: issues,
 		Milestones: milestone.New(pool, projects, clock), Labels: label.New(pool, clock),
 		Comments: comment.New(pool, issues, attachments, clock), Attachments: attachments,
-		BaseURL: baseURL, Logger: quiet, Now: clock,
+		// Test receivers listen on loopback, so private networks are allowed.
+		Webhooks: webhook.New(pool, webhook.Options{Now: clock, AllowPrivate: true}),
+		BaseURL:  baseURL, Logger: quiet, Now: clock,
 	}
 	srv := httptest.NewServer(authn.Middleware(accounts, baseURL, quiet)(linear.NewHandler(d)))
 	t.Cleanup(srv.Close)
