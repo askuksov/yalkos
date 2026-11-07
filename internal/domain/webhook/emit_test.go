@@ -6,6 +6,7 @@ import (
 	"errors"
 	"reflect"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -402,6 +403,47 @@ func TestEmitBuilderErrorFails(t *testing.T) {
 	e.builder.err = nil
 	if err := e.emit(t, event.Change{Resource: event.Issue, Action: event.Create}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestEmitNeedsBuilderAndQueue(t *testing.T) {
+	e := newEmitEnv(t)
+	e.create(t, webhook.CreateInput{Enabled: true})
+	client, err := river.NewClient(riverpgxv5.New(e.pool), &river.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	emitWith := func(o webhook.Options, c event.Change) error {
+		c.At, c.ActorID, c.EntityID = at, e.users.Admin.ID, uuid.New()
+		return pgx.BeginFunc(context.Background(), e.pool, func(tx pgx.Tx) error {
+			return webhook.New(e.pool, o).Emit(context.Background(), tx, c)
+		})
+	}
+	issueCreate := event.Change{Resource: event.Issue, Action: event.Create}
+	for name, o := range map[string]webhook.Options{
+		"no builder, no queue": e.opts,
+		"no builder":           {Now: e.opts.Now, Queue: client},
+		"no queue":             {Now: e.opts.Now, Builder: e.builder},
+	} {
+		err := emitWith(o, issueCreate)
+		if err == nil || !strings.Contains(err.Error(), "builder and queue are required") {
+			t.Errorf("%s: err = %v, want builder and queue are required", name, err)
+		}
+	}
+	if n := e.count(t, `SELECT count(*) FROM webhook_deliveries`); n != 0 {
+		t.Errorf("deliveries = %d, want 0", n)
+	}
+	// Positive controls: no match needs neither, and a full setup succeeds.
+	if err := emitWith(e.opts, event.Change{Resource: event.Comment, Action: event.Create}); err != nil {
+		t.Errorf("no match without builder/queue: %v", err)
+	}
+	full := e.opts
+	full.Builder, full.Queue = e.builder, client
+	if err := emitWith(full, issueCreate); err != nil {
+		t.Errorf("full setup: %v", err)
+	}
+	if n := e.count(t, `SELECT count(*) FROM webhook_deliveries`); n != 1 {
+		t.Errorf("deliveries after control = %d, want 1", n)
 	}
 }
 

@@ -109,3 +109,44 @@ func TestAPIRateLimitConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadWebhookAllowPrivate(t *testing.T) {
+	load := func(v string, set bool) (Config, error) {
+		m := map[string]string{"DATABASE_URL": "postgres://x"}
+		if set {
+			m["WEBHOOK_ALLOW_PRIVATE"] = v
+		}
+		return Load(env(m))
+	}
+	for _, tc := range []struct {
+		name string
+		val  string
+		set  bool
+		want bool
+	}{
+		{"unset", "", false, true},
+		{"true", "true", true, true},
+		{"false", "false", true, false},
+	} {
+		cfg, err := load(tc.val, tc.set)
+		if err != nil {
+			t.Fatalf("%s: Load: %v", tc.name, err)
+		}
+		if cfg.WebhookAllowPrivate != tc.want {
+			t.Errorf("%s: WebhookAllowPrivate = %v, want %v", tc.name, cfg.WebhookAllowPrivate, tc.want)
+		}
+	}
+	for _, bad := range []string{"yes", "1", "FALSE", ""} {
+		_, err := load(bad, bad != "")
+		if bad == "" {
+			// Positive control: an empty value is the same as unset.
+			if err != nil {
+				t.Errorf("empty value: %v, want no error", err)
+			}
+			continue
+		}
+		if err == nil || !strings.Contains(err.Error(), "WEBHOOK_ALLOW_PRIVATE must be true or false") {
+			t.Errorf("%q: err = %v, want WEBHOOK_ALLOW_PRIVATE must be true or false", bad, err)
+		}
+	}
+}

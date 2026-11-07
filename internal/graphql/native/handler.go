@@ -19,6 +19,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/domain/timeline"
+	"github.com/askuksov/yalkos/internal/domain/webhook"
 	"github.com/askuksov/yalkos/internal/graphql/gqlerr"
 )
 
@@ -33,6 +34,7 @@ type Deps struct {
 	Comments    *comment.Service
 	Attachments *attachment.Service
 	Timeline    *timeline.Service
+	Webhooks    *webhook.Service
 	Logger      *slog.Logger
 }
 
@@ -43,7 +45,7 @@ func NewHandler(d Deps) http.Handler {
 	srv := handler.New(NewExecutableSchema(Config{Resolvers: &Resolver{
 		Accounts: d.Accounts, Projects: d.Projects, Issues: d.Issues, Audit: d.Audit,
 		Milestones: d.Milestones, Labels: d.Labels, Comments: d.Comments, Attachments: d.Attachments,
-		Timeline: d.Timeline, Logger: logger,
+		Timeline: d.Timeline, Webhooks: d.Webhooks, Logger: logger,
 	}, Complexity: complexity()}))
 	srv.AddTransport(transport.POST{})
 	srv.Use(extension.Introspection{})

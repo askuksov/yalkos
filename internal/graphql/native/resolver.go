@@ -20,6 +20,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/domain/timeline"
+	"github.com/askuksov/yalkos/internal/domain/webhook"
 )
 
 // Resolver is the root resolver.
@@ -33,6 +34,7 @@ type Resolver struct {
 	Comments    *comment.Service
 	Attachments *attachment.Service
 	Timeline    *timeline.Service
+	Webhooks    *webhook.Service
 	Logger      *slog.Logger
 }
 

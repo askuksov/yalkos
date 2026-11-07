@@ -29,6 +29,10 @@ type Config struct {
 	// APIRateLimit is the number of API-key requests per hour and user
 	// (API_RATE_LIMIT, default 5000; 0 turns the limit off).
 	APIRateLimit int
+	// WebhookAllowPrivate lets webhooks target loopback and private networks
+	// (WEBHOOK_ALLOW_PRIVATE: true|false, default true). Link-local and
+	// metadata addresses are blocked either way.
+	WebhookAllowPrivate bool
 }
 
 // Load reads the configuration through getenv (os.Getenv in production).
@@ -73,6 +77,14 @@ func Load(getenv func(string) string) (Config, error) {
 			return Config{}, errors.New("API_RATE_LIMIT must be a non-negative integer")
 		}
 		cfg.APIRateLimit = n
+	}
+	cfg.WebhookAllowPrivate = true
+	switch v := getenv("WEBHOOK_ALLOW_PRIVATE"); v {
+	case "", "true":
+	case "false":
+		cfg.WebhookAllowPrivate = false
+	default:
+		return Config{}, errors.New("WEBHOOK_ALLOW_PRIVATE must be true or false")
 	}
 	return cfg, nil
 }

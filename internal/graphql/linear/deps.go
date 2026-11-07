@@ -15,6 +15,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/domain/webhook"
 	"github.com/askuksov/yalkos/internal/webhook/linearpayload"
 )
 
@@ -27,6 +28,7 @@ type Deps struct {
 	Labels      *label.Service
 	Comments    *comment.Service
 	Attachments *attachment.Service
+	Webhooks    *webhook.Service
 	// BaseURL is the public URL used in links.
 	BaseURL *url.URL
 	Logger  *slog.Logger
