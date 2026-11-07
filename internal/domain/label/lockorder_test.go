@@ -59,23 +59,47 @@ func update(e env, id uuid.UUID, p label.Patch) <-chan error {
 	return done
 }
 
-// waitBlocked waits until another session of this database waits for a row lock.
+// blocked reports whether another session of this database waits for a lock.
+func blocked(t *testing.T, e env) bool {
+	t.Helper()
+	var n int
+	err := e.pool.QueryRow(context.Background(), `SELECT count(*) FROM pg_stat_activity
+		WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`).Scan(&n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n > 0
+}
+
+// waitBlocked waits until another session of this database waits for a lock.
 func waitBlocked(t *testing.T, e env) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		var n int
-		err := e.pool.QueryRow(context.Background(), `SELECT count(*) FROM pg_stat_activity
-			WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`).Scan(&n)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if n > 0 {
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if blocked(t, e) {
 			return
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("no session waits for a lock")
+}
+
+// settle waits until the background update finished or waits for a lock,
+// whichever happens first, and returns a channel with its result.
+func settle(t *testing.T, e env, done <-chan error) <-chan error {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		select {
+		case err := <-done:
+			again := make(chan error, 1)
+			again <- err
+			return again
+		default:
+		}
+		if blocked(t, e) {
+			return done
+		}
+	}
+	t.Fatal("update neither finished nor waits for a lock")
+	return nil
 }
 
 func lower(a, b uuid.UUID) bool { return bytes.Compare(a[:], b[:]) < 0 }
@@ -97,8 +121,7 @@ func TestExclusivityChangeLockOrder(t *testing.T) {
 	if err := h.lock(child.ID, "SHARE"); err != nil {
 		t.Fatal(err)
 	}
-	done := update(e, g.ID, label.Patch{Exclusive: ptr(true)})
-	time.Sleep(300 * time.Millisecond) // let the change take its locks
+	done := settle(t, e, update(e, g.ID, label.Patch{Exclusive: ptr(true)}))
 	if err := h.lock(g.ID, "SHARE"); err != nil {
 		t.Fatalf("writer locking the group after the child: %v", err)
 	}
