@@ -12,6 +12,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/store/q"
 )
@@ -346,7 +347,7 @@ func (s *Service) DeleteState(ctx context.Context, actor account.User, id uuid.U
 	if !actor.IsAdmin() {
 		return kit.ErrForbidden
 	}
-	return s.inTx(ctx, func(tx *q.Queries) error {
+	return s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		st, err := s.lockState(ctx, tx, id)
 		if err != nil {
 			return err
@@ -367,7 +368,7 @@ func (s *Service) DeleteState(ctx context.Context, actor account.User, id uuid.U
 		}
 		now := s.now()
 		if has {
-			if err := s.moveIssues(ctx, tx, actor, st, moveTo, now); err != nil {
+			if err := s.moveIssues(ctx, ptx, tx, actor, st, moveTo, now); err != nil {
 				return err
 			}
 		}
@@ -378,7 +379,7 @@ func (s *Service) DeleteState(ctx context.Context, actor account.User, id uuid.U
 	})
 }
 
-func (s *Service) moveIssues(ctx context.Context, tx *q.Queries, actor account.User, from q.State, moveTo *uuid.UUID, now time.Time) error {
+func (s *Service) moveIssues(ctx context.Context, ptx pgx.Tx, tx *q.Queries, actor account.User, from q.State, moveTo *uuid.UUID, now time.Time) error {
 	if moveTo == nil {
 		return kit.Input("moveIssuesTo", kit.ReasonRequired, "choose a state for the issues of this state")
 	}
@@ -414,6 +415,12 @@ func (s *Service) moveIssues(ctx context.Context, tx *q.Queries, actor account.U
 		if err := audit.Record(ctx, tx, audit.Event{
 			EntityType: "issue", Action: "update", EntityID: r.ID, ProjectID: &r.ProjectID, ActorID: &actor.ID,
 			Changes: changes, At: now,
+		}); err != nil {
+			return err
+		}
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Issue, Action: event.Update, EntityID: r.ID, ProjectIDs: []uuid.UUID{r.ProjectID},
+			ActorID: actor.ID, At: now, Diff: changes, PrevUpdatedAt: r.OldUpdatedAt,
 		}); err != nil {
 			return err
 		}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/store/q"
@@ -23,7 +24,7 @@ import (
 // always for descendants, the state maps by name, then by type.
 func (s *Service) Move(ctx context.Context, actor account.User, id, toProject uuid.UUID, stateID *uuid.UUID) (Issue, error) {
 	var out Issue
-	err := s.inTx(ctx, func(tx *q.Queries) error {
+	err := s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		root, target, err := s.lockForMove(ctx, tx, id, toProject)
 		if err != nil {
 			return err
@@ -80,7 +81,15 @@ func (s *Service) Move(ctx context.Context, actor account.User, id, toProject uu
 				return fmt.Errorf("move issue: %w", err)
 			}
 			after := toIssue(moved, target.Key)
-			if err := record(ctx, tx, actor, after, "update", audit.Diff(snapshot(before), snapshot(after)), now); err != nil {
+			changes := audit.Diff(snapshot(before), snapshot(after))
+			if err := record(ctx, tx, actor, after, "update", changes, now); err != nil {
+				return err
+			}
+			if err := s.emit(ctx, ptx, event.Change{
+				Resource: event.Issue, Action: event.Update, EntityID: issueID,
+				ProjectIDs: []uuid.UUID{before.ProjectID, toProject}, ActorID: actor.ID, At: now,
+				Diff: changes, PrevUpdatedAt: before.UpdatedAt,
+			}); err != nil {
 				return err
 			}
 			if n == 0 {

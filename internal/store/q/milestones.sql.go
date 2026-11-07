@@ -13,9 +13,13 @@ import (
 )
 
 const clearIssuesMilestone = `-- name: ClearIssuesMilestone :many
+WITH old AS (
+    SELECT i.id, i.updated_at FROM issues i WHERE i.milestone_id = $2 AND i.deleted_at IS NULL FOR UPDATE
+)
 UPDATE issues SET milestone_id = NULL, updated_at = $1
-WHERE milestone_id = $2 AND deleted_at IS NULL
-RETURNING id
+FROM old
+WHERE issues.id = old.id
+RETURNING issues.id, old.updated_at AS old_updated_at
 `
 
 type ClearIssuesMilestoneParams struct {
@@ -23,20 +27,26 @@ type ClearIssuesMilestoneParams struct {
 	MilestoneID *uuid.UUID
 }
 
-// Live issues of the milestone lose it; deleted ones are cleared by the FK.
-func (q *Queries) ClearIssuesMilestone(ctx context.Context, arg ClearIssuesMilestoneParams) ([]uuid.UUID, error) {
+type ClearIssuesMilestoneRow struct {
+	ID           uuid.UUID
+	OldUpdatedAt time.Time
+}
+
+// Live issues of the milestone lose it, each comes back with its previous
+// updated_at; deleted ones are cleared by the FK.
+func (q *Queries) ClearIssuesMilestone(ctx context.Context, arg ClearIssuesMilestoneParams) ([]ClearIssuesMilestoneRow, error) {
 	rows, err := q.db.Query(ctx, clearIssuesMilestone, arg.Now, arg.MilestoneID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	var items []ClearIssuesMilestoneRow
 	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
+		var i ClearIssuesMilestoneRow
+		if err := rows.Scan(&i.ID, &i.OldUpdatedAt); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -297,18 +307,33 @@ func (q *Queries) MilestoneProgress(ctx context.Context, ids []uuid.UUID) ([]Mil
 	return items, nil
 }
 
-const setMilestoneSortOrder = `-- name: SetMilestoneSortOrder :exec
-UPDATE milestones SET sort_order = $1 WHERE id = $2
+const setMilestoneSortOrder = `-- name: SetMilestoneSortOrder :one
+WITH old AS (
+    SELECT m.id, m.sort_order, m.updated_at FROM milestones m WHERE m.id = $3 FOR UPDATE
+)
+UPDATE milestones SET sort_order = $1, updated_at = $2
+FROM old
+WHERE milestones.id = old.id
+RETURNING old.sort_order AS old_sort_order, old.updated_at AS old_updated_at
 `
 
 type SetMilestoneSortOrderParams struct {
 	SortOrder float64
+	Now       time.Time
 	ID        uuid.UUID
 }
 
-func (q *Queries) SetMilestoneSortOrder(ctx context.Context, arg SetMilestoneSortOrderParams) error {
-	_, err := q.db.Exec(ctx, setMilestoneSortOrder, arg.SortOrder, arg.ID)
-	return err
+type SetMilestoneSortOrderRow struct {
+	OldSortOrder float64
+	OldUpdatedAt time.Time
+}
+
+// Sets the order and moves updated_at; returns the values before the write.
+func (q *Queries) SetMilestoneSortOrder(ctx context.Context, arg SetMilestoneSortOrderParams) (SetMilestoneSortOrderRow, error) {
+	row := q.db.QueryRow(ctx, setMilestoneSortOrder, arg.SortOrder, arg.Now, arg.ID)
+	var i SetMilestoneSortOrderRow
+	err := row.Scan(&i.OldSortOrder, &i.OldUpdatedAt)
+	return i, err
 }
 
 const updateMilestone = `-- name: UpdateMilestone :one

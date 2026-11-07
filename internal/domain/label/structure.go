@@ -11,6 +11,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/store/q"
@@ -75,7 +76,7 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		newGroup = p.ParentID.Value
 	}
 	var out Label
-	err := s.inTx(ctx, func(tx *q.Queries) error {
+	err := s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		cur, locked, err := s.lockForChange(ctx, tx, id, newGroup)
 		if err != nil {
 			return err
@@ -190,7 +191,13 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 			}
 		}
 		out = FromRow(row)
-		return record(ctx, tx, actor, out, "update", changes, now)
+		if err := record(ctx, tx, actor, out, "update", changes, now); err != nil {
+			return err
+		}
+		return s.emit(ctx, ptx, event.Change{
+			Resource: event.Label, Action: event.Update, EntityID: id, ActorID: actor.ID, At: now,
+			Diff: changes, PrevUpdatedAt: cur.UpdatedAt,
+		})
 	})
 	if err != nil {
 		return Label{}, err
@@ -246,14 +253,44 @@ func sameID(a, b *uuid.UUID) bool {
 
 // Delete removes a label from every issue (one issue audit entry each) and
 // deletes it; a group must be empty, the type group stays. Owner/Admin only.
+//
+// The issues that held the label get a new updated_at, so their writers' locks
+// matter: issue writers lock the issue's project, then the issue, then
+// share-lock its labels. Delete therefore locks the projects of those issues
+// first (in id order), then the label. A project that got an issue with the
+// label while Delete waited is not locked, and locking it on top of the label
+// could deadlock with a writer that holds it and waits for the label, so the
+// transaction starts over instead (kit.ErrStartOver).
 func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) error {
 	if !actor.IsAdmin() {
 		return kit.ErrForbidden
 	}
-	return s.inTx(ctx, func(tx *q.Queries) error {
+	return s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
+		if _, err := tx.GetLabel(ctx, id); errors.Is(err, pgx.ErrNoRows) {
+			return errNotFound
+		} else if err != nil {
+			return fmt.Errorf("get label: %w", err)
+		}
+		projects, err := tx.LabelIssueProjectIDs(ctx, id)
+		if err != nil {
+			return fmt.Errorf("label projects: %w", err)
+		}
+		held, err := tx.LockProjectsForUpdate(ctx, projects)
+		if err != nil {
+			return fmt.Errorf("lock projects: %w", err)
+		}
 		cur, err := s.lock(ctx, tx, id)
 		if err != nil {
 			return err
+		}
+		// Writers that wait for the label cannot add it to an issue now; one that
+		// finished meanwhile may have, in a project this run does not hold.
+		again, err := tx.LabelIssueProjectIDs(ctx, id)
+		if err != nil {
+			return fmt.Errorf("label projects: %w", err)
+		}
+		if slices.ContainsFunc(again, func(p uuid.UUID) bool { return !slices.Contains(held, p) }) {
+			return errProjectsChanged
 		}
 		if cur.IsGroup {
 			st, err := settings(ctx, tx)
@@ -276,17 +313,41 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) 
 		if err != nil {
 			return fmt.Errorf("issues with label: %w", err)
 		}
-		for _, set := range sets {
+		changes := make([]map[string]audit.Change, len(sets))
+		touched := make([]uuid.UUID, len(sets))
+		for n, set := range sets {
 			after := slices.DeleteFunc(slices.Clone(set.LabelIds), func(l uuid.UUID) bool { return l == id })
+			changes[n] = map[string]audit.Change{"labelIds": {From: set.LabelIds, To: after}}
+			touched[n] = set.IssueID
 			if err := audit.Record(ctx, tx, audit.Event{
 				EntityType: "issue", Action: "update", EntityID: set.IssueID, ProjectID: &set.ProjectID, ActorID: &actor.ID,
-				Changes: map[string]audit.Change{"labelIds": {From: set.LabelIds, To: after}}, At: now,
+				Changes: changes[n], At: now,
 			}); err != nil {
 				return err
 			}
 		}
+		// The label is reported while it still exists; the issues once they
+		// have lost it and carry the new updated_at.
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Label, Action: event.Remove, EntityID: id, ActorID: actor.ID, At: now,
+		}); err != nil {
+			return err
+		}
 		if err := tx.DeleteLabel(ctx, id); err != nil {
 			return fmt.Errorf("delete label: %w", err)
+		}
+		if len(touched) > 0 {
+			if err := tx.TouchIssues(ctx, q.TouchIssuesParams{Ids: touched, Now: now}); err != nil {
+				return fmt.Errorf("touch issues: %w", err)
+			}
+		}
+		for n, set := range sets {
+			if err := s.emit(ctx, ptx, event.Change{
+				Resource: event.Issue, Action: event.Update, EntityID: set.IssueID, ProjectIDs: []uuid.UUID{set.ProjectID},
+				ActorID: actor.ID, At: now, Diff: changes[n], PrevUpdatedAt: set.UpdatedAt,
+			}); err != nil {
+				return err
+			}
 		}
 		return record(ctx, tx, actor, cur, "delete", nil, now)
 	})

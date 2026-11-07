@@ -18,6 +18,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/page"
@@ -36,17 +37,32 @@ type Comment struct {
 
 // Service holds comment rules.
 type Service struct {
-	pool   *pgxpool.Pool
-	q      *q.Queries
-	issues *issue.Service
-	linker attachment.Linker
-	now    func() time.Time
+	pool    *pgxpool.Pool
+	q       *q.Queries
+	issues  *issue.Service
+	linker  attachment.Linker
+	emitter event.Emitter
+	now     func() time.Time
 }
 
 // New builds the service; linker (optional) links uploads named by a comment
 // to its issue; now is the clock.
 func New(pool *pgxpool.Pool, issues *issue.Service, linker attachment.Linker, now func() time.Time) *Service {
 	return &Service{pool: pool, q: q.New(pool), issues: issues, linker: linker, now: now}
+}
+
+// SetEmitter reports every comment change to e inside the transaction that
+// made it; nil (the default) reports nothing.
+func (s *Service) SetEmitter(e event.Emitter) { s.emitter = e }
+
+func (s *Service) emit(ctx context.Context, tx pgx.Tx, c event.Change) error {
+	if s.emitter == nil {
+		return nil
+	}
+	if err := s.emitter.Emit(ctx, tx, c); err != nil {
+		return fmt.Errorf("emit %s %s: %w", c.Resource, c.Action, err)
+	}
+	return nil
 }
 
 func (s *Service) link(ctx context.Context, tx *q.Queries, actor account.User, issueID uuid.UUID, explicit []uuid.UUID, body string) error {
@@ -56,10 +72,11 @@ func (s *Service) link(ctx context.Context, tx *q.Queries, actor account.User, i
 	return s.linker.Link(ctx, tx, actor.ID, issueID, explicit, body)
 }
 
-// inTx runs fn in a transaction that starts over on kit.ErrStartOver (an
-// issue locked through LockForWrite moved meanwhile).
-func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
-	return kit.InTx(ctx, s.pool, s.q, fn)
+// inTxWith runs fn in a transaction that starts over on kit.ErrStartOver (an
+// issue locked through LockForWrite moved meanwhile); fn gets the pgx.Tx for
+// the emitter too.
+func (s *Service) inTxWith(ctx context.Context, fn func(pgx.Tx, *q.Queries) error) error {
+	return kit.InTxWith(ctx, s.pool, s.q, fn)
 }
 
 func toComment(c q.Comment) Comment {
@@ -97,7 +114,7 @@ func (s *Service) Create(ctx context.Context, actor account.User, issueID uuid.U
 		return Comment{}, err
 	}
 	var out Comment
-	err = s.inTx(ctx, func(tx *q.Queries) error {
+	err = s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		i, err := s.issues.LockForWrite(ctx, tx, issueID)
 		if err != nil {
 			return err
@@ -109,6 +126,12 @@ func (s *Service) Create(ctx context.Context, actor account.User, issueID uuid.U
 		}
 		out = toComment(row)
 		if err := record(ctx, tx, actor, row.ID, i.ProjectID, "create", now); err != nil {
+			return err
+		}
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Comment, Action: event.Create, EntityID: row.ID, ProjectIDs: []uuid.UUID{i.ProjectID},
+			ActorID: actor.ID, At: now,
+		}); err != nil {
 			return err
 		}
 		return s.link(ctx, tx, actor, issueID, attachmentIDs, body)
@@ -152,7 +175,7 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		return Comment{}, err
 	}
 	var out Comment
-	err = s.inTx(ctx, func(tx *q.Queries) error {
+	err = s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		cur, i, err := s.lock(ctx, tx, id)
 		if err != nil {
 			return err
@@ -173,6 +196,16 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		if err := record(ctx, tx, actor, id, i.ProjectID, "update", now); err != nil {
 			return err
 		}
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Comment, Action: event.Update, EntityID: id, ProjectIDs: []uuid.UUID{i.ProjectID},
+			ActorID: actor.ID, At: now, PrevUpdatedAt: cur.UpdatedAt,
+			Diff: map[string]audit.Change{
+				"body":     {From: cur.Body, To: body},
+				"editedAt": {From: cur.EditedAt, To: out.EditedAt},
+			},
+		}); err != nil {
+			return err
+		}
 		return s.link(ctx, tx, actor, i.ID, nil, body)
 	})
 	if err != nil {
@@ -184,7 +217,7 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 // Delete removes a comment for good (its author, Owner or Admin); the issue's
 // history keeps that a comment was deleted.
 func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) error {
-	return s.inTx(ctx, func(tx *q.Queries) error {
+	return s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		cur, i, err := s.lock(ctx, tx, id)
 		if err != nil {
 			return err
@@ -192,10 +225,17 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) 
 		if cur.AuthorID != actor.ID && !actor.IsAdmin() {
 			return kit.ErrForbidden
 		}
+		now := s.now()
+		// Reported before the comment disappears.
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Comment, Action: event.Remove, EntityID: id, ProjectIDs: []uuid.UUID{i.ProjectID},
+			ActorID: actor.ID, At: now,
+		}); err != nil {
+			return err
+		}
 		if err := tx.DeleteComment(ctx, id); err != nil {
 			return fmt.Errorf("delete comment: %w", err)
 		}
-		now := s.now()
 		if err := record(ctx, tx, actor, id, i.ProjectID, "delete", now); err != nil {
 			return err
 		}

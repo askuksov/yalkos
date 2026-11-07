@@ -17,6 +17,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/store/q"
@@ -48,9 +49,10 @@ type TypeInfo struct {
 
 // Service holds label rules.
 type Service struct {
-	pool *pgxpool.Pool
-	q    *q.Queries
-	now  func() time.Time
+	pool    *pgxpool.Pool
+	q       *q.Queries
+	emitter event.Emitter
+	now     func() time.Time
 }
 
 // New builds the service; now is the clock.
@@ -58,13 +60,37 @@ func New(pool *pgxpool.Pool, now func() time.Time) *Service {
 	return &Service{pool: pool, q: q.New(pool), now: now}
 }
 
+// SetEmitter reports every label change, and the issues a label delete
+// changes, to e inside the transaction that made it; nil (the default)
+// reports nothing.
+func (s *Service) SetEmitter(e event.Emitter) { s.emitter = e }
+
+func (s *Service) emit(ctx context.Context, tx pgx.Tx, c event.Change) error {
+	if s.emitter == nil {
+		return nil
+	}
+	if err := s.emitter.Emit(ctx, tx, c); err != nil {
+		return fmt.Errorf("emit %s %s: %w", c.Resource, c.Action, err)
+	}
+	return nil
+}
+
 // errMovedMeanwhile makes a label change start over: the label moved to
 // another group while the change waited for it (see lockForChange).
 var errMovedMeanwhile = fmt.Errorf("label: moved to another group meanwhile: %w", kit.ErrStartOver)
 
+// errProjectsChanged makes a label delete start over: an issue of a project
+// the delete does not hold got the label while it waited (see Delete).
+var errProjectsChanged = fmt.Errorf("label: issues of other projects got the label meanwhile: %w", kit.ErrStartOver)
+
 // inTx runs fn in a transaction that starts over on kit.ErrStartOver.
 func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
 	return kit.InTx(ctx, s.pool, s.q, fn)
+}
+
+// inTxWith is inTx for changes that report to the emitter: fn gets the pgx.Tx too.
+func (s *Service) inTxWith(ctx context.Context, fn func(pgx.Tx, *q.Queries) error) error {
+	return kit.InTxWith(ctx, s.pool, s.q, fn)
 }
 
 // FromRow converts a stored label.
@@ -180,7 +206,7 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 		return Label{}, kit.Input("exclusive", kit.ReasonNotAllowed, "only groups can be exclusive")
 	}
 	var out Label
-	err = s.inTx(ctx, func(tx *q.Queries) error {
+	err = s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		if in.ParentID != nil {
 			if _, err := group(ctx, tx, *in.ParentID); err != nil {
 				return err
@@ -209,7 +235,10 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 			return fmt.Errorf("create label: %w", err)
 		}
 		out = FromRow(row)
-		return record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now)
+		if err := record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now); err != nil {
+			return err
+		}
+		return s.emit(ctx, ptx, event.Change{Resource: event.Label, Action: event.Create, EntityID: out.ID, ActorID: actor.ID, At: now})
 	})
 	if err != nil {
 		return Label{}, err

@@ -29,17 +29,29 @@ UPDATE milestones SET
 WHERE id = @id
 RETURNING *;
 
--- name: SetMilestoneSortOrder :exec
-UPDATE milestones SET sort_order = @sort_order WHERE id = @id;
+-- name: SetMilestoneSortOrder :one
+-- Sets the order and moves updated_at; returns the values before the write.
+WITH old AS (
+    SELECT m.id, m.sort_order, m.updated_at FROM milestones m WHERE m.id = @id FOR UPDATE
+)
+UPDATE milestones SET sort_order = @sort_order, updated_at = @now
+FROM old
+WHERE milestones.id = old.id
+RETURNING old.sort_order AS old_sort_order, old.updated_at AS old_updated_at;
 
 -- name: DeleteMilestone :exec
 DELETE FROM milestones WHERE id = $1;
 
 -- name: ClearIssuesMilestone :many
--- Live issues of the milestone lose it; deleted ones are cleared by the FK.
+-- Live issues of the milestone lose it, each comes back with its previous
+-- updated_at; deleted ones are cleared by the FK.
+WITH old AS (
+    SELECT i.id, i.updated_at FROM issues i WHERE i.milestone_id = @milestone_id AND i.deleted_at IS NULL FOR UPDATE
+)
 UPDATE issues SET milestone_id = NULL, updated_at = @now
-WHERE milestone_id = @milestone_id AND deleted_at IS NULL
-RETURNING id;
+FROM old
+WHERE issues.id = old.id
+RETURNING issues.id, old.updated_at AS old_updated_at;
 
 -- name: MilestoneProgress :many
 -- Per milestone over live issues: completed, non-canceled (total) and started-or-completed (active).

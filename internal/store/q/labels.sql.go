@@ -181,19 +181,21 @@ func (q *Queries) GetLabelSettings(ctx context.Context) (GetLabelSettingsRow, er
 }
 
 const issueLabelSetsWithLabel = `-- name: IssueLabelSetsWithLabel :many
-SELECT i.id AS issue_id, i.project_id, array_agg(il.label_id ORDER BY il.label_id)::uuid[] AS label_ids
+SELECT i.id AS issue_id, i.project_id, i.updated_at, array_agg(il.label_id ORDER BY il.label_id)::uuid[] AS label_ids
 FROM issues i JOIN issue_labels il ON il.issue_id = i.id
 WHERE i.deleted_at IS NULL AND i.id IN (SELECT x.issue_id FROM issue_labels x WHERE x.label_id = $1)
-GROUP BY i.id, i.project_id
+GROUP BY i.id, i.project_id, i.updated_at
+ORDER BY i.id
 `
 
 type IssueLabelSetsWithLabelRow struct {
 	IssueID   uuid.UUID
 	ProjectID uuid.UUID
+	UpdatedAt time.Time
 	LabelIds  []uuid.UUID
 }
 
-// Live issues holding the label with their full sorted label lists.
+// Live issues holding the label with their full sorted label lists and updated_at.
 func (q *Queries) IssueLabelSetsWithLabel(ctx context.Context, labelID uuid.UUID) ([]IssueLabelSetsWithLabelRow, error) {
 	rows, err := q.db.Query(ctx, issueLabelSetsWithLabel, labelID)
 	if err != nil {
@@ -203,10 +205,42 @@ func (q *Queries) IssueLabelSetsWithLabel(ctx context.Context, labelID uuid.UUID
 	var items []IssueLabelSetsWithLabelRow
 	for rows.Next() {
 		var i IssueLabelSetsWithLabelRow
-		if err := rows.Scan(&i.IssueID, &i.ProjectID, &i.LabelIds); err != nil {
+		if err := rows.Scan(
+			&i.IssueID,
+			&i.ProjectID,
+			&i.UpdatedAt,
+			&i.LabelIds,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const labelIssueProjectIDs = `-- name: LabelIssueProjectIDs :many
+SELECT DISTINCT i.project_id FROM issues i JOIN issue_labels il ON il.issue_id = i.id
+WHERE il.label_id = $1 AND i.deleted_at IS NULL
+ORDER BY i.project_id
+`
+
+// Projects of the live issues holding the label, in id order.
+func (q *Queries) LabelIssueProjectIDs(ctx context.Context, labelID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, labelIssueProjectIDs, labelID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var project_id uuid.UUID
+		if err := rows.Scan(&project_id); err != nil {
+			return nil, err
+		}
+		items = append(items, project_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

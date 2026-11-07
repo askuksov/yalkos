@@ -18,6 +18,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/page"
 	"github.com/askuksov/yalkos/internal/store/q"
@@ -36,9 +37,10 @@ type Project struct {
 
 // Service holds project, member and state rules.
 type Service struct {
-	pool *pgxpool.Pool
-	q    *q.Queries
-	now  func() time.Time
+	pool    *pgxpool.Pool
+	q       *q.Queries
+	emitter event.Emitter
+	now     func() time.Time
 }
 
 // New builds the service; now is the clock.
@@ -46,8 +48,28 @@ func New(pool *pgxpool.Pool, now func() time.Time) *Service {
 	return &Service{pool: pool, q: q.New(pool), now: now}
 }
 
+// SetEmitter reports the issues and milestones a state or project delete
+// removes or changes to e inside the delete's transaction; nil (the default)
+// reports nothing.
+func (s *Service) SetEmitter(e event.Emitter) { s.emitter = e }
+
+func (s *Service) emit(ctx context.Context, tx pgx.Tx, c event.Change) error {
+	if s.emitter == nil {
+		return nil
+	}
+	if err := s.emitter.Emit(ctx, tx, c); err != nil {
+		return fmt.Errorf("emit %s %s: %w", c.Resource, c.Action, err)
+	}
+	return nil
+}
+
 func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
-	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+	return kit.InTx(ctx, s.pool, s.q, fn)
+}
+
+// inTxWith is inTx for changes that report to the emitter: fn gets the pgx.Tx too.
+func (s *Service) inTxWith(ctx context.Context, fn func(pgx.Tx, *q.Queries) error) error {
+	return kit.InTxWith(ctx, s.pool, s.q, fn)
 }
 
 func toProject(p q.Project) Project {
@@ -318,13 +340,17 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID, 
 	if actor.Role != account.RoleOwner {
 		return kit.ErrForbidden
 	}
-	return s.inTx(ctx, func(tx *q.Queries) error {
+	return s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		p, err := lockProject(ctx, tx, id)
 		if err != nil {
 			return err
 		}
 		if strings.ToUpper(strings.TrimSpace(confirmKey)) != p.Key {
 			return kit.Input("confirmKey", kit.ReasonMismatch, "type the project key to confirm")
+		}
+		now := s.now()
+		if err := s.emitRemovals(ctx, ptx, tx, actor, id, now); err != nil {
+			return err
 		}
 		if err := audit.DeleteProject(ctx, tx, id); err != nil {
 			return err
@@ -334,9 +360,43 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID, 
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			EntityType: "project", Action: "delete", EntityID: id, ActorID: &actor.ID,
-			Changes: map[string]audit.Change{"key": {From: p.Key}, "name": {From: p.Name}}, At: s.now(),
+			Changes: map[string]audit.Change{"key": {From: p.Key}, "name": {From: p.Name}}, At: now,
 		})
 	})
+}
+
+// emitRemovals reports the removal of everything the project's delete takes
+// with it: its live issues (for good: Purged) and its milestones. Comments go
+// with their issues and are not reported. Called before the rows disappear.
+func (s *Service) emitRemovals(ctx context.Context, ptx pgx.Tx, tx *q.Queries, actor account.User, id uuid.UUID, at time.Time) error {
+	if s.emitter == nil {
+		return nil
+	}
+	issues, err := tx.ListProjectLiveIssueIDs(ctx, id)
+	if err != nil {
+		return fmt.Errorf("list project issues: %w", err)
+	}
+	for _, issueID := range issues {
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Issue, Action: event.Remove, EntityID: issueID, ProjectIDs: []uuid.UUID{id},
+			ActorID: actor.ID, At: at, Purged: true,
+		}); err != nil {
+			return err
+		}
+	}
+	milestones, err := tx.ListProjectMilestones(ctx, id)
+	if err != nil {
+		return fmt.Errorf("list project milestones: %w", err)
+	}
+	for _, m := range milestones {
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Milestone, Action: event.Remove, EntityID: m.ID, ProjectIDs: []uuid.UUID{id},
+			ActorID: actor.ID, At: at,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 var refKeyRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]{0,6}$`)

@@ -17,6 +17,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/store/q"
@@ -52,12 +53,27 @@ type Service struct {
 	q        *q.Queries
 	projects *project.Service
 	linker   Linker
+	emitter  event.Emitter
 	now      func() time.Time
 }
 
 // SetLinker connects attachments: uploads named by a new issue or a changed
 // description get linked to the issue.
 func (s *Service) SetLinker(l Linker) { s.linker = l }
+
+// SetEmitter reports every issue change to e inside the transaction that made
+// it; nil (the default) reports nothing.
+func (s *Service) SetEmitter(e event.Emitter) { s.emitter = e }
+
+func (s *Service) emit(ctx context.Context, tx pgx.Tx, c event.Change) error {
+	if s.emitter == nil {
+		return nil
+	}
+	if err := s.emitter.Emit(ctx, tx, c); err != nil {
+		return fmt.Errorf("emit %s %s: %w", c.Resource, c.Action, err)
+	}
+	return nil
+}
 
 func (s *Service) link(ctx context.Context, tx *q.Queries, actor account.User, issueID uuid.UUID, explicit []uuid.UUID, md string) error {
 	if s.linker == nil {
@@ -71,9 +87,10 @@ func New(pool *pgxpool.Pool, projects *project.Service, now func() time.Time) *S
 	return &Service{pool: pool, q: q.New(pool), projects: projects, now: now}
 }
 
-// inTx runs fn in a transaction that starts over on kit.ErrStartOver.
-func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
-	return kit.InTx(ctx, s.pool, s.q, fn)
+// inTxWith runs fn in a transaction that starts over on kit.ErrStartOver; fn
+// gets the pgx.Tx for the emitter too.
+func (s *Service) inTxWith(ctx context.Context, fn func(pgx.Tx, *q.Queries) error) error {
+	return kit.InTxWith(ctx, s.pool, s.q, fn)
 }
 
 func toIssue(i q.Issue, key string) Issue {
@@ -244,7 +261,7 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 		return Issue{}, kit.Input("projectId", kit.ReasonRequired, "choose a project")
 	}
 	var out Issue
-	err = s.inTx(ctx, func(tx *q.Queries) error {
+	err = s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		var projectID uuid.UUID
 		if in.ProjectID != nil {
 			projectID = *in.ProjectID
@@ -321,6 +338,12 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 		out = toIssue(row, p.Key)
 		out.LabelIDs = labelIDs
 		if err := record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now); err != nil {
+			return err
+		}
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Issue, Action: event.Create, EntityID: out.ID, ProjectIDs: []uuid.UUID{projectID},
+			ActorID: actor.ID, At: now,
+		}); err != nil {
 			return err
 		}
 		return s.link(ctx, tx, actor, out.ID, in.AttachmentIDs, in.Description)
@@ -432,7 +455,7 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		}
 	}
 	var out Issue
-	err := s.inTx(ctx, func(tx *q.Queries) error {
+	err := s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		cur, err := s.lockIssue(ctx, tx, id)
 		if err != nil {
 			return err
@@ -529,6 +552,12 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		if err := record(ctx, tx, actor, out, "update", changes, now); err != nil {
 			return err
 		}
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Issue, Action: event.Update, EntityID: id, ProjectIDs: []uuid.UUID{cur.ProjectID},
+			ActorID: actor.ID, At: now, Diff: changes, PrevUpdatedAt: cur.UpdatedAt,
+		}); err != nil {
+			return err
+		}
 		if next.Description != cur.Description {
 			return s.link(ctx, tx, actor, id, nil, next.Description)
 		}
@@ -569,7 +598,7 @@ func checkParent(ctx context.Context, tx *q.Queries, cur Issue, parentID *uuid.U
 
 // Delete soft-deletes an issue; its children become top-level issues.
 func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) error {
-	return s.inTx(ctx, func(tx *q.Queries) error {
+	return s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		cur, err := s.lockIssue(ctx, tx, id)
 		if err != nil {
 			return err
@@ -583,11 +612,23 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) 
 			return fmt.Errorf("detach children: %w", err)
 		}
 		for _, c := range children {
-			if err := record(ctx, tx, actor, Issue{ID: c, ProjectID: cur.ProjectID}, "update",
-				map[string]audit.Change{"parentId": {From: id, To: nil}}, now); err != nil {
+			changes := map[string]audit.Change{"parentId": {From: id, To: nil}}
+			if err := record(ctx, tx, actor, Issue{ID: c.ID, ProjectID: cur.ProjectID}, "update", changes, now); err != nil {
+				return err
+			}
+			if err := s.emit(ctx, ptx, event.Change{
+				Resource: event.Issue, Action: event.Update, EntityID: c.ID, ProjectIDs: []uuid.UUID{cur.ProjectID},
+				ActorID: actor.ID, At: now, Diff: changes, PrevUpdatedAt: c.OldUpdatedAt,
+			}); err != nil {
 				return err
 			}
 		}
-		return record(ctx, tx, actor, cur, "delete", nil, now)
+		if err := record(ctx, tx, actor, cur, "delete", nil, now); err != nil {
+			return err
+		}
+		return s.emit(ctx, ptx, event.Change{
+			Resource: event.Issue, Action: event.Remove, EntityID: id, ProjectIDs: []uuid.UUID{cur.ProjectID},
+			ActorID: actor.ID, At: now,
+		})
 	})
 }

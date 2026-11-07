@@ -16,6 +16,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/store/q"
@@ -39,6 +40,7 @@ type Service struct {
 	pool     *pgxpool.Pool
 	q        *q.Queries
 	projects *project.Service
+	emitter  event.Emitter
 	now      func() time.Time
 }
 
@@ -50,8 +52,25 @@ func New(pool *pgxpool.Pool, projects *project.Service, now func() time.Time) *S
 // Today is the server's current date for Overdue.
 func (s *Service) Today() time.Time { return s.now().Local() }
 
-func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
-	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+// SetEmitter reports every milestone change, and the issues a milestone
+// delete changes, to e inside the transaction that made it; nil (the default)
+// reports nothing.
+func (s *Service) SetEmitter(e event.Emitter) { s.emitter = e }
+
+func (s *Service) emit(ctx context.Context, tx pgx.Tx, c event.Change) error {
+	if s.emitter == nil {
+		return nil
+	}
+	if err := s.emitter.Emit(ctx, tx, c); err != nil {
+		return fmt.Errorf("emit %s %s: %w", c.Resource, c.Action, err)
+	}
+	return nil
+}
+
+// inTxWith runs fn in a transaction that starts over on kit.ErrStartOver; fn
+// gets the pgx.Tx for the emitter too.
+func (s *Service) inTxWith(ctx context.Context, fn func(pgx.Tx, *q.Queries) error) error {
+	return kit.InTxWith(ctx, s.pool, s.q, fn)
 }
 
 func toMilestone(m q.Milestone) Milestone {
@@ -172,7 +191,7 @@ func (s *Service) Create(ctx context.Context, actor account.User, projectID uuid
 		return Milestone{}, err
 	}
 	var out Milestone
-	err = s.inTx(ctx, func(tx *q.Queries) error {
+	err = s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		if err := s.lockProject(ctx, tx, projectID); err != nil {
 			return err
 		}
@@ -191,7 +210,13 @@ func (s *Service) Create(ctx context.Context, actor account.User, projectID uuid
 			return fmt.Errorf("create milestone: %w", err)
 		}
 		out = toMilestone(row)
-		return record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now)
+		if err := record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now); err != nil {
+			return err
+		}
+		return s.emit(ctx, ptx, event.Change{
+			Resource: event.Milestone, Action: event.Create, EntityID: out.ID, ProjectIDs: []uuid.UUID{projectID},
+			ActorID: actor.ID, At: now,
+		})
 	})
 	if err != nil {
 		return Milestone{}, err
@@ -226,7 +251,7 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		return Milestone{}, kit.Input("status", kit.ReasonInvalidFormat, "unknown status")
 	}
 	var out Milestone
-	err := s.inTx(ctx, func(tx *q.Queries) error {
+	err := s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		cur, err := s.lock(ctx, tx, id)
 		if err != nil {
 			return err
@@ -272,7 +297,13 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 			return fmt.Errorf("update milestone: %w", err)
 		}
 		out = toMilestone(row)
-		return record(ctx, tx, actor, out, "update", changes, now)
+		if err := record(ctx, tx, actor, out, "update", changes, now); err != nil {
+			return err
+		}
+		return s.emit(ctx, ptx, event.Change{
+			Resource: event.Milestone, Action: event.Update, EntityID: id, ProjectIDs: []uuid.UUID{cur.ProjectID},
+			ActorID: actor.ID, At: now, Diff: changes, PrevUpdatedAt: cur.UpdatedAt,
+		})
 	})
 	if err != nil {
 		return Milestone{}, err
@@ -281,9 +312,9 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 }
 
 // Reorder sets the manual order; ids must be exactly the project's milestones.
+// A milestone whose position changed gets a new updated_at.
 func (s *Service) Reorder(ctx context.Context, actor account.User, projectID uuid.UUID, ids []uuid.UUID) error {
-	_ = actor // any active user may reorder
-	return s.inTx(ctx, func(tx *q.Queries) error {
+	return s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		if err := s.lockProject(ctx, tx, projectID); err != nil {
 			return err
 		}
@@ -302,9 +333,23 @@ func (s *Service) Reorder(ctx context.Context, actor account.User, projectID uui
 		if !slices.Equal(have, want) {
 			return kit.Input("milestoneIds", kit.ReasonNotAllowed, "list every milestone of the project exactly once")
 		}
+		now := s.now()
 		for i, id := range ids {
-			if err := tx.SetMilestoneSortOrder(ctx, q.SetMilestoneSortOrderParams{ID: id, SortOrder: float64((i + 1) * 1000)}); err != nil {
+			order := float64((i + 1) * 1000)
+			// The project lock keeps the rows read above current.
+			if n := slices.IndexFunc(rows, func(m q.Milestone) bool { return m.ID == id }); rows[n].SortOrder == order {
+				continue
+			}
+			old, err := tx.SetMilestoneSortOrder(ctx, q.SetMilestoneSortOrderParams{ID: id, SortOrder: order, Now: now})
+			if err != nil {
 				return fmt.Errorf("set milestone order: %w", err)
+			}
+			if err := s.emit(ctx, ptx, event.Change{
+				Resource: event.Milestone, Action: event.Update, EntityID: id, ProjectIDs: []uuid.UUID{projectID},
+				ActorID: actor.ID, At: now, PrevUpdatedAt: old.OldUpdatedAt,
+				Diff: map[string]audit.Change{"sortOrder": {From: old.OldSortOrder, To: order}},
+			}); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -313,7 +358,7 @@ func (s *Service) Reorder(ctx context.Context, actor account.User, projectID uui
 
 // Delete removes a milestone (creator, Owner or Admin); its issues lose it.
 func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) error {
-	return s.inTx(ctx, func(tx *q.Queries) error {
+	return s.inTxWith(ctx, func(ptx pgx.Tx, tx *q.Queries) error {
 		cur, err := s.lock(ctx, tx, id)
 		if err != nil {
 			return err
@@ -326,13 +371,27 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) 
 		if err != nil {
 			return fmt.Errorf("clear issues milestone: %w", err)
 		}
-		for _, issueID := range issues {
+		for _, i := range issues {
+			changes := map[string]audit.Change{"milestoneId": {From: id, To: nil}}
 			if err := audit.Record(ctx, tx, audit.Event{
-				EntityType: "issue", Action: "update", EntityID: issueID, ProjectID: &cur.ProjectID, ActorID: &actor.ID,
-				Changes: map[string]audit.Change{"milestoneId": {From: id, To: nil}}, At: now,
+				EntityType: "issue", Action: "update", EntityID: i.ID, ProjectID: &cur.ProjectID, ActorID: &actor.ID,
+				Changes: changes, At: now,
 			}); err != nil {
 				return err
 			}
+			if err := s.emit(ctx, ptx, event.Change{
+				Resource: event.Issue, Action: event.Update, EntityID: i.ID, ProjectIDs: []uuid.UUID{cur.ProjectID},
+				ActorID: actor.ID, At: now, Diff: changes, PrevUpdatedAt: i.OldUpdatedAt,
+			}); err != nil {
+				return err
+			}
+		}
+		// Reported before the milestone disappears.
+		if err := s.emit(ctx, ptx, event.Change{
+			Resource: event.Milestone, Action: event.Remove, EntityID: id, ProjectIDs: []uuid.UUID{cur.ProjectID},
+			ActorID: actor.ID, At: now,
+		}); err != nil {
+			return err
 		}
 		if err := tx.DeleteMilestone(ctx, id); err != nil {
 			return fmt.Errorf("delete milestone: %w", err)

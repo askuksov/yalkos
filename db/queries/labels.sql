@@ -67,11 +67,18 @@ UPDATE issue_labels SET exclusive_group_id = sqlc.narg(exclusive_group_id)::uuid
 WHERE label_id IN (SELECT l.id FROM labels l WHERE l.parent_id = @group_id::uuid);
 
 -- name: IssueLabelSetsWithLabel :many
--- Live issues holding the label with their full sorted label lists.
-SELECT i.id AS issue_id, i.project_id, array_agg(il.label_id ORDER BY il.label_id)::uuid[] AS label_ids
+-- Live issues holding the label with their full sorted label lists and updated_at.
+SELECT i.id AS issue_id, i.project_id, i.updated_at, array_agg(il.label_id ORDER BY il.label_id)::uuid[] AS label_ids
 FROM issues i JOIN issue_labels il ON il.issue_id = i.id
 WHERE i.deleted_at IS NULL AND i.id IN (SELECT x.issue_id FROM issue_labels x WHERE x.label_id = @label_id)
-GROUP BY i.id, i.project_id;
+GROUP BY i.id, i.project_id, i.updated_at
+ORDER BY i.id;
+
+-- name: LabelIssueProjectIDs :many
+-- Projects of the live issues holding the label, in id order.
+SELECT DISTINCT i.project_id FROM issues i JOIN issue_labels il ON il.issue_id = i.id
+WHERE il.label_id = @label_id AND i.deleted_at IS NULL
+ORDER BY i.project_id;
 
 -- name: SetDefaultTypeLabel :exec
 UPDATE workspaces SET default_type_label_id = sqlc.narg(label_id)::uuid;

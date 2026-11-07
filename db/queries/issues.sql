@@ -46,9 +46,17 @@ RETURNING *;
 UPDATE issues SET deleted_at = @now, parent_id = NULL, updated_at = @now WHERE id = @id;
 
 -- name: DetachChildren :many
+-- Live children become top-level; each comes back with its previous updated_at.
+WITH old AS (
+    SELECT i.id, i.updated_at FROM issues i WHERE i.parent_id = @parent_id AND i.deleted_at IS NULL FOR UPDATE
+)
 UPDATE issues SET parent_id = NULL, updated_at = @now
-WHERE parent_id = @parent_id AND deleted_at IS NULL
-RETURNING id;
+FROM old
+WHERE issues.id = old.id
+RETURNING issues.id, old.updated_at AS old_updated_at;
+
+-- name: TouchIssues :exec
+UPDATE issues SET updated_at = @now WHERE id = ANY(@ids::uuid[]);
 
 -- name: IssueAncestorIDs :many
 -- The issue itself and every ancestor up the parent chain.

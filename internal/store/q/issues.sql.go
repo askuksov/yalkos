@@ -154,9 +154,13 @@ func (q *Queries) DeleteIssueLabels(ctx context.Context, issueID uuid.UUID) erro
 }
 
 const detachChildren = `-- name: DetachChildren :many
+WITH old AS (
+    SELECT i.id, i.updated_at FROM issues i WHERE i.parent_id = $2 AND i.deleted_at IS NULL FOR UPDATE
+)
 UPDATE issues SET parent_id = NULL, updated_at = $1
-WHERE parent_id = $2 AND deleted_at IS NULL
-RETURNING id
+FROM old
+WHERE issues.id = old.id
+RETURNING issues.id, old.updated_at AS old_updated_at
 `
 
 type DetachChildrenParams struct {
@@ -164,19 +168,25 @@ type DetachChildrenParams struct {
 	ParentID *uuid.UUID
 }
 
-func (q *Queries) DetachChildren(ctx context.Context, arg DetachChildrenParams) ([]uuid.UUID, error) {
+type DetachChildrenRow struct {
+	ID           uuid.UUID
+	OldUpdatedAt time.Time
+}
+
+// Live children become top-level; each comes back with its previous updated_at.
+func (q *Queries) DetachChildren(ctx context.Context, arg DetachChildrenParams) ([]DetachChildrenRow, error) {
 	rows, err := q.db.Query(ctx, detachChildren, arg.Now, arg.ParentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	var items []DetachChildrenRow
 	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
+		var i DetachChildrenRow
+		if err := rows.Scan(&i.ID, &i.OldUpdatedAt); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -575,6 +585,20 @@ func (q *Queries) SubIssueProgress(ctx context.Context, parentIds []uuid.UUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const touchIssues = `-- name: TouchIssues :exec
+UPDATE issues SET updated_at = $1 WHERE id = ANY($2::uuid[])
+`
+
+type TouchIssuesParams struct {
+	Now time.Time
+	Ids []uuid.UUID
+}
+
+func (q *Queries) TouchIssues(ctx context.Context, arg TouchIssuesParams) error {
+	_, err := q.db.Exec(ctx, touchIssues, arg.Now, arg.Ids)
+	return err
 }
 
 const updateIssue = `-- name: UpdateIssue :one
