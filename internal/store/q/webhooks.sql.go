@@ -201,10 +201,39 @@ func (q *Queries) GetWebhook(ctx context.Context, id uuid.UUID) (Webhook, error)
 	return i, err
 }
 
+const getWebhookForNoKeyUpdate = `-- name: GetWebhookForNoKeyUpdate :one
+SELECT id, workspace_id, name, url, secret, project_id, resources, enabled, disabled_reason, disabled_at, created_by, created_at, updated_at FROM webhooks WHERE id = $1 FOR NO KEY UPDATE
+`
+
+// For edits, which never change the key. Unlike FOR UPDATE it does not wait for
+// (or block) the key share a delivery insert takes on the row, so an edit and a
+// domain write that emits an event cannot deadlock.
+func (q *Queries) GetWebhookForNoKeyUpdate(ctx context.Context, id uuid.UUID) (Webhook, error) {
+	row := q.db.QueryRow(ctx, getWebhookForNoKeyUpdate, id)
+	var i Webhook
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Url,
+		&i.Secret,
+		&i.ProjectID,
+		&i.Resources,
+		&i.Enabled,
+		&i.DisabledReason,
+		&i.DisabledAt,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getWebhookForUpdate = `-- name: GetWebhookForUpdate :one
 SELECT id, workspace_id, name, url, secret, project_id, resources, enabled, disabled_reason, disabled_at, created_by, created_at, updated_at FROM webhooks WHERE id = $1 FOR UPDATE
 `
 
+// For deleting: conflicts with the key share a delivery insert takes.
 func (q *Queries) GetWebhookForUpdate(ctx context.Context, id uuid.UUID) (Webhook, error) {
 	row := q.db.QueryRow(ctx, getWebhookForUpdate, id)
 	var i Webhook

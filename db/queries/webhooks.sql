@@ -5,7 +5,14 @@ SELECT * FROM webhooks ORDER BY created_at DESC, id DESC;
 SELECT * FROM webhooks WHERE id = $1;
 
 -- name: GetWebhookForUpdate :one
+-- For deleting: conflicts with the key share a delivery insert takes.
 SELECT * FROM webhooks WHERE id = $1 FOR UPDATE;
+
+-- name: GetWebhookForNoKeyUpdate :one
+-- For edits, which never change the key. Unlike FOR UPDATE it does not wait for
+-- (or block) the key share a delivery insert takes on the row, so an edit and a
+-- domain write that emits an event cannot deadlock.
+SELECT * FROM webhooks WHERE id = $1 FOR NO KEY UPDATE;
 
 -- name: CountWebhooks :one
 SELECT count(*) FROM webhooks;
