@@ -10,13 +10,14 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/page"
+	"github.com/askuksov/yalkos/internal/webhook/linearpayload"
 )
 
 // commentOut maps a comment; its URL is the issue's.
 func (r *Resolver) commentOut(c comment.Comment, issueIdentifier string) *Comment {
 	issueID := c.IssueID.String()
 	return &Comment{
-		ID: c.ID.String(), Body: c.Body, IssueID: &issueID, URL: r.d.base() + "/issue/" + issueIdentifier,
+		ID: c.ID.String(), Body: c.Body, IssueID: &issueID, URL: linearpayload.IssueURL(r.d.base(), issueIdentifier),
 		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt, EditedAt: c.EditedAt,
 		Reactions: []Reaction{}, ReactionData: JSONObject{V: []any{}}, Src: c,
 	}

@@ -5,9 +5,8 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/webhook/linearpayload"
 )
-
-var priorityLabels = [5]string{"No priority", "Urgent", "High", "Medium", "Low"}
 
 const maxBranchName = 60
 
@@ -29,20 +28,13 @@ func branchName(identifier, title string) string {
 	return s[:maxBranchName]
 }
 
-func priorityLabel(p int) string {
-	if p < 0 || p >= len(priorityLabels) {
-		return priorityLabels[0]
-	}
-	return priorityLabels[p]
-}
-
 // issueOut maps an issue; relations are resolved from Src.
 func (r *Resolver) issueOut(i issue.Issue) *Issue {
 	out := &Issue{
 		ID: i.ID.String(), Identifier: i.Identifier, Number: float64(i.Number), Title: i.Title,
-		Description: nonEmpty(i.Description), Priority: float64(i.Priority), PriorityLabel: priorityLabel(i.Priority),
+		Description: nonEmpty(i.Description), Priority: float64(i.Priority), PriorityLabel: linearpayload.PriorityLabel(i.Priority),
 		SortOrder: i.SortOrder, BoardOrder: i.SortOrder, PrioritySortOrder: i.SortOrder,
-		URL: r.d.base() + "/issue/" + i.Identifier, BranchName: branchName(i.Identifier, i.Title),
+		URL: linearpayload.IssueURL(r.d.base(), i.Identifier), BranchName: branchName(i.Identifier, i.Title),
 		DueDate: i.DueDate, CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt, CompletedAt: i.CompletedAt, CanceledAt: i.CanceledAt,
 		PreviousIdentifiers: []string{}, Reactions: []Reaction{}, ReactionData: JSONObject{V: []any{}},
 		SharedAccess: &IssueSharedAccess{DisallowedIssueFields: []IssueSharedAccessDisallowedField{}, SharedWithUsers: []User{}},
