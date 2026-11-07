@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -232,17 +233,20 @@ func TestRunRateLimitsAPIKeys(t *testing.T) {
 			t.Fatalf("anonymous: %d %v", r.StatusCode, r.Header)
 		}
 	}
+	began := time.Now()
 	if r := post("/graphql", key); r.StatusCode != 200 || r.Header.Get("X-RateLimit-Requests-Remaining") != "1" {
 		t.Fatalf("1st key request: %d %v", r.StatusCode, r.Header)
 	}
 	if r := post("/api/graphql", "Bearer "+key); r.StatusCode != 200 || r.Header.Get("X-RateLimit-Requests-Remaining") != "0" {
 		t.Fatalf("2nd key request: %d %v", r.StatusCode, r.Header)
 	}
-	// Limit 2 per hour: one token every 1800 s. A slow runner may pass a second
-	// or more before the header is computed, so any wait from 1 to 1800 s is right.
+	// Limit 2 per hour: one token every 1800 s, counted from the first request.
+	// A slow runner may spend seconds before the header is computed, so the wait
+	// is 1800 s minus the time spent since then, never less.
 	r := post("/mcp", key)
 	wait, err := strconv.Atoi(r.Header.Get("Retry-After"))
-	if r.StatusCode != http.StatusTooManyRequests || err != nil || wait < 1 || wait > 1800 {
+	minWait := max(1, 1800-int(math.Ceil(time.Since(began).Seconds())))
+	if r.StatusCode != http.StatusTooManyRequests || err != nil || wait < minWait || wait > 1800 {
 		t.Fatalf("3rd key request on /mcp: %d %v", r.StatusCode, r.Header)
 	}
 }
