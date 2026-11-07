@@ -92,6 +92,15 @@ type CreateStateInput struct {
 	Color string    `json:"color"`
 }
 
+type CreateWebhookInput struct {
+	URL       string                     `json:"url"`
+	Name      graphql.Omittable[*string] `json:"name,omitempty"`
+	ProjectID graphql.Omittable[*string] `json:"projectId,omitempty"`
+	Resources []WebhookResource          `json:"resources"`
+	Secret    graphql.Omittable[*string] `json:"secret,omitempty"`
+	Enabled   graphql.Omittable[*bool]   `json:"enabled,omitempty"`
+}
+
 // Returned once, right after creation: key is never shown again.
 type CreatedAPIKey struct {
 	APIKey *APIKey `json:"apiKey"`
@@ -313,6 +322,16 @@ type UpdateStateInput struct {
 	Name      graphql.Omittable[*string] `json:"name,omitempty"`
 	Color     graphql.Omittable[*string] `json:"color,omitempty"`
 	IsDefault graphql.Omittable[*bool]   `json:"isDefault,omitempty"`
+}
+
+type UpdateWebhookInput struct {
+	URL  graphql.Omittable[*string] `json:"url,omitempty"`
+	Name graphql.Omittable[*string] `json:"name,omitempty"`
+	// Set to null for all projects.
+	ProjectID graphql.Omittable[*string]           `json:"projectId,omitempty"`
+	Resources graphql.Omittable[[]WebhookResource] `json:"resources,omitempty"`
+	Secret    graphql.Omittable[*string]           `json:"secret,omitempty"`
+	Enabled   graphql.Omittable[*bool]             `json:"enabled,omitempty"`
 }
 
 type User struct {
@@ -622,6 +641,179 @@ func (e *StateType) UnmarshalJSON(b []byte) error {
 }
 
 func (e StateType) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type WebhookDeliveryStatus string
+
+const (
+	WebhookDeliveryStatusPending   WebhookDeliveryStatus = "PENDING"
+	WebhookDeliveryStatusRetrying  WebhookDeliveryStatus = "RETRYING"
+	WebhookDeliveryStatusSucceeded WebhookDeliveryStatus = "SUCCEEDED"
+	WebhookDeliveryStatusFailed    WebhookDeliveryStatus = "FAILED"
+	WebhookDeliveryStatusCanceled  WebhookDeliveryStatus = "CANCELED"
+)
+
+var AllWebhookDeliveryStatus = []WebhookDeliveryStatus{
+	WebhookDeliveryStatusPending,
+	WebhookDeliveryStatusRetrying,
+	WebhookDeliveryStatusSucceeded,
+	WebhookDeliveryStatusFailed,
+	WebhookDeliveryStatusCanceled,
+}
+
+func (e WebhookDeliveryStatus) IsValid() bool {
+	switch e {
+	case WebhookDeliveryStatusPending, WebhookDeliveryStatusRetrying, WebhookDeliveryStatusSucceeded, WebhookDeliveryStatusFailed, WebhookDeliveryStatusCanceled:
+		return true
+	}
+	return false
+}
+
+func (e WebhookDeliveryStatus) String() string {
+	return string(e)
+}
+
+func (e *WebhookDeliveryStatus) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = WebhookDeliveryStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid WebhookDeliveryStatus", str)
+	}
+	return nil
+}
+
+func (e WebhookDeliveryStatus) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *WebhookDeliveryStatus) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e WebhookDeliveryStatus) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type WebhookDisabledReason string
+
+const (
+	WebhookDisabledReasonFailures WebhookDisabledReason = "FAILURES"
+)
+
+var AllWebhookDisabledReason = []WebhookDisabledReason{
+	WebhookDisabledReasonFailures,
+}
+
+func (e WebhookDisabledReason) IsValid() bool {
+	switch e {
+	case WebhookDisabledReasonFailures:
+		return true
+	}
+	return false
+}
+
+func (e WebhookDisabledReason) String() string {
+	return string(e)
+}
+
+func (e *WebhookDisabledReason) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = WebhookDisabledReason(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid WebhookDisabledReason", str)
+	}
+	return nil
+}
+
+func (e WebhookDisabledReason) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *WebhookDisabledReason) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e WebhookDisabledReason) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type WebhookResource string
+
+const (
+	WebhookResourceIssue     WebhookResource = "ISSUE"
+	WebhookResourceComment   WebhookResource = "COMMENT"
+	WebhookResourceLabel     WebhookResource = "LABEL"
+	WebhookResourceMilestone WebhookResource = "MILESTONE"
+)
+
+var AllWebhookResource = []WebhookResource{
+	WebhookResourceIssue,
+	WebhookResourceComment,
+	WebhookResourceLabel,
+	WebhookResourceMilestone,
+}
+
+func (e WebhookResource) IsValid() bool {
+	switch e {
+	case WebhookResourceIssue, WebhookResourceComment, WebhookResourceLabel, WebhookResourceMilestone:
+		return true
+	}
+	return false
+}
+
+func (e WebhookResource) String() string {
+	return string(e)
+}
+
+func (e *WebhookResource) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = WebhookResource(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid WebhookResource", str)
+	}
+	return nil
+}
+
+func (e WebhookResource) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *WebhookResource) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e WebhookResource) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

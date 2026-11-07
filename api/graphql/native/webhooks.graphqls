@@ -1,0 +1,71 @@
+enum WebhookResource { ISSUE COMMENT LABEL MILESTONE }
+enum WebhookDisabledReason { FAILURES }
+enum WebhookDeliveryStatus { PENDING RETRYING SUCCEEDED FAILED CANCELED }
+
+type Webhook {
+  id: ID!
+  name: String!
+  url: String!
+  secret: String!
+  "Null means all projects."
+  project: Project
+  resources: [WebhookResource!]!
+  enabled: Boolean!
+  disabledReason: WebhookDisabledReason
+  disabledAt: Time
+  createdBy: User
+  createdAt: Time!
+  updatedAt: Time!
+  "Newest first, at most 50."
+  deliveries(first: Int = 50): [WebhookDelivery!]!
+}
+
+type WebhookDelivery {
+  id: ID!
+  "issue, comment, label, milestone or test"
+  resource: String!
+  "create, update, remove or test"
+  action: String!
+  entityId: ID
+  status: WebhookDeliveryStatus!
+  attempts: Int!
+  responseStatus: Int
+  error: String
+  durationMs: Int
+  createdAt: Time!
+  lastAttemptAt: Time
+  nextAttemptAt: Time
+}
+
+input CreateWebhookInput {
+  url: String!
+  name: String
+  projectId: ID
+  resources: [WebhookResource!]!
+  secret: String
+  enabled: Boolean = true
+}
+
+input UpdateWebhookInput {
+  url: String
+  name: String
+  "Set to null for all projects."
+  projectId: ID
+  resources: [WebhookResource!]
+  secret: String
+  enabled: Boolean
+}
+
+extend type Query {
+  webhooks: [Webhook!]!
+  webhook(id: ID!): Webhook!
+}
+
+extend type Mutation {
+  createWebhook(input: CreateWebhookInput!): Webhook!
+  updateWebhook(id: ID!, input: UpdateWebhookInput!): Webhook!
+  deleteWebhook(id: ID!): Boolean!
+  rotateWebhookSecret(id: ID!): Webhook!
+  "Sends a signed test delivery now and returns its result."
+  testWebhook(id: ID!): WebhookDelivery!
+}

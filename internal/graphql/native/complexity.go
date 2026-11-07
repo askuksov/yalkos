@@ -38,6 +38,8 @@ const (
 	projectMilestoneSize = 20
 	// Typical number of files on one issue.
 	attachmentWeight = 10
+	// Typical number of webhooks of a workspace (at most 50).
+	webhookWeight = 20
 )
 
 // pageSize is the number of items a connection may return.
@@ -92,6 +94,14 @@ func complexity() ComplexityRoot {
 		return connCost(child, first, last)
 	}
 	c.Issue.Attachments = func(child int) int { return listCost(child, attachmentWeight) }
+	c.Query.Webhooks = func(child int) int { return listCost(child, webhookWeight) }
+	c.Webhook.Deliveries = func(child int, first *int) int {
+		n := webhookDeliveriesDefault
+		if first != nil {
+			n = min(max(*first, 1), webhookDeliveriesDefault)
+		}
+		return listCost(child, n)
+	}
 	c.Project.States = func(child int) int { return listCost(child, stateWeight) }
 	c.Project.Members = func(child int) int { return listCost(child, memberWeight) }
 	c.State.Project = func(child int) int { return listCost(child, backEdgeCost) }

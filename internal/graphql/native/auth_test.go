@@ -29,9 +29,12 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/domain/timeline"
+	"github.com/askuksov/yalkos/internal/domain/webhook"
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/store"
 	"github.com/askuksov/yalkos/internal/testdb"
+	"github.com/askuksov/yalkos/internal/webhook/delivery"
+	"github.com/askuksov/yalkos/internal/webhook/linearpayload"
 )
 
 var quiet = slog.New(slog.NewJSONHandler(io.Discard, nil))
@@ -72,11 +75,16 @@ func testDeps(t *testing.T, pool *pgxpool.Pool, accounts *account.Service) nativ
 	}
 	attachments := attachment.New(pool, issues, files, &blob.Locks{}, 25<<20, time.Now)
 	issues.SetLinker(attachments)
+	// Test receivers listen on loopback, so private networks are allowed.
+	webhooks := webhook.New(pool, webhook.Options{
+		AllowPrivate: true, BaseURL: "http://yalkos.test", Builder: linearpayload.New("http://yalkos.test"),
+	})
+	webhooks.SetSender(delivery.NewSender(delivery.SenderOptions{AllowPrivate: true}))
 	return native.Deps{
 		Accounts: accounts, Projects: projects, Issues: issues, Audit: audit.New(pool),
 		Milestones: milestone.New(pool, projects, time.Now), Labels: label.New(pool, time.Now),
 		Comments: comment.New(pool, issues, attachments, time.Now), Attachments: attachments,
-		Timeline: timeline.New(pool), Logger: quiet,
+		Timeline: timeline.New(pool), Webhooks: webhooks, Logger: quiet,
 	}
 }
 
