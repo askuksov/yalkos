@@ -12,6 +12,44 @@ import (
 	"github.com/google/uuid"
 )
 
+const cancelDelivery = `-- name: CancelDelivery :exec
+UPDATE webhook_deliveries
+SET status = 'canceled', last_error = $1, next_attempt_at = NULL, finished_at = $2
+WHERE id = $3 AND status IN ('pending', 'retrying')
+`
+
+type CancelDeliveryParams struct {
+	Reason *string
+	Now    *time.Time
+	ID     uuid.UUID
+}
+
+func (q *Queries) CancelDelivery(ctx context.Context, arg CancelDeliveryParams) error {
+	_, err := q.db.Exec(ctx, cancelDelivery, arg.Reason, arg.Now, arg.ID)
+	return err
+}
+
+const cleanupDeliveries = `-- name: CleanupDeliveries :execrows
+DELETE FROM webhook_deliveries
+WHERE id IN (
+    SELECT ranked.id FROM (
+        SELECT id, row_number() OVER (PARTITION BY webhook_id ORDER BY created_at DESC, id DESC) AS n
+        FROM webhook_deliveries
+        WHERE status IN ('succeeded', 'failed', 'canceled')
+    ) ranked
+    WHERE n > 50
+)
+`
+
+// Keeps the newest 50 finished deliveries of every webhook; unfinished ones stay.
+func (q *Queries) CleanupDeliveries(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, cleanupDeliveries)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const countWebhooks = `-- name: CountWebhooks :one
 SELECT count(*) FROM webhooks
 `
@@ -77,6 +115,65 @@ DELETE FROM webhooks WHERE id = $1
 func (q *Queries) DeleteWebhook(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteWebhook, id)
 	return err
+}
+
+const disableWebhookForFailures = `-- name: DisableWebhookForFailures :execrows
+UPDATE webhooks SET enabled = false, disabled_reason = 'failures', disabled_at = $1, updated_at = $1
+WHERE webhooks.id = $2 AND enabled
+  AND NOT EXISTS (
+      SELECT 1 FROM webhook_deliveries
+      WHERE webhook_id = $2 AND status = 'succeeded' AND resource <> 'test' AND finished_at >= $3
+  )
+`
+
+type DisableWebhookForFailuresParams struct {
+	Now       *time.Time
+	WebhookID uuid.UUID
+	Since     *time.Time
+}
+
+// Turns an enabled webhook off after a failed delivery created at @since: no
+// event delivery succeeded at or after that time. One statement, so a
+// concurrent edit of the row is seen as it is.
+func (q *Queries) DisableWebhookForFailures(ctx context.Context, arg DisableWebhookForFailuresParams) (int64, error) {
+	result, err := q.db.Exec(ctx, disableWebhookForFailures, arg.Now, arg.WebhookID, arg.Since)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getAttempt = `-- name: GetAttempt :one
+SELECT d.id, d.status, d.payload, w.url, w.secret, w.enabled, (d.payload ->> 'type')::text AS event_type
+FROM webhook_deliveries d
+JOIN webhooks w ON w.id = d.webhook_id
+WHERE d.id = $1
+`
+
+type GetAttemptRow struct {
+	ID        uuid.UUID
+	Status    string
+	Payload   []byte
+	Url       string
+	Secret    string
+	Enabled   bool
+	EventType string
+}
+
+// The delivery with what an attempt needs from its webhook, read at attempt time.
+func (q *Queries) GetAttempt(ctx context.Context, id uuid.UUID) (GetAttemptRow, error) {
+	row := q.db.QueryRow(ctx, getAttempt, id)
+	var i GetAttemptRow
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.Payload,
+		&i.Url,
+		&i.Secret,
+		&i.Enabled,
+		&i.EventType,
+	)
+	return i, err
 }
 
 const getWebhook = `-- name: GetWebhook :one
@@ -156,6 +253,42 @@ func (q *Queries) InsertDelivery(ctx context.Context, arg InsertDeliveryParams) 
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const insertTestDelivery = `-- name: InsertTestDelivery :exec
+INSERT INTO webhook_deliveries (id, webhook_id, resource, action, payload, status, attempts, response_status,
+                                last_error, duration_ms, created_at, last_attempt_at, finished_at)
+VALUES ($1, $2, 'test', 'test', $3, $4, 1, $5, $6, $7,
+        $8, $9, $10)
+`
+
+type InsertTestDeliveryParams struct {
+	ID             uuid.UUID
+	WebhookID      uuid.UUID
+	Payload        []byte
+	Status         string
+	ResponseStatus *int32
+	LastError      *string
+	DurationMs     *int32
+	CreatedAt      time.Time
+	LastAttemptAt  *time.Time
+	FinishedAt     *time.Time
+}
+
+func (q *Queries) InsertTestDelivery(ctx context.Context, arg InsertTestDeliveryParams) error {
+	_, err := q.db.Exec(ctx, insertTestDelivery,
+		arg.ID,
+		arg.WebhookID,
+		arg.Payload,
+		arg.Status,
+		arg.ResponseStatus,
+		arg.LastError,
+		arg.DurationMs,
+		arg.CreatedAt,
+		arg.LastAttemptAt,
+		arg.FinishedAt,
+	)
+	return err
 }
 
 const listDeliveries = `-- name: ListDeliveries :many
@@ -321,6 +454,51 @@ func (q *Queries) MatchWebhooks(ctx context.Context, arg MatchWebhooksParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordAttempt = `-- name: RecordAttempt :one
+UPDATE webhook_deliveries
+SET status = $1, attempts = $2, response_status = $3, last_error = $4,
+    duration_ms = $5, last_attempt_at = $6, next_attempt_at = $7,
+    finished_at = $8
+WHERE id = $9 AND status IN ('pending', 'retrying')
+RETURNING webhook_id, resource, created_at
+`
+
+type RecordAttemptParams struct {
+	Status         string
+	Attempts       int32
+	ResponseStatus *int32
+	LastError      *string
+	DurationMs     *int32
+	LastAttemptAt  *time.Time
+	NextAttemptAt  *time.Time
+	FinishedAt     *time.Time
+	ID             uuid.UUID
+}
+
+type RecordAttemptRow struct {
+	WebhookID uuid.UUID
+	Resource  string
+	CreatedAt time.Time
+}
+
+// Stores the outcome of an attempt on a delivery that is still unfinished.
+func (q *Queries) RecordAttempt(ctx context.Context, arg RecordAttemptParams) (RecordAttemptRow, error) {
+	row := q.db.QueryRow(ctx, recordAttempt,
+		arg.Status,
+		arg.Attempts,
+		arg.ResponseStatus,
+		arg.LastError,
+		arg.DurationMs,
+		arg.LastAttemptAt,
+		arg.NextAttemptAt,
+		arg.FinishedAt,
+		arg.ID,
+	)
+	var i RecordAttemptRow
+	err := row.Scan(&i.WebhookID, &i.Resource, &i.CreatedAt)
+	return i, err
 }
 
 const updateWebhook = `-- name: UpdateWebhook :one
