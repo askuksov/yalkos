@@ -1,0 +1,66 @@
+"A webhook: where the workspace's changes are sent."
+type Webhook {
+  id: ID!
+  "A name for the webhook."
+  label: String
+  "The key that signs deliveries. Only workspace owners and admins can read it."
+  secret: String
+  url: String
+  updatedAt: DateTime!
+  "Issue, Comment, IssueLabel or Project."
+  resourceTypes: [String!]!
+  "The team the webhook is limited to; null for all teams."
+  team: Team
+  archivedAt: DateTime
+  createdAt: DateTime!
+  creator: User
+  enabled: Boolean!
+  "True when the webhook covers all teams."
+  allPublicTeams: Boolean!
+}
+
+type WebhookConnection {
+  nodes: [Webhook!]!
+  edges: [WebhookEdge!]!
+  pageInfo: PageInfo!
+}
+
+type WebhookEdge {
+  node: Webhook!
+  cursor: String!
+}
+
+input WebhookCreateInput {
+  url: String!
+  "Issue, Comment, IssueLabel or Project."
+  resourceTypes: [String!]!
+  "A team id or key; give either teamId or allPublicTeams: true."
+  teamId: String
+  allPublicTeams: Boolean
+  label: String
+  "Used as given; generated when left out (1 to 255 characters)."
+  secret: String
+  enabled: Boolean = true
+}
+
+input WebhookUpdateInput {
+  url: String
+  resourceTypes: [String!]
+  "Null clears the name."
+  label: String
+  secret: String
+  enabled: Boolean
+}
+
+type WebhookPayload {
+  lastSyncId: Float!
+  webhook: Webhook!
+  success: Boolean!
+}
+
+type WebhookRotateSecretPayload {
+  lastSyncId: Float!
+  "The new secret."
+  secret: String!
+  success: Boolean!
+}

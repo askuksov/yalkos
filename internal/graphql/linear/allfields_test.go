@@ -9,9 +9,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/vektah/gqlparser/v2/ast"
 
+	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
+	"github.com/askuksov/yalkos/internal/domain/webhook"
 	"github.com/askuksov/yalkos/internal/graphql/linear"
 )
 
@@ -68,6 +70,12 @@ func TestEveryFieldResolves(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := f.comment(t, "YLK-3", "hello")
+	wh, err := f.deps.Webhooks.Create(ctx, f.owner, webhook.CreateInput{
+		URL: "https://example.com/hook", Name: "Deploys", ProjectID: &f.ylk.ID, Resources: []event.Resource{event.Issue, event.Milestone}, Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := f.deps.Attachments.Upload(ctx, f.owner, "a.txt", strings.NewReader("x"), &y3); err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +84,7 @@ func TestEveryFieldResolves(t *testing.T) {
 	state := stateNamed(t, f.env, f.ylk, "Todo")
 	vars := map[string]any{
 		"team": "YLK", "state": state.ID.String(), "issue": "YLK-3", "label": be.ID.String(),
-		"project": m.ID.String(), "comment": c.ID.String(),
+		"project": m.ID.String(), "comment": c.ID.String(), "webhook": wh.ID.String(),
 	}
 	// One query per root field keeps each under the cost limit.
 	queries := map[string]string{
@@ -88,6 +96,9 @@ func TestEveryFieldResolves(t *testing.T) {
 		"issueLabel":     "issueLabel(id: $label) { " + ws("IssueLabel") + "}",
 		"project":        "project(id: $project) { " + ws("Project") + "}",
 		"comment":        "comment(id: $comment) { " + ws("Comment") + "}",
+		"webhook":        "webhook(id: $webhook) { " + ws("Webhook") + "}",
+		"webhooks":       "webhooks(first: 5) { " + conn("Webhook") + "}",
+		"teamWebhooks":   "team(id: $team) { webhooks(first: 5) { " + conn("Webhook") + "} }",
 		"searchIssues":   `searchIssues(term: "fix") { totalCount archivePayload { ` + ws("ArchiveResponse") + "} " + conn("IssueSearchResult") + "}",
 		"users":          "users(first: 5) { " + conn("User") + "}",
 		"teams":          "teams(first: 5) { " + conn("Team") + "}",
@@ -98,8 +109,8 @@ func TestEveryFieldResolves(t *testing.T) {
 		"attachments":    "issue(id: $issue) { attachments { " + conn("Attachment") + "} relations { " + conn("IssueRelation") + "} }",
 	}
 	used := map[string]string{"$team": "$team: String!", "$state": "$state: String!", "$issue": "$issue: String!",
-		"$label": "$label: String!", "$project": "$project: String!", "$comment": "$comment: String"}
-	lists := map[string]bool{"searchIssues": true, "users": true, "teams": true, "issues": true, "issueLabels": true, "projects": true, "workflowStates": true}
+		"$label": "$label: String!", "$project": "$project: String!", "$comment": "$comment: String", "$webhook": "$webhook: String!"}
+	lists := map[string]bool{"searchIssues": true, "users": true, "teams": true, "issues": true, "issueLabels": true, "projects": true, "workflowStates": true, "webhooks": true}
 	total := 0
 	for name, body := range queries {
 		var decl []string

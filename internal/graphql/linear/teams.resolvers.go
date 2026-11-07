@@ -70,6 +70,11 @@ func (r *teamResolver) Members(ctx context.Context, obj *Team, after *string, be
 	return r.userConn(users, me.ID, filter, includeDisabled, orderBy, sort, pageArgs(first, after, last, before))
 }
 
+// Webhooks is the resolver for the webhooks field.
+func (r *teamResolver) Webhooks(ctx context.Context, obj *Team, after *string, before *string, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*WebhookConnection, error) {
+	return r.webhooks(ctx, &obj.Src.ID, orderBy, pageArgs(first, after, last, before))
+}
+
 // Team is the resolver for the team field.
 func (r *workflowStateResolver) Team(ctx context.Context, obj *WorkflowState) (*Team, error) {
 	p, err := loadersFrom(ctx).projects.Load(ctx, obj.ProjectID)

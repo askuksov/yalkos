@@ -69,6 +69,26 @@ func (r *mutationResolver) ProjectDelete(ctx context.Context, id string) (*Proje
 	return r.deleteProject(ctx, id)
 }
 
+// WebhookCreate is the resolver for the webhookCreate field.
+func (r *mutationResolver) WebhookCreate(ctx context.Context, input WebhookCreateInput) (*WebhookPayload, error) {
+	return r.createWebhook(ctx, input)
+}
+
+// WebhookUpdate is the resolver for the webhookUpdate field.
+func (r *mutationResolver) WebhookUpdate(ctx context.Context, id string, input WebhookUpdateInput) (*WebhookPayload, error) {
+	return r.updateWebhook(ctx, id, input)
+}
+
+// WebhookDelete is the resolver for the webhookDelete field.
+func (r *mutationResolver) WebhookDelete(ctx context.Context, id string) (*DeletePayload, error) {
+	return r.deleteWebhook(ctx, id)
+}
+
+// WebhookRotateSecret is the resolver for the webhookRotateSecret field.
+func (r *mutationResolver) WebhookRotateSecret(ctx context.Context, id string) (*WebhookRotateSecretPayload, error) {
+	return r.rotateWebhookSecret(ctx, id)
+}
+
 // Viewer is the resolver for the viewer field.
 func (r *queryResolver) Viewer(ctx context.Context) (*User, error) {
 	me, err := r.actor(ctx)
@@ -206,6 +226,16 @@ func (r *queryResolver) Project(ctx context.Context, id string) (*Project, error
 // ProjectStatus is the resolver for the projectStatus field.
 func (r *queryResolver) ProjectStatus(ctx context.Context, id string) (*ProjectStatus, error) {
 	return r.projectStatusByID(ctx, id)
+}
+
+// Webhooks is the resolver for the webhooks field.
+func (r *queryResolver) Webhooks(ctx context.Context, after *string, before *string, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) (*WebhookConnection, error) {
+	return r.webhooks(ctx, nil, orderBy, pageArgs(first, after, last, before))
+}
+
+// Webhook is the resolver for the webhook field.
+func (r *queryResolver) Webhook(ctx context.Context, id string) (*Webhook, error) {
+	return r.webhookByID(ctx, id)
 }
 
 // Mutation returns MutationResolver implementation.

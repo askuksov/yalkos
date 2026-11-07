@@ -44,6 +44,10 @@ type Query {
   project(id: String!): Project!
   "One of the four project statuses by id."
   projectStatus(id: String!): ProjectStatus!
+  "Webhooks, newest first. Owners and admins only."
+  webhooks(after: String, before: String, first: Int, includeArchived: Boolean, last: Int, orderBy: PaginationOrderBy): WebhookConnection!
+  "A webhook by id. Owners and admins only."
+  webhook(id: String!): Webhook!
 }
 
 type Mutation {
@@ -71,4 +75,12 @@ type Mutation {
   projectUpdate(id: String!, input: ProjectUpdateInput!): ProjectPayload!
   "Deletes a project; its issues stay without one."
   projectDelete(id: String!): ProjectArchivePayload!
+  "Creates a webhook for one team or for all teams. Owners and admins only."
+  webhookCreate(input: WebhookCreateInput!): WebhookPayload!
+  "Updates a webhook. Owners and admins only."
+  webhookUpdate(id: String!, input: WebhookUpdateInput!): WebhookPayload!
+  "Deletes a webhook. Owners and admins only."
+  webhookDelete(id: String!): DeletePayload!
+  "Replaces the secret of a webhook with a new one. Owners and admins only."
+  webhookRotateSecret(id: String!): WebhookRotateSecretPayload!
 }
