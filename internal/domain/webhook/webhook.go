@@ -57,11 +57,14 @@ type Patch struct {
 
 // Options configure the service. Now is the clock (time.Now when nil);
 // AllowPrivate lets webhooks target private and loopback networks; BaseURL is
-// the public URL of the app.
+// the public URL of the app. Builder and Queue are needed by Emit: the payload
+// builder and the River client that queues deliveries.
 type Options struct {
 	Now          func() time.Time
 	AllowPrivate bool
 	BaseURL      string
+	Builder      Builder
+	Queue        Inserter
 }
 
 // Service holds webhook rules.

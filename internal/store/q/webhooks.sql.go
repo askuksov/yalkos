@@ -129,6 +129,101 @@ func (q *Queries) GetWebhookForUpdate(ctx context.Context, id uuid.UUID) (Webhoo
 	return i, err
 }
 
+const insertDelivery = `-- name: InsertDelivery :one
+INSERT INTO webhook_deliveries (webhook_id, resource, action, entity_id, payload, status, created_at)
+VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+RETURNING id
+`
+
+type InsertDeliveryParams struct {
+	WebhookID uuid.UUID
+	Resource  string
+	Action    string
+	EntityID  *uuid.UUID
+	Payload   []byte
+	CreatedAt time.Time
+}
+
+func (q *Queries) InsertDelivery(ctx context.Context, arg InsertDeliveryParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, insertDelivery,
+		arg.WebhookID,
+		arg.Resource,
+		arg.Action,
+		arg.EntityID,
+		arg.Payload,
+		arg.CreatedAt,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const listDeliveries = `-- name: ListDeliveries :many
+SELECT id, webhook_id, resource, action, entity_id, status, attempts, response_status, last_error, duration_ms,
+       created_at, last_attempt_at, next_attempt_at, finished_at
+FROM webhook_deliveries
+WHERE webhook_id = $1
+ORDER BY created_at DESC, id DESC
+LIMIT $2
+`
+
+type ListDeliveriesParams struct {
+	WebhookID uuid.UUID
+	MaxRows   int32
+}
+
+type ListDeliveriesRow struct {
+	ID             uuid.UUID
+	WebhookID      uuid.UUID
+	Resource       string
+	Action         string
+	EntityID       *uuid.UUID
+	Status         string
+	Attempts       int32
+	ResponseStatus *int32
+	LastError      *string
+	DurationMs     *int32
+	CreatedAt      time.Time
+	LastAttemptAt  *time.Time
+	NextAttemptAt  *time.Time
+	FinishedAt     *time.Time
+}
+
+func (q *Queries) ListDeliveries(ctx context.Context, arg ListDeliveriesParams) ([]ListDeliveriesRow, error) {
+	rows, err := q.db.Query(ctx, listDeliveries, arg.WebhookID, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDeliveriesRow
+	for rows.Next() {
+		var i ListDeliveriesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WebhookID,
+			&i.Resource,
+			&i.Action,
+			&i.EntityID,
+			&i.Status,
+			&i.Attempts,
+			&i.ResponseStatus,
+			&i.LastError,
+			&i.DurationMs,
+			&i.CreatedAt,
+			&i.LastAttemptAt,
+			&i.NextAttemptAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWebhooks = `-- name: ListWebhooks :many
 SELECT id, workspace_id, name, url, secret, project_id, resources, enabled, disabled_reason, disabled_at, created_by, created_at, updated_at FROM webhooks ORDER BY created_at DESC, id DESC
 `
@@ -176,6 +271,56 @@ SELECT id FROM workspaces LIMIT 1 FOR NO KEY UPDATE
 func (q *Queries) LockWorkspaceForWebhooks(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, lockWorkspaceForWebhooks)
 	return err
+}
+
+const matchWebhooks = `-- name: MatchWebhooks :many
+SELECT id, workspace_id, name, url, secret, project_id, resources, enabled, disabled_reason, disabled_at, created_by, created_at, updated_at FROM webhooks
+WHERE enabled
+  AND $1::text = ANY (resources)
+  AND (project_id IS NULL OR $2::boolean OR project_id = ANY ($3::uuid[]))
+ORDER BY created_at, id
+`
+
+type MatchWebhooksParams struct {
+	Resource   string
+	AnyScope   bool
+	ProjectIds []uuid.UUID
+}
+
+// Enabled webhooks subscribed to the resource whose scope covers the event:
+// all projects, one of the given projects, or any scope (workspace-wide events).
+func (q *Queries) MatchWebhooks(ctx context.Context, arg MatchWebhooksParams) ([]Webhook, error) {
+	rows, err := q.db.Query(ctx, matchWebhooks, arg.Resource, arg.AnyScope, arg.ProjectIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Webhook
+	for rows.Next() {
+		var i Webhook
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.Url,
+			&i.Secret,
+			&i.ProjectID,
+			&i.Resources,
+			&i.Enabled,
+			&i.DisabledReason,
+			&i.DisabledAt,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateWebhook = `-- name: UpdateWebhook :one
