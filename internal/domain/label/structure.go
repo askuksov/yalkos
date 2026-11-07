@@ -203,7 +203,7 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 // the locked rows by id. When the label moved to another group while this
 // waited for its lock, that group is not locked; locking it now could wait for
 // a change that waits for the label, so the change starts over instead
-// (errMovedMeanwhile, handled by inTx) and releases the label first.
+// (errMovedMeanwhile, a kit.ErrStartOver) and releases the label first.
 func (s *Service) lockForChange(ctx context.Context, tx *q.Queries, id uuid.UUID, newGroup *uuid.UUID) (Label, map[uuid.UUID]q.Label, error) {
 	row, err := tx.GetLabel(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {

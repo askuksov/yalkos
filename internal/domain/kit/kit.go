@@ -1,14 +1,45 @@
 // Package kit holds small types shared by all domain packages: errors the API
-// layer maps to GraphQL codes, and Opt for patch inputs.
+// layer maps to GraphQL codes, Opt for patch inputs and the transaction runner.
 package kit
 
-import "errors"
+import (
+	"context"
+	"errors"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/askuksov/yalkos/internal/store/q"
+)
 
 // Shared sentinel errors.
 var (
 	ErrForbidden = errors.New("forbidden")
 	ErrNotFound  = errors.New("not found")
 )
+
+// ErrStartOver ends a transaction that must run again from the start: rows it
+// locked changed while it waited for them (an issue moved to another project,
+// a label to another group), and locking the new rows while it still holds
+// the old ones could deadlock with a writer that locks them in order.
+var ErrStartOver = errors.New("changed concurrently, try again")
+
+// attempts bounds how often InTx runs a transaction that ends with ErrStartOver.
+const attempts = 3
+
+// InTx runs fn in a transaction on pool with base bound to it. A run that
+// ends with ErrStartOver is rolled back, releasing its locks, and runs again,
+// up to three times in all.
+func InTx(ctx context.Context, pool *pgxpool.Pool, base *q.Queries, fn func(*q.Queries) error) error {
+	var err error
+	for range attempts {
+		err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error { return fn(base.WithTx(tx)) })
+		if !errors.Is(err, ErrStartOver) {
+			return err
+		}
+	}
+	return err
+}
 
 // Reason is a machine-readable cause of an InputError; the UI translates it.
 type Reason string

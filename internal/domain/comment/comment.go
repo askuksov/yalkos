@@ -56,8 +56,10 @@ func (s *Service) link(ctx context.Context, tx *q.Queries, actor account.User, i
 	return s.linker.Link(ctx, tx, actor.ID, issueID, explicit, body)
 }
 
+// inTx runs fn in a transaction that starts over on kit.ErrStartOver (an
+// issue locked through LockForWrite moved meanwhile).
 func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
-	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+	return kit.InTx(ctx, s.pool, s.q, fn)
 }
 
 func toComment(c q.Comment) Comment {

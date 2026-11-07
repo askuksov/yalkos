@@ -70,8 +70,10 @@ func New(pool *pgxpool.Pool, issues *issue.Service, store blob.Store, locks *blo
 // MaxBytes is the per-file limit.
 func (s *Service) MaxBytes() int64 { return s.maxBytes }
 
+// inTx runs fn in a transaction that starts over on kit.ErrStartOver (an
+// issue locked through LockForWrite moved meanwhile).
 func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
-	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+	return kit.InTx(ctx, s.pool, s.q, fn)
 }
 
 var errNotFound = kit.NotFoundError{Entity: "Attachment"}
