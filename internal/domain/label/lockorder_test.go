@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/label"
 )
@@ -160,5 +161,50 @@ func TestRegroupLocksOldGroup(t *testing.T) {
 	}
 	if got := e.byName(t, "Web"); got.ParentID == nil || *got.ParentID != to.ID {
 		t.Errorf("label parent = %v, want %v", got.ParentID, to.ID)
+	}
+}
+
+// An issue write that waited for a label moved to another group meanwhile
+// locks the new group too, so a concurrent change of that group (for example
+// making it exclusive) cannot miss the new issue label.
+func TestIssueWriteLocksNewGroupOfMovedLabel(t *testing.T) {
+	e := newEnv(t)
+	from := e.create(t, e.users.Admin, label.CreateInput{Name: "From", IsGroup: true, Exclusive: ptr(false)})
+	to := e.create(t, e.users.Admin, label.CreateInput{Name: "To", IsGroup: true, Exclusive: ptr(false)})
+	l := e.create(t, e.users.Admin, label.CreateInput{Name: "Web", ParentID: &from.ID})
+	i := e.issueWith(t)
+
+	move := hold(t, e) // a label move in progress
+	if err := move.lock(l.ID, "UPDATE"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := move.tx.Exec(context.Background(), `UPDATE labels SET parent_id = $1 WHERE id = $2`, to.ID, l.ID); err != nil {
+		t.Fatal(err)
+	}
+	// A change of the new group in progress. NO KEY UPDATE, unlike UPDATE, does
+	// not wait for the key share the move's foreign key holds on the group, and
+	// still blocks the share lock an issue write takes on it.
+	change := hold(t, e)
+	if err := change.lock(to.ID, "NO KEY UPDATE"); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := e.issues.Update(context.Background(), e.users.Member, i.ID, issue.Patch{AddLabelIDs: []uuid.UUID{l.ID}})
+		done <- err
+	}()
+	waitBlocked(t, e)
+	move.commit()
+	select {
+	case err := <-done:
+		t.Fatalf("issue write finished while the label's new group was locked (err %v)", err)
+	case <-time.After(500 * time.Millisecond):
+	}
+	change.commit()
+	if err := <-done; err != nil {
+		t.Fatalf("issue write: %v", err)
+	}
+	if got := e.issueLabels(t, i.ID); len(got) != 1 || got[0] != "Web:-" {
+		t.Errorf("issue labels = %v, want [Web:-]", got)
 	}
 }

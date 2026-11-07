@@ -2,6 +2,7 @@ package issue
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -77,17 +78,37 @@ func exclusiveGroup(l label.Label, labels map[uuid.UUID]label.Label) *uuid.UUID 
 	return nil
 }
 
-// lockLabels share-locks the labels (and their groups) referenced by ids.
+// lockLabels share-locks the labels referenced by ids and their groups. A
+// label moved to another group while this waited for its lock is locked again
+// with its new group, so a concurrent change of that group (making it
+// exclusive, say) waits for this write instead of missing it.
 func lockLabels(ctx context.Context, tx *q.Queries, ids []uuid.UUID) (map[uuid.UUID]label.Label, error) {
-	rows, err := tx.LockLabelsForShare(ctx, ids)
-	if err != nil {
-		return nil, fmt.Errorf("lock labels: %w", err)
+	for range 3 {
+		rows, err := tx.LockLabelsForShare(ctx, ids)
+		if err != nil {
+			return nil, fmt.Errorf("lock labels: %w", err)
+		}
+		out := make(map[uuid.UUID]label.Label, len(rows))
+		for _, r := range rows {
+			out[r.ID] = label.FromRow(r)
+		}
+		if groupsLocked(out) {
+			return out, nil
+		}
 	}
-	out := make(map[uuid.UUID]label.Label, len(rows))
-	for _, r := range rows {
-		out[r.ID] = label.FromRow(r)
+	return nil, errors.New("issue: labels moved concurrently, try again")
+}
+
+// groupsLocked reports whether the group of every label in m is in m too.
+func groupsLocked(m map[uuid.UUID]label.Label) bool {
+	for _, l := range m {
+		if l.ParentID != nil {
+			if _, ok := m[*l.ParentID]; !ok {
+				return false
+			}
+		}
 	}
-	return out, nil
+	return true
 }
 
 // issueLabelIDs reads the sorted label ids of each issue.
