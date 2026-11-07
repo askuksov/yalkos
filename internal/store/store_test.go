@@ -62,11 +62,17 @@ func TestRollbackRevertsLatest(t *testing.T) {
 		t.Errorf("status = current %d, latest %d; want %d, %d", current, last, latest-1, latest)
 	}
 	var exists bool
-	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.milestones') IS NOT NULL`).Scan(&exists); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.river_job') IS NOT NULL`).Scan(&exists); err != nil {
 		t.Fatal(err)
 	}
 	if exists {
-		t.Error("table milestones still exists after rollback")
+		t.Error("table river_job still exists after rollback")
+	}
+	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.milestones') IS NOT NULL`).Scan(&exists); err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
+		t.Error("table milestones was dropped by the rollback of the River step")
 	}
 }
 
@@ -159,12 +165,13 @@ func TestConnectUnreachable(t *testing.T) {
 	}
 }
 
-// latestVersion is the number of embedded migrations (files are numbered 00001, 00002, ...).
+// latestVersion is the number of embedded migrations: the *.sql files (numbered
+// 00001, 00002, ...) plus the Go step that creates the River tables.
 func latestVersion(t *testing.T) int64 {
 	t.Helper()
 	files, err := fs.Glob(db.Migrations(), "*.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return int64(len(files))
+	return int64(len(files)) + 1 // +1: the River Go step is not a *.sql file
 }
