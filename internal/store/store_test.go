@@ -61,18 +61,14 @@ func TestRollbackRevertsLatest(t *testing.T) {
 	if current != latest-1 || last != latest {
 		t.Errorf("status = current %d, latest %d; want %d, %d", current, last, latest-1, latest)
 	}
-	var exists bool
-	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.river_job') IS NOT NULL`).Scan(&exists); err != nil {
-		t.Fatal(err)
-	}
-	if exists {
-		t.Error("table river_job still exists after rollback")
-	}
-	if err := pool.QueryRow(ctx, `SELECT to_regclass('public.milestones') IS NOT NULL`).Scan(&exists); err != nil {
-		t.Fatal(err)
-	}
-	if !exists {
-		t.Error("table milestones was dropped by the rollback of the River step")
+	for table, wantExists := range map[string]bool{"webhooks": false, "webhook_deliveries": false, "river_job": true, "milestones": true} {
+		var exists bool
+		if err := pool.QueryRow(ctx, `SELECT to_regclass('public.' || $1) IS NOT NULL`, table).Scan(&exists); err != nil {
+			t.Fatal(err)
+		}
+		if exists != wantExists {
+			t.Errorf("table %s exists = %v after rolling back the webhooks migration, want %v", table, exists, wantExists)
+		}
 	}
 }
 

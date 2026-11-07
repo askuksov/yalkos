@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	apiKeyPrefix   = "yal_api_"
-	apiKeyRandLen  = 40
-	displayPrefixN = 12
-	base62         = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	apiKeyPrefix        = "yal_api_"
+	webhookSecretPrefix = "yal_wh_"
+	randLen             = 40
+	displayPrefixN      = 12
+	base62              = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 )
 
 // HashSecret is the SHA-256 digest stored for high-entropy secrets (tokens, API keys).
@@ -28,20 +29,30 @@ func NewToken() (plain string, hash []byte) {
 	return plain, HashSecret(plain)
 }
 
-// NewAPIKey returns "yal_api_" + 40 base62 chars, its hash and a display prefix.
-func NewAPIKey() (plain string, hash []byte, displayPrefix string) {
+// randBase62 returns prefix followed by n base62 characters from crypto/rand.
+func randBase62(prefix string, n int) string {
 	var sb strings.Builder
-	sb.WriteString(apiKeyPrefix)
+	sb.WriteString(prefix)
 	buf := make([]byte, 1)
-	for sb.Len() < len(apiKeyPrefix)+apiKeyRandLen {
+	for sb.Len() < len(prefix)+n {
 		_, _ = rand.Read(buf)
 		// Rejection sampling: 248 = 4*62, keeps the distribution uniform.
 		if buf[0] < 248 {
 			sb.WriteByte(base62[int(buf[0])%62])
 		}
 	}
-	plain = sb.String()
+	return sb.String()
+}
+
+// NewAPIKey returns "yal_api_" + 40 base62 chars, its hash and a display prefix.
+func NewAPIKey() (plain string, hash []byte, displayPrefix string) {
+	plain = randBase62(apiKeyPrefix, randLen)
 	return plain, HashSecret(plain), plain[:displayPrefixN] + "…"
+}
+
+// NewWebhookSecret returns "yal_wh_" + 40 base62 chars.
+func NewWebhookSecret() string {
+	return randBase62(webhookSecretPrefix, randLen)
 }
 
 // ParseAuthorization extracts the key from "Bearer <key>" or a bare "<key>".
