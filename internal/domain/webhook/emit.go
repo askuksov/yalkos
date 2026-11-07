@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -66,6 +67,9 @@ func (s *Service) Emit(ctx context.Context, tx pgx.Tx, c event.Change) error {
 	}
 	if len(hooks) == 0 {
 		return nil
+	}
+	if s.opts.Builder == nil || s.opts.Queue == nil {
+		return errors.New("webhook: builder and queue are required")
 	}
 	built, err := s.opts.Builder.Build(ctx, db, c)
 	if err != nil {
