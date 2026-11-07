@@ -71,17 +71,9 @@ func New(pool *pgxpool.Pool, projects *project.Service, now func() time.Time) *S
 	return &Service{pool: pool, q: q.New(pool), projects: projects, now: now}
 }
 
-// inTx runs fn in a transaction; a write whose labels moved meanwhile
-// (errLabelsMoved) starts over, up to three times.
+// inTx runs fn in a transaction that starts over on kit.ErrStartOver.
 func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
-	var err error
-	for range 3 {
-		err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
-		if !errors.Is(err, errLabelsMoved) {
-			return err
-		}
-	}
-	return err
+	return kit.InTx(ctx, s.pool, s.q, fn)
 }
 
 func toIssue(i q.Issue, key string) Issue {
@@ -96,6 +88,10 @@ func toIssue(i q.Issue, key string) Issue {
 }
 
 var errNotFound = kit.NotFoundError{Entity: "Issue"}
+
+// errMovedMeanwhile starts a write over: the issue moved to another project
+// while the write waited for it (see lockIssue).
+var errMovedMeanwhile = fmt.Errorf("issue: moved to another project meanwhile: %w", kit.ErrStartOver)
 
 func record(ctx context.Context, tx *q.Queries, actor account.User, i Issue, action string, changes map[string]audit.Change, at time.Time) error {
 	return audit.Record(ctx, tx, audit.Event{
@@ -114,36 +110,36 @@ func (s *Service) lockProject(ctx context.Context, tx *q.Queries, id uuid.UUID) 
 }
 
 // lockIssue locks the issue's project (writable) and then the live issue row.
-// The project lock comes first so writers of one project never deadlock.
+// The project lock comes first so writers of one project never deadlock. An
+// issue moved to another project while this waited starts the transaction
+// over (errMovedMeanwhile) rather than locking that project on top.
 func (s *Service) lockIssue(ctx context.Context, tx *q.Queries, id uuid.UUID) (Issue, error) {
-	for range 3 {
-		row, err := tx.GetIssue(ctx, id)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Issue{}, errNotFound
-		}
-		if err != nil {
-			return Issue{}, fmt.Errorf("get issue: %w", err)
-		}
-		if _, err := s.projects.LockWritable(ctx, tx, row.Issue.ProjectID); err != nil {
-			return Issue{}, err
-		}
-		locked, err := tx.GetIssueForUpdate(ctx, id)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Issue{}, errNotFound
-		}
-		if err != nil {
-			return Issue{}, fmt.Errorf("lock issue: %w", err)
-		}
-		if locked.Issue.ProjectID == row.Issue.ProjectID {
-			return toIssue(locked.Issue, locked.ProjectKey), nil
-		}
-		// Moved to another project meanwhile: lock that one too.
+	row, err := tx.GetIssue(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Issue{}, errNotFound
 	}
-	return Issue{}, errors.New("issue: moved concurrently, try again")
+	if err != nil {
+		return Issue{}, fmt.Errorf("get issue: %w", err)
+	}
+	if _, err := s.projects.LockWritable(ctx, tx, row.Issue.ProjectID); err != nil {
+		return Issue{}, err
+	}
+	locked, err := tx.GetIssueForUpdate(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Issue{}, errNotFound
+	}
+	if err != nil {
+		return Issue{}, fmt.Errorf("lock issue: %w", err)
+	}
+	if locked.Issue.ProjectID != row.Issue.ProjectID {
+		return Issue{}, errMovedMeanwhile
+	}
+	return toIssue(locked.Issue, locked.ProjectKey), nil
 }
 
 // LockForWrite locks a live issue and its writable project inside tx, for
-// services that change what belongs to an issue (comments, attachments).
+// services that change what belongs to an issue (comments, attachments). Run
+// tx with kit.InTx: an issue that moved meanwhile returns kit.ErrStartOver.
 func (s *Service) LockForWrite(ctx context.Context, tx *q.Queries, id uuid.UUID) (Issue, error) {
 	return s.lockIssue(ctx, tx, id)
 }

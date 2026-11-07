@@ -2,7 +2,6 @@ package issue
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -80,13 +79,13 @@ func exclusiveGroup(l label.Label, labels map[uuid.UUID]label.Label) *uuid.UUID 
 
 // errLabelsMoved makes an issue write start over: a label it locked moved to
 // another group while the write waited for it (see lockLabels).
-var errLabelsMoved = errors.New("issue: labels moved concurrently, try again")
+var errLabelsMoved = fmt.Errorf("issue: labels moved to other groups meanwhile: %w", kit.ErrStartOver)
 
 // lockLabels share-locks the labels referenced by ids and their groups in one
 // statement ordered by id. When a label moved to another group while this
 // waited for its lock, the new group is not locked; locking it now could wait
 // for a change that waits for the label, so the write starts over instead
-// (errLabelsMoved, handled by inTx) and releases the label first.
+// (errLabelsMoved, a kit.ErrStartOver) and releases the label first.
 func lockLabels(ctx context.Context, tx *q.Queries, ids []uuid.UUID) (map[uuid.UUID]label.Label, error) {
 	rows, err := tx.LockLabelsForShare(ctx, ids)
 	if err != nil {

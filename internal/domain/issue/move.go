@@ -97,45 +97,44 @@ func (s *Service) Move(ctx context.Context, actor account.User, id, toProject uu
 
 // lockForMove locks source and target projects in UUID order (no deadlock
 // between opposite moves), then the issue row. Both projects must be writable.
+// An issue moved meanwhile starts the transaction over (errMovedMeanwhile).
 func (s *Service) lockForMove(ctx context.Context, tx *q.Queries, id, toProject uuid.UUID) (q.Issue, q.Project, error) {
-	for range 3 {
-		row, err := tx.GetIssue(ctx, id)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return q.Issue{}, q.Project{}, errNotFound
-		}
+	row, err := tx.GetIssue(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return q.Issue{}, q.Project{}, errNotFound
+	}
+	if err != nil {
+		return q.Issue{}, q.Project{}, fmt.Errorf("get issue: %w", err)
+	}
+	source := row.Issue.ProjectID
+	if source == toProject {
+		return q.Issue{}, q.Project{}, kit.Input("projectId", kit.ReasonNotAllowed, "issue is already in this project")
+	}
+	ids := []uuid.UUID{source, toProject}
+	if bytes.Compare(ids[1][:], ids[0][:]) < 0 {
+		ids[0], ids[1] = ids[1], ids[0]
+	}
+	var target q.Project
+	for _, pid := range ids {
+		p, err := s.lockProject(ctx, tx, pid)
 		if err != nil {
-			return q.Issue{}, q.Project{}, fmt.Errorf("get issue: %w", err)
+			return q.Issue{}, q.Project{}, err
 		}
-		source := row.Issue.ProjectID
-		if source == toProject {
-			return q.Issue{}, q.Project{}, kit.Input("projectId", kit.ReasonNotAllowed, "issue is already in this project")
-		}
-		ids := []uuid.UUID{source, toProject}
-		if bytes.Compare(ids[1][:], ids[0][:]) < 0 {
-			ids[0], ids[1] = ids[1], ids[0]
-		}
-		var target q.Project
-		for _, pid := range ids {
-			p, err := s.lockProject(ctx, tx, pid)
-			if err != nil {
-				return q.Issue{}, q.Project{}, err
-			}
-			if pid == toProject {
-				target = p
-			}
-		}
-		locked, err := tx.GetIssueForUpdate(ctx, id)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return q.Issue{}, q.Project{}, errNotFound
-		}
-		if err != nil {
-			return q.Issue{}, q.Project{}, fmt.Errorf("lock issue: %w", err)
-		}
-		if locked.Issue.ProjectID == source {
-			return locked.Issue, target, nil
+		if pid == toProject {
+			target = p
 		}
 	}
-	return q.Issue{}, q.Project{}, errors.New("issue: moved concurrently, try again")
+	locked, err := tx.GetIssueForUpdate(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return q.Issue{}, q.Project{}, errNotFound
+	}
+	if err != nil {
+		return q.Issue{}, q.Project{}, fmt.Errorf("lock issue: %w", err)
+	}
+	if locked.Issue.ProjectID != source {
+		return q.Issue{}, q.Project{}, errMovedMeanwhile
+	}
+	return locked.Issue, target, nil
 }
 
 // mapState picks the target state with the same name (case-insensitive),
