@@ -58,8 +58,21 @@ func New(pool *pgxpool.Pool, now func() time.Time) *Service {
 	return &Service{pool: pool, q: q.New(pool), now: now}
 }
 
+// errMovedMeanwhile makes a label change start over: the label moved to
+// another group while the change waited for it (see lockForChange).
+var errMovedMeanwhile = errors.New("label: moved concurrently, try again")
+
+// inTx runs fn in a transaction; a change whose label moved meanwhile
+// (errMovedMeanwhile) starts over, up to three times.
 func (s *Service) inTx(ctx context.Context, fn func(*q.Queries) error) error {
-	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+	var err error
+	for range 3 {
+		err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(s.q.WithTx(tx)) })
+		if !errors.Is(err, errMovedMeanwhile) {
+			return err
+		}
+	}
+	return err
 }
 
 // FromRow converts a stored label.

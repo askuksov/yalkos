@@ -286,3 +286,49 @@ func TestIssueWriteRestartsWhenMovedLabelGroupIsHeld(t *testing.T) {
 		t.Errorf("issue labels = %v, want [Web:-]", got)
 	}
 }
+
+// The same for a label change: when the label moved to a group that sorts
+// before it while the change waited, and another change holds that group
+// waiting for the label, the change starts over instead of waiting while it
+// holds the label.
+func TestLabelChangeRestartsWhenMovedMeanwhile(t *testing.T) {
+	e := newEnv(t)
+	to := e.create(t, e.users.Admin, label.CreateInput{Name: "To", IsGroup: true, Exclusive: ptr(false)})
+	from := e.create(t, e.users.Admin, label.CreateInput{Name: "From", IsGroup: true, Exclusive: ptr(false)})
+	l := e.create(t, e.users.Admin, label.CreateInput{Name: "Web", ParentID: &from.ID})
+	if !lower(to.ID, l.ID) {
+		t.Fatal("fixture: the new group's id must sort before the label's")
+	}
+
+	move := hold(t, e) // a label move in progress
+	if err := move.lock(l.ID, "UPDATE"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := move.tx.Exec(context.Background(), `UPDATE labels SET parent_id = $1 WHERE id = $2`, to.ID, l.ID); err != nil {
+		t.Fatal(err)
+	}
+	change := hold(t, e) // another change holding the new group (NO KEY UPDATE: see above)
+	if err := change.lock(to.ID, "NO KEY UPDATE"); err != nil {
+		t.Fatal(err)
+	}
+	renamed := update(e, l.ID, label.Patch{Name: ptr("Frontend")})
+	waitBlocked(t, e)
+	locked := make(chan error, 1)
+	go func() { locked <- change.lock(l.ID, "UPDATE") }()
+	for deadline := time.Now().Add(5 * time.Second); waiting(t, e) < 2; time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the other change does not wait for the label")
+		}
+	}
+	move.commit()
+	if err := <-locked; err != nil {
+		t.Fatalf("other change locking the label: %v", err)
+	}
+	change.commit()
+	if err := <-renamed; err != nil {
+		t.Fatalf("renaming the label: %v", err)
+	}
+	if got := e.byName(t, "Frontend"); got.ParentID == nil || *got.ParentID != to.ID {
+		t.Errorf("label parent = %v, want %v", got.ParentID, to.ID)
+	}
+}

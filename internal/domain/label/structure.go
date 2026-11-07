@@ -200,41 +200,41 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 
 // lockForChange locks the label, its current group and newGroup (when set) in
 // one statement ordered by id, the order issue label writes use, and returns
-// the locked rows by id. A label moved to another group meanwhile is locked
-// again with that group.
+// the locked rows by id. When the label moved to another group while this
+// waited for its lock, that group is not locked; locking it now could wait for
+// a change that waits for the label, so the change starts over instead
+// (errMovedMeanwhile, handled by inTx) and releases the label first.
 func (s *Service) lockForChange(ctx context.Context, tx *q.Queries, id uuid.UUID, newGroup *uuid.UUID) (Label, map[uuid.UUID]q.Label, error) {
-	for range 3 {
-		row, err := tx.GetLabel(ctx, id)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Label{}, nil, errNotFound
-		}
-		if err != nil {
-			return Label{}, nil, fmt.Errorf("get label: %w", err)
-		}
-		ids := []uuid.UUID{id}
-		if row.ParentID != nil {
-			ids = append(ids, *row.ParentID)
-		}
-		if newGroup != nil {
-			ids = append(ids, *newGroup)
-		}
-		rows, err := tx.LockLabelsForUpdate(ctx, ids)
-		if err != nil {
-			return Label{}, nil, fmt.Errorf("lock labels: %w", err)
-		}
-		locked := make(map[uuid.UUID]q.Label, len(rows))
-		for _, r := range rows {
-			locked[r.ID] = r
-		}
-		cur, ok := locked[id]
-		if !ok {
-			return Label{}, nil, errNotFound
-		}
-		if sameID(cur.ParentID, row.ParentID) {
-			return FromRow(cur), locked, nil
-		}
+	row, err := tx.GetLabel(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Label{}, nil, errNotFound
 	}
-	return Label{}, nil, errors.New("label: moved concurrently, try again")
+	if err != nil {
+		return Label{}, nil, fmt.Errorf("get label: %w", err)
+	}
+	ids := []uuid.UUID{id}
+	if row.ParentID != nil {
+		ids = append(ids, *row.ParentID)
+	}
+	if newGroup != nil {
+		ids = append(ids, *newGroup)
+	}
+	rows, err := tx.LockLabelsForUpdate(ctx, ids)
+	if err != nil {
+		return Label{}, nil, fmt.Errorf("lock labels: %w", err)
+	}
+	locked := make(map[uuid.UUID]q.Label, len(rows))
+	for _, r := range rows {
+		locked[r.ID] = r
+	}
+	cur, ok := locked[id]
+	if !ok {
+		return Label{}, nil, errNotFound
+	}
+	if !sameID(cur.ParentID, row.ParentID) {
+		return Label{}, nil, errMovedMeanwhile
+	}
+	return FromRow(cur), locked, nil
 }
 
 func sameID(a, b *uuid.UUID) bool {
