@@ -377,6 +377,34 @@ func TestSenderOutcomes(t *testing.T) {
 	})
 }
 
+// TestSenderErrorIsClean covers receivers whose error body would not survive
+// storage as JSON or text: NUL bytes, invalid UTF-8 and control characters.
+func TestSenderErrorIsClean(t *testing.T) {
+	for _, c := range []struct {
+		name, body, want string
+	}{
+		{"clean body keeps its text", "boom", "HTTP 500: boom"},
+		{"NUL dropped", "a\x00b", "HTTP 500: ab"},
+		{"invalid UTF-8 replaced", "\xff\xfe", "HTTP 500: \ufffd"},
+		{"control characters dropped, newline and tab kept", "x\x01\x1b[0m\x7fy\tz\nw", "HTTP 500: x[0my\tz\nw"},
+		{"NUL beyond the cut", strings.Repeat("x", 995) + "\x00\x00\x00\x00\x00\x00yy", "HTTP 500: " + strings.Repeat("x", 990)},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			rc := newReceiver(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(500)
+				_, _ = io.WriteString(w, c.body)
+			})
+			res := sender(true, 0).Send(context.Background(), attempt(rc.URL, "s"))
+			if res.Err != c.want {
+				t.Fatalf("Err = %q, want %q", res.Err, c.want)
+			}
+			if strings.ContainsRune(res.Err, 0) || !utf8.ValidString(res.Err) {
+				t.Fatalf("Err is not clean: %q", res.Err)
+			}
+		})
+	}
+}
+
 func fixedResolver(m map[string][]string) func(context.Context, string) ([]netip.Addr, error) {
 	return func(_ context.Context, host string) ([]netip.Addr, error) {
 		var out []netip.Addr

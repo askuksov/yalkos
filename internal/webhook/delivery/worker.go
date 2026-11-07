@@ -83,7 +83,10 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[webhook.DeliveryArgs])
 	if res.OK() {
 		return nil
 	}
-	return errors.New(res.Err)
+	// River stores the error as JSON, which cannot hold a NUL byte: one bad
+	// entry would stop its whole batch of completions. Whatever the sender
+	// gave, only clean, bounded text goes back.
+	return errors.New(webhook.CleanText(res.Err, webhook.MaxErrorChars))
 }
 
 // NewClient builds the River client that works delivery jobs. With testOnly

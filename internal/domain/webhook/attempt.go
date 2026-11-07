@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,8 +19,9 @@ import (
 )
 
 const (
-	// maxErrorChars is the longest delivery last_error.
-	maxErrorChars = 1000
+	// MaxErrorChars is the longest delivery last_error, and the longest error
+	// text handed to the job queue.
+	MaxErrorChars = 1000
 
 	// TestType is the payload type of a test delivery.
 	TestType = "WebhookTest"
@@ -105,10 +107,17 @@ func (s *Service) LoadAttempt(ctx context.Context, deliveryID uuid.UUID) (Attemp
 	return Attempt{DeliveryID: deliveryID, URL: r.Url, Secret: r.Secret, Type: r.EventType, Envelope: r.Payload}, nil
 }
 
-// cleanText cuts s to limit characters and makes it storable as text: invalid
-// UTF-8 is replaced and NUL bytes are dropped.
-func cleanText(s string, limit int) string {
-	s = strings.ToValidUTF8(strings.ReplaceAll(s, "\x00", ""), "�")
+// CleanText cuts s to limit characters and makes it safe to store as text and
+// to put in JSON: invalid UTF-8 is replaced, and NUL and other control
+// characters are dropped (newline and tab stay). Text that comes from a
+// receiver goes through it before it is stored or given to the job queue.
+func CleanText(s string, limit int) string {
+	s = strings.Map(func(r rune) rune {
+		if r != '\n' && r != '\t' && unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, strings.ToValidUTF8(s, "\uFFFD"))
 	if r := []rune(s); len(r) > limit {
 		s = string(r[:limit])
 	}
@@ -125,7 +134,7 @@ func resultColumns(r Result) (status *int32, lastErr *string, durMS *int32) {
 		status = int32Ptr(r.Status)
 	}
 	if r.Err != "" {
-		e := cleanText(r.Err, maxErrorChars)
+		e := CleanText(r.Err, MaxErrorChars)
 		lastErr = &e
 	}
 	return status, lastErr, int32Ptr(int(r.Duration.Milliseconds()))

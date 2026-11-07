@@ -23,8 +23,6 @@ const (
 	defaultTimeout = 5 * time.Second
 	// maxResponse is how much of a response is read.
 	maxResponse = 64 << 10
-	// maxErrorChars is the longest last_error.
-	maxErrorChars = 1000
 )
 
 // SenderOptions configure an HTTPSender. Timeout (5 s when zero) covers the
@@ -121,7 +119,7 @@ func (s *HTTPSender) Send(ctx context.Context, a webhook.Attempt) webhook.Result
 	res := webhook.Result{At: at}
 	finish := func() webhook.Result {
 		res.Duration = time.Since(started)
-		res.Err = cut(res.Err, maxErrorChars)
+		res.Err = webhook.CleanText(res.Err, webhook.MaxErrorChars)
 		return res
 	}
 
@@ -198,12 +196,4 @@ func httpError(status int, body string) string {
 		return fmt.Sprintf("HTTP %d", status)
 	}
 	return fmt.Sprintf("HTTP %d: %s", status, body)
-}
-
-// cut limits s to limit characters.
-func cut(s string, limit int) string {
-	if r := []rune(s); len(r) > limit {
-		return string(r[:limit])
-	}
-	return s
 }
