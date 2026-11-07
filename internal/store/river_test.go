@@ -60,7 +60,7 @@ func TestMigrationStatusCountsRiverStep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MigrationStatus: %v", err)
 	}
-	if current != 6 || latest != 6 {
-		t.Errorf("status = current %d, latest %d; want 6, 6", current, latest)
+	if current != 7 || latest != 7 {
+		t.Errorf("status = current %d, latest %d; want 7, 7", current, latest)
 	}
 }

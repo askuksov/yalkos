@@ -60,3 +60,18 @@ func TestParseAuthorization(t *testing.T) {
 		}
 	}
 }
+
+func TestNewWebhookSecret(t *testing.T) {
+	re := regexp.MustCompile(`^yal_wh_[0-9A-Za-z]{40}$`)
+	seen := map[string]bool{}
+	for range 100 {
+		s := NewWebhookSecret()
+		if !re.MatchString(s) {
+			t.Fatalf("secret %q does not match %s", s, re)
+		}
+		if seen[s] {
+			t.Fatalf("duplicate secret %q", s)
+		}
+		seen[s] = true
+	}
+}

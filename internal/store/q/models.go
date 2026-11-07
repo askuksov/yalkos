@@ -189,6 +189,40 @@ type User struct {
 	UpdatedAt    time.Time
 }
 
+type Webhook struct {
+	ID             uuid.UUID
+	WorkspaceID    uuid.UUID
+	Name           string
+	Url            string
+	Secret         string
+	ProjectID      *uuid.UUID
+	Resources      []string
+	Enabled        bool
+	DisabledReason *string
+	DisabledAt     *time.Time
+	CreatedBy      *uuid.UUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type WebhookDelivery struct {
+	ID             uuid.UUID
+	WebhookID      uuid.UUID
+	Resource       string
+	Action         string
+	EntityID       *uuid.UUID
+	Payload        []byte
+	Status         string
+	Attempts       int32
+	ResponseStatus *int32
+	LastError      *string
+	DurationMs     *int32
+	CreatedAt      time.Time
+	LastAttemptAt  *time.Time
+	NextAttemptAt  *time.Time
+	FinishedAt     *time.Time
+}
+
 type Workspace struct {
 	ID                 uuid.UUID
 	Name               string
