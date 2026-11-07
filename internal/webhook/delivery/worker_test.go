@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -387,5 +389,105 @@ func TestWorkerGoneDisabledAndControl(t *testing.T) {
 	}
 	if r := byHook[on.ID]; r.Status != "succeeded" || r.Attempts != 1 {
 		t.Fatalf("control delivery = %+v", r)
+	}
+}
+
+// rawSender answers every attempt with a fixed result, as a sender that does
+// not clean its error text would.
+type rawSender struct{ res webhook.Result }
+
+func (s rawSender) Send(context.Context, webhook.Attempt) webhook.Result { return s.res }
+
+// TestWorkReturnsCleanError: the error given to River is stored as JSON, so
+// it must carry no NUL byte, only valid UTF-8, and be bounded.
+func TestWorkReturnsCleanError(t *testing.T) {
+	for _, c := range []struct {
+		name, errText, want string
+	}{
+		{"clean text kept", "HTTP 500: boom", "HTTP 500: boom"},
+		{"NUL dropped", "HTTP 500: a\x00b", "HTTP 500: ab"},
+		{"invalid UTF-8 replaced", "HTTP 500: \xff\xfe", "HTTP 500: \ufffd"},
+		{"long text bounded", "HTTP 500: " + strings.Repeat("x", 5000), "HTTP 500: " + strings.Repeat("x", 990)},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := newWorkerEnv(t)
+			e.hook(t, "http://127.0.0.1:1/", true)
+			e.emit(t)
+			id := e.deliveries(t)[0].ID
+			w := &delivery.Worker{
+				Service: e.svc, Sender: rawSender{webhook.Result{Status: 500, Err: c.errText}},
+				Delays: []time.Duration{time.Hour},
+			}
+			now := time.Now()
+			j := &river.Job[webhook.DeliveryArgs]{
+				JobRow: &rivertype.JobRow{Attempt: 1, AttemptedAt: &now},
+				Args:   webhook.DeliveryArgs{DeliveryID: id},
+			}
+			err := w.Work(context.Background(), j)
+			if err == nil {
+				t.Fatal("Work returned nil for a failed attempt")
+			}
+			if err.Error() != c.want {
+				t.Fatalf("Work error = %q, want %q", err.Error(), c.want)
+			}
+			if strings.ContainsRune(err.Error(), 0) || !utf8.ValidString(err.Error()) {
+				t.Fatalf("Work error is not clean: %q", err.Error())
+			}
+		})
+	}
+}
+
+// TestPoisonedErrorBodyDoesNotStallQueue: a receiver that answers with a NUL
+// byte in the error body must not keep any job of the client from finishing.
+func TestPoisonedErrorBodyDoesNotStallQueue(t *testing.T) {
+	e := newWorkerEnv(t)
+	bad := newReceiver(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte("a\x00b \xff"))
+	})
+	good := newReceiver(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(200) })
+	badHook := e.hook(t, bad.URL, true)
+	e.hook(t, good.URL, true)
+	e.emit(t) // one delivery and one job per webhook
+	e.run(t, []time.Duration{time.Hour})
+
+	// Bounded wait: a stalled queue leaves the jobs running.
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		s := e.jobStates(t)
+		if s["completed"] == 1 && s["retryable"] == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("jobs did not leave running within 10s: %v", s)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	var errs []byte
+	err := e.pool.QueryRow(context.Background(), `SELECT array_to_json(errors)::text FROM river_job WHERE state = 'retryable'`).Scan(&errs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var attempts []struct {
+		Attempt int    `json:"attempt"`
+		Error   string `json:"error"`
+	}
+	if err := json.Unmarshal(errs, &attempts); err != nil || len(attempts) != 1 {
+		t.Fatalf("job errors = %s (%v), want one entry", errs, err)
+	}
+	if want := "HTTP 500: ab \ufffd"; attempts[0].Error != want {
+		t.Fatalf("job error = %q, want %q", attempts[0].Error, want)
+	}
+	for _, d := range e.deliveries(t) {
+		if d.WebhookID != badHook.ID {
+			if d.Status != "succeeded" {
+				t.Fatalf("good delivery = %+v", d)
+			}
+			continue
+		}
+		if d.Status != "retrying" || d.LastError == nil || *d.LastError != "HTTP 500: ab \ufffd" {
+			t.Fatalf("poisoned delivery = %+v (last_error %v)", d, d.LastError)
+		}
 	}
 }
