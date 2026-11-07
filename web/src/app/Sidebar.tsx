@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Check, ChevronDown, ChevronRight, CircleUser, Compass, KeyRound, LogOut, Plus, Search, Tags, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, CircleUser, Compass, KeyRound, LogOut, Plus, Search, Tags, Users, Webhook } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, useLocation, useNavigate } from 'react-router'
@@ -107,6 +107,12 @@ export function Sidebar() {
           <KeyRound size={15} aria-hidden />
           <span className={s.navLabel}>{t('nav.apiKeys')}</span>
         </NavLink>
+        {isAdmin && (
+          <NavLink to="/settings/webhooks" className={s.navLink}>
+            <Webhook size={15} aria-hidden />
+            <span className={s.navLabel}>{t('nav.webhooks')}</span>
+          </NavLink>
+        )}
       </nav>
       <div className={s.spacer} />
       <UserMenu />

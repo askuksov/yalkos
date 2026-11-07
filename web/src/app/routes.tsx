@@ -15,6 +15,9 @@ import { ProjectIssuesPage } from '../pages/ProjectIssuesPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { ProjectSettingsPage } from '../pages/ProjectSettingsPage'
 import { SetupPage } from '../pages/SetupPage'
+import { WebhookPage } from '../pages/WebhookPage'
+import { WebhooksPage } from '../pages/WebhooksPage'
+import { AdminOnly } from './AdminOnly'
 import { AppShell } from './AppShell'
 import { NotFound, ProjectRoute } from './ProjectRoute'
 import { Root } from './Root'
@@ -51,6 +54,8 @@ export const routes: RouteObject[] = [
           { path: 'settings/members', element: <MembersPage /> },
           { path: 'settings/api-keys', element: <ApiKeysPage /> },
           { path: 'settings/labels', element: <LabelsSettingsPage /> },
+          { path: 'settings/webhooks', element: <AdminOnly><WebhooksPage /></AdminOnly> },
+          { path: 'settings/webhooks/:id', element: <AdminOnly><WebhookPage /></AdminOnly> },
           { path: '*', element: <NotFound what="page" /> },
         ],
       },

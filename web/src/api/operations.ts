@@ -107,3 +107,68 @@ export const ProjectQuery = graphql(`
     }
   }
 `)
+
+export const WebhookDeliveryFields = graphql(`
+  fragment WebhookDeliveryFields on WebhookDelivery {
+    id resource action entityId status attempts responseStatus error durationMs
+    createdAt lastAttemptAt nextAttemptAt
+  }
+`)
+
+export const WebhookFields = graphql(`
+  fragment WebhookFields on Webhook {
+    id name url secret enabled disabledReason disabledAt resources
+    project { id key name }
+    createdAt updatedAt
+  }
+`)
+
+// The list shows only the latest delivery per webhook: a long delivery list per webhook would exceed the query cost budget.
+export const WebhooksQuery = graphql(`
+  query Webhooks {
+    webhooks {
+      id name url enabled disabledReason resources
+      project { id key }
+      deliveries(first: 1) { ...WebhookDeliveryFields }
+    }
+  }
+`)
+
+export const WebhookQuery = graphql(`
+  query Webhook($id: ID!) {
+    webhook(id: $id) {
+      ...WebhookFields
+      deliveries(first: 50) { ...WebhookDeliveryFields }
+    }
+  }
+`)
+
+export const CreateWebhookMutation = graphql(`
+  mutation CreateWebhook($input: CreateWebhookInput!) {
+    createWebhook(input: $input) { id }
+  }
+`)
+
+export const UpdateWebhookMutation = graphql(`
+  mutation UpdateWebhook($id: ID!, $input: UpdateWebhookInput!) {
+    updateWebhook(id: $id, input: $input) { ...WebhookFields }
+  }
+`)
+
+export const DeleteWebhookMutation = graphql(`
+  mutation DeleteWebhook($id: ID!) {
+    deleteWebhook(id: $id)
+  }
+`)
+
+export const RotateWebhookSecretMutation = graphql(`
+  mutation RotateWebhookSecret($id: ID!) {
+    rotateWebhookSecret(id: $id) { id secret }
+  }
+`)
+
+export const TestWebhookMutation = graphql(`
+  mutation TestWebhook($id: ID!) {
+    testWebhook(id: $id) { ...WebhookDeliveryFields }
+  }
+`)
