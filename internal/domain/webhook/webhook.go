@@ -72,6 +72,8 @@ type Service struct {
 	pool *pgxpool.Pool
 	q    *q.Queries
 	opts Options
+	// sender sends test deliveries (SetSender).
+	sender Sender
 }
 
 // New builds the service.
