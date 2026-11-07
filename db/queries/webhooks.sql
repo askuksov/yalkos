@@ -29,3 +29,25 @@ RETURNING *;
 
 -- name: DeleteWebhook :exec
 DELETE FROM webhooks WHERE id = $1;
+
+-- name: MatchWebhooks :many
+-- Enabled webhooks subscribed to the resource whose scope covers the event:
+-- all projects, one of the given projects, or any scope (workspace-wide events).
+SELECT * FROM webhooks
+WHERE enabled
+  AND @resource::text = ANY (resources)
+  AND (project_id IS NULL OR @any_scope::boolean OR project_id = ANY (@project_ids::uuid[]))
+ORDER BY created_at, id;
+
+-- name: InsertDelivery :one
+INSERT INTO webhook_deliveries (webhook_id, resource, action, entity_id, payload, status, created_at)
+VALUES (@webhook_id, @resource, @action, @entity_id, @payload, 'pending', @created_at)
+RETURNING id;
+
+-- name: ListDeliveries :many
+SELECT id, webhook_id, resource, action, entity_id, status, attempts, response_status, last_error, duration_ms,
+       created_at, last_attempt_at, next_attempt_at, finished_at
+FROM webhook_deliveries
+WHERE webhook_id = @webhook_id
+ORDER BY created_at DESC, id DESC
+LIMIT @max_rows;
