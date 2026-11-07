@@ -134,8 +134,8 @@ func resultColumns(r Result) (status *int32, lastErr *string, durMS *int32) {
 // Record stores the outcome of attempt number attempt: succeeded on a 2xx
 // answer, failed when the last attempt fails, retrying (due at next)
 // otherwise. A final failure turns the webhook off unless an event delivery
-// created after the failed one succeeded. ErrGone: nothing unfinished to
-// record on.
+// finished successfully at or after the time the failed one was created.
+// ErrGone: nothing unfinished to record on.
 func (s *Service) Record(ctx context.Context, deliveryID uuid.UUID, r Result, attempt int, next *time.Time) error {
 	status, lastErr, durMS := resultColumns(r)
 	p := q.RecordAttemptParams{

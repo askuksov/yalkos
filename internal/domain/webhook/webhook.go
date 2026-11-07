@@ -238,7 +238,8 @@ func (s *Service) change(ctx context.Context, actor account.User, id uuid.UUID, 
 	}
 	var out q.Webhook
 	err := s.inTx(ctx, func(tx *q.Queries) error {
-		cur, err := tx.GetWebhookForUpdate(ctx, id)
+		// NO KEY UPDATE: an edit never changes the key, and event writers key-share the row.
+		cur, err := tx.GetWebhookForNoKeyUpdate(ctx, id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return errNotFound
 		}
