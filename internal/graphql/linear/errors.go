@@ -22,7 +22,7 @@ func badArg(field, msg string) error { return &userErr{field: field, msg: msg} }
 
 // errorTypes are the error types clients read to pick an error class.
 var errorTypes = map[string]string{
-	"AUTHENTICATION_ERROR":      "authentication error",
+	"AUTHENTICATION_ERROR":      "unauthenticated error",
 	"FORBIDDEN":                 "forbidden",
 	"INVALID_INPUT":             "invalid input",
 	"NOT_FOUND":                 "invalid input",
