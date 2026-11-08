@@ -2,6 +2,7 @@ package issue
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -85,11 +86,14 @@ type Filter struct {
 	// identifier also matches that issue. Input without words matches all.
 	Search *string
 	// All adds each sub-filter's conditions; Any matches when at least one
-	// sub-filter does (empty Any adds nothing). Sub-filters never decide on
-	// deleted or archived rows: their IncludeArchived is ignored.
+	// sub-filter does (empty Any adds nothing). Sub-filters never list
+	// deleted rows and their IncludeArchived is ignored; a sub-filter that
+	// sets Project.Eq or Project.In selects archived projects like the top
+	// level does, for the rows it matches.
 	All, Any []Filter
-	// IncludeArchived lists issues of archived projects; they are also listed
-	// when Project.Eq or Project.In is set.
+	// IncludeArchived lists issues of archived projects. Without it they are
+	// listed only by a filter, or an All or Any branch on the matching path,
+	// that sets Project.Eq or Project.In.
 	IncludeArchived bool
 }
 
@@ -365,10 +369,77 @@ func (w *where) stateType(col string, c *StateTypeCond) {
 func (f Filter) build(w *where) {
 	w.conds = append(w.conds, "i.deleted_at IS NULL")
 	f.conds(w)
-	explicitProject := f.Project != nil && (f.Project.Eq != nil || f.Project.In != nil)
-	if !f.IncludeArchived && !explicitProject {
+	switch {
+	case f.IncludeArchived || f.selectsAll():
+	case !f.namesProject():
 		w.conds = append(w.conds, "p.archived_at IS NULL")
+	default:
+		w.conds = append(w.conds, "(p.archived_at IS NULL OR "+f.selects(w)+")")
 	}
+}
+
+// explicitProject reports a filter that names projects by Eq or In.
+func (f Filter) explicitProject() bool {
+	return f.Project != nil && (f.Project.Eq != nil || f.Project.In != nil)
+}
+
+// selectsAll reports that every row f matches comes with an explicit project:
+// f or one of its All sub-filters (at any depth) names projects.
+func (f Filter) selectsAll() bool {
+	if f.explicitProject() {
+		return true
+	}
+	for _, sub := range f.All {
+		if sub.selectsAll() {
+			return true
+		}
+	}
+	return false
+}
+
+// namesProject reports that f or a sub-filter at any depth names projects.
+func (f Filter) namesProject() bool {
+	if f.explicitProject() {
+		return true
+	}
+	for _, sub := range append(slices.Clone(f.All), f.Any...) {
+		if sub.namesProject() {
+			return true
+		}
+	}
+	return false
+}
+
+// selects returns the condition under which a row that f matches is selected
+// by an explicit project: an All sub-filter selects it, or an Any branch that
+// names projects matches it. Call it only when f.namesProject() and not
+// f.selectsAll(), so that the condition is not empty and every placeholder it
+// adds is used.
+func (f Filter) selects(w *where) string {
+	var alts []string
+	for _, sub := range f.All {
+		if sub.namesProject() {
+			alts = append(alts, sub.selects(w))
+		}
+	}
+	for _, sub := range f.Any {
+		switch {
+		case sub.selectsAll():
+			alts = append(alts, sub.group(w))
+		case sub.namesProject():
+			alts = append(alts, "("+sub.group(w)+" AND "+sub.selects(w)+")")
+		}
+	}
+	return "(" + strings.Join(alts, " OR ") + ")"
+}
+
+// group returns f's field conditions as one parenthesized condition, sharing
+// w's placeholder numbering.
+func (f Filter) group(w *where) string {
+	child := where{args: w.args}
+	f.conds(&child)
+	w.args = child.args
+	return "(" + child.sql() + ")"
 }
 
 // conds adds the field conditions of f and its groups, without the deleted and
@@ -409,10 +480,7 @@ func (f Filter) conds(w *where) {
 	if len(f.Any) > 0 {
 		alts := make([]string, len(f.Any))
 		for i, sub := range f.Any {
-			child := where{args: w.args}
-			sub.conds(&child)
-			w.args = child.args
-			alts[i] = "(" + child.sql() + ")"
+			alts[i] = sub.group(w)
 		}
 		w.conds = append(w.conds, "("+strings.Join(alts, " OR ")+")")
 	}

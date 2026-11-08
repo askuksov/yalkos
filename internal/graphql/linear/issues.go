@@ -111,8 +111,9 @@ func (r *Resolver) issueConn(ctx context.Context, scope issue.Filter, f *IssueFi
 }
 
 // scoped ANDs the caller's filter with a list's scope. Without a project,
-// parent or assignee scope the caller's filter is the top level, so its team
-// filter decides on archived teams.
+// parent, assignee or milestone scope the caller's filter is the top level.
+// Either way a team filter that names archived teams, at the top level or
+// inside and/or groups, lists their issues.
 func scoped(scope, user issue.Filter) issue.Filter {
 	if scope.Project == nil && scope.Parent == nil && scope.Assignee == nil && scope.Milestone == nil {
 		user.IncludeArchived = scope.IncludeArchived
