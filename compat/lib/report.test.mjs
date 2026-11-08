@@ -21,6 +21,9 @@ const okStatic = (extra = {}) => ({
 const stage = (name, steps) => ({ name, steps, error: null });
 const pass = (name) => ({ name, ok: true, message: "" });
 const fail = (name, message) => ({ name, ok: false, message });
+// A step that failed only because an earlier step produced no value for it.
+const prereq = (name) => ({ name, ok: false, prerequisite: true, message: `identifier is missing: step "create" did not complete` });
+const additive = (name) => fail(name, 'Cannot query field "newThing" on type "Issue".');
 
 function tmpDir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "compat-report-test-"));
@@ -49,6 +52,30 @@ test("classify: a failed step with 'Cannot query field' is DRIFT, any other fail
   assert.equal(classify({ staticResult: okStatic({ result: "DRIFT" }), stages: passing }), "DRIFT");
   assert.equal(classify({ staticResult: okStatic({ result: "BREAK" }), stages: passing }), "BREAK");
   assert.equal(classify({ staticResult: okStatic({ result: "DRIFT" }), stages: other }), "BREAK");
+});
+
+const cascade = () => [stage("sdk", [pass("a"), additive("create"), prereq("lazy getters"), prereq("move")])];
+
+test("classify: an additive failure with steps that lacked its result is DRIFT (exit 0 latest, 1 pinned)", () => {
+  const result = classify({ staticResult: okStatic(), stages: cascade() });
+  assert.equal(result, "DRIFT");
+  assert.equal(exitCode(result, "latest"), 0);
+  assert.equal(exitCode(result, "pinned"), 1);
+});
+
+test("classify: failures that only lacked an earlier result have no cause and are a BREAK", () => {
+  const orphans = [stage("sdk", [pass("a"), prereq("lazy getters"), prereq("move")])];
+  assert.equal(classify({ staticResult: okStatic(), stages: orphans }), "BREAK");
+});
+
+test("classify: a non-additive failure next to an additive cascade is a BREAK", () => {
+  const withBreak = [stage("sdk", [additive("create"), prereq("lazy getters"), fail("filters", "expected 3, got 2")])];
+  assert.equal(classify({ staticResult: okStatic(), stages: withBreak }), "BREAK");
+});
+
+test("classify: static drift with an additive cascade stays DRIFT, static BREAK stays BREAK", () => {
+  assert.equal(classify({ staticResult: okStatic({ result: "DRIFT" }), stages: cascade() }), "DRIFT");
+  assert.equal(classify({ staticResult: okStatic({ result: "BREAK" }), stages: cascade() }), "BREAK");
 });
 
 test("classify: a stage with 0 steps is TOOLING, and TOOLING from static wins", () => {

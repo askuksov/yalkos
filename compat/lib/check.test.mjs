@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createRunner, assertEqual, assertMultiset, assertMatch, StepFailure } from "./check.mjs";
+import { createRunner, assertEqual, assertMultiset, assertMatch, StepFailure, MissingPrerequisite, need } from "./check.mjs";
 
 // Run fn with console.log captured so runner output does not pollute test output.
 async function capture(fn) {
@@ -74,4 +74,32 @@ test("a thrown non-Error value is recorded as a failed step", async () => {
   assert.match(s.steps[0].message, /boom/);
   assert.match(s.steps[1].message, /code/);
   assertMatch("abc", /b/, "match works");
+});
+
+test("need inside a step records a prerequisite failure; a plain StepFailure has no flag", async () => {
+  const r = createRunner("pre");
+  await capture(async () => {
+    await r.step("lacks a value", () => {
+      need(null, "identifier", "create");
+    });
+    await r.step("plain failure", () => {
+      throw new StepFailure("expected 1, got 2");
+    });
+    await r.step("fine", () => {});
+  });
+  const steps = r.summary().steps;
+  assert.equal(steps[0].ok, false);
+  assert.equal(steps[0].prerequisite, true);
+  assert.equal(steps[0].message, 'identifier is missing: step "create" did not complete');
+  assert.equal(steps[1].ok, false);
+  assert.ok(!steps[1].prerequisite);
+  assert.ok(!steps[2].prerequisite);
+  assert.throws(() => need(undefined, "x", "s"), MissingPrerequisite);
+  assert.ok(new MissingPrerequisite("m") instanceof StepFailure);
+});
+
+test("need returns falsy values that are not null or undefined", () => {
+  assert.equal(need(0, "count", "s"), 0);
+  assert.equal(need("", "text", "s"), "");
+  assert.equal(need(false, "flag", "s"), false);
 });
