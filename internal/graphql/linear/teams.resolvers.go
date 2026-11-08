@@ -39,7 +39,7 @@ func (r *teamResolver) States(ctx context.Context, obj *Team, after *string, bef
 	if err != nil {
 		return nil, err
 	}
-	return stateConn(states, teamIndex(obj.Src), filter, orderBy, pageArgs(first, after, last, before))
+	return stateConn(states, teamIndex(obj.Src), filter, orderBy, pageArgs(first, after, last, before), true)
 }
 
 // Issues is the resolver for the issues field.
