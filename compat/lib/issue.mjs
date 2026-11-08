@@ -6,8 +6,9 @@
 //
 // There is one issue per SDK version, titled "[compat] @linear/sdk <version>:
 // <RESULT>". A result that needs attention opens it, a changed result adds a
-// comment, and a passing result closes it. The gh CLI does the work (in CI it
-// uses the job's token); texts go in through stdin, never through a shell.
+// comment and renames it, and a passing result closes it. The gh CLI does the
+// work (in CI it uses the job's token); texts go in through stdin, never through
+// a shell.
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -160,6 +161,8 @@ export async function manageIssue({ report, runUrl, gh = runGh, expectedVersion 
       break;
     case "comment":
       gh(["issue", "comment", String(open.number), "--body-file", "-"], { input: text });
+      // The title follows the result, so the next run finds nothing to change.
+      gh(["issue", "edit", String(open.number), "--title", decision.title]);
       break;
     case "close":
       gh(["issue", "close", String(open.number), "--comment", `\`@linear/sdk\` ${version} now passes. Run: ${runUrl}`]);
