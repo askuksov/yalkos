@@ -27,5 +27,10 @@ func ParseDateOrDuration(field, s string, now time.Time) (time.Time, error) {
 	return parseDateOrDuration(field, s, now)
 }
 
+// ParseTimelessOrDuration is parseTimelessOrDuration.
+func ParseTimelessOrDuration(field, s string, today time.Time) (time.Time, error) {
+	return parseTimelessOrDuration(field, s, today)
+}
+
 // BranchName is branchName.
 func BranchName(identifier, title string) string { return branchName(identifier, title) }
