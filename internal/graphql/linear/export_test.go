@@ -6,6 +6,9 @@ import (
 
 	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/gqlerror"
+
+	"github.com/askuksov/yalkos/internal/domain/page"
+	"github.com/askuksov/yalkos/internal/domain/project"
 )
 
 // Present runs an error through the /graphql error presenter.
@@ -34,3 +37,8 @@ func ParseTimelessOrDuration(field, s string, today time.Time) (time.Time, error
 
 // BranchName is branchName.
 func BranchName(identifier, title string) string { return branchName(identifier, title) }
+
+// StateConn is stateConn without a filter; board selects the board order.
+func StateConn(states []project.State, by *PaginationOrderBy, a page.Args, board bool) (*WorkflowStateConnection, error) {
+	return stateConn(states, nil, nil, by, a, board)
+}

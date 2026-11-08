@@ -1,8 +1,10 @@
 package linear
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -164,8 +166,10 @@ func stateMatch(f *WorkflowStateFilter, s project.State, teams map[uuid.UUID]pro
 	return matchString(f.Name, s.Name) && matchString(f.Type, string(s.Type)), nil
 }
 
-// stateConn filters, orders and pages states in memory.
-func stateConn(states []project.State, teams map[uuid.UUID]project.Project, f *WorkflowStateFilter, by *PaginationOrderBy, a page.Args) (*WorkflowStateConnection, error) {
+// stateConn filters, orders and pages states in memory. With board set and no
+// orderBy the order is the board order: position, then createdAt, then id, all
+// ascending; an explicit orderBy always wins and sorts newest first.
+func stateConn(states []project.State, teams map[uuid.UUID]project.Project, f *WorkflowStateFilter, by *PaginationOrderBy, a page.Args, board bool) (*WorkflowStateConnection, error) {
 	var kept []project.State
 	for _, s := range states {
 		ok, err := stateMatch(f, s, teams)
@@ -177,7 +181,17 @@ func stateConn(states []project.State, teams map[uuid.UUID]project.Project, f *W
 		}
 	}
 	id := func(s project.State) uuid.UUID { return s.ID }
-	orderByTime(kept, id, func(s project.State) time.Time { return s.CreatedAt }, func(s project.State) time.Time { return s.UpdatedAt }, by)
+	if board && by == nil {
+		slices.SortStableFunc(kept, func(a, b project.State) int {
+			return cmp.Or(
+				cmp.Compare(a.Position, b.Position),
+				a.CreatedAt.Compare(b.CreatedAt),
+				cmp.Compare(a.ID.String(), b.ID.String()),
+			)
+		})
+	} else {
+		orderByTime(kept, id, func(s project.State) time.Time { return s.CreatedAt }, func(s project.State) time.Time { return s.UpdatedAt }, by)
+	}
 	items, info, err := pageOf(kept, id, a)
 	if err != nil {
 		return nil, err
@@ -242,5 +256,5 @@ func (r *Resolver) workflowStates(ctx context.Context, f *WorkflowStateFilter, i
 	for _, id := range ids {
 		states = append(states, byProject[id]...)
 	}
-	return stateConn(states, teamIndex(ps...), f, by, a)
+	return stateConn(states, teamIndex(ps...), f, by, a, false)
 }
