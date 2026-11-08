@@ -7,7 +7,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { runChecks, runLatest } from "./run.mjs";
+import { isValidSdkVersion, runChecks, runLatest } from "./run.mjs";
 import { createRunner } from "./lib/check.mjs";
 import { clearReport } from "./lib/report.mjs";
 
@@ -192,4 +192,30 @@ test("latest: a failing inner run without a report is TOOLING; with a report the
     return 3;
   });
   assert.equal((await quiet(() => runLatest(odd.opts, { bin: "/x" }, odd.deps))).value, 3);
+});
+
+test("the SDK version must be latest or a plain version", () => {
+  for (const ok of ["latest", "101.1.0", "102.0.0-beta.1", "0.0.1-rc.2"]) {
+    assert.equal(isValidSdkVersion(ok), true, ok);
+  }
+  for (const bad of ["latest; rm -rf", "--ignore-scripts", "   ", "", "1.2", "v1.2.3", "1.2.3 ", "1.2.3;x", "^1.2.3", "latest ", "1.2.3-", "@1.2.3"]) {
+    assert.equal(isValidSdkVersion(bad), false, JSON.stringify(bad));
+  }
+  assert.equal(isValidSdkVersion(undefined), false);
+});
+
+test("run.mjs rejects an invalid SDK version before anything starts", () => {
+  for (const [argv, env] of [
+    [["--mode", "latest", "--sdk-version", "--ignore-scripts"], {}],
+    [["--mode", "latest"], { COMPAT_SDK_VERSION: "latest; rm -rf" }],
+    [["--mode", "latest"], { COMPAT_SDK_VERSION: "  " }],
+    [["--mode", "latest", "--sdk-version", "1.2"], {}],
+  ]) {
+    const r = spawnSync(process.execPath, [path.join(path.dirname(fileURLToPath(import.meta.url)), "run.mjs"), ...argv], {
+      encoding: "utf8",
+      env: { ...process.env, COMPAT_DATABASE_URL: "", COMPAT_SDK_VERSION: "", ...env },
+    });
+    assert.equal(r.status, 1, JSON.stringify([argv, env]));
+    assert.match(r.stderr, /invalid SDK version/);
+  }
 });
