@@ -239,3 +239,9 @@ test("waitSettled waits for the receivers to be quiet", async () => {
     await api.close();
   }
 });
+
+test("waitSettled refuses to run without any webhook id", async () => {
+  for (const webhookIds of [{}, []]) {
+    await assert.rejects(waitSettled({ ctx: {}, webhookIds, receivers: [], ...fast }), /at least one webhook id/);
+  }
+});
