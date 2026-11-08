@@ -555,6 +555,173 @@ export async function run(ctx) {
       const data = await natRead("{ webhooks { id } }");
       assertEqual(data.webhooks.length, 3, "webhooks");
     });
+
+    // ------------------------------------------------------- W6 failing receivers, first attempt
+    const RETRY_QUERY = "query($id:ID!){webhook(id:$id){deliveries(first:50){resource action status attempts responseStatus error lastAttemptAt nextAttemptAt}}}";
+    const GAP_MIN_S = 58;
+    const GAP_MAX_S = 62;
+    await step("W6 A answers 503 and B holds a wrong secret: both deliveries RETRYING after attempt 1, next attempt 60 s later", async () => {
+      const idA = need(webhookIds.A, "webhook A", "W1 A");
+      const idB = need(webhookIds.B, "webhook B", "W1 B");
+      const goodB = secrets.B;
+      const rejectionMarks = { A: rx.A.rejections().length, B: rx.B.rejections().length };
+      let failure = null;
+      try {
+        rx.A.setMode("503");
+        rx.B.setSecret(mask(`wrong-${randomBytes(12).toString("hex")}`));
+        await nat("mutation($p:ID!){createIssue(input:{projectId:$p,title:\"Retry test\"}){id}}", { p: bet.id });
+        await settle();
+        for (const [name, id, status] of [["A", idA, 503], ["B", idB, 401]]) {
+          const list = (await natRead(RETRY_QUERY, { id })).webhook.deliveries;
+          const open = list.filter((d) => d.status === "RETRYING");
+          assertEqual(open.length, 1, `RETRYING deliveries of ${name}`);
+          const d = open[0];
+          assertEqual(`${d.resource}:${d.action}`, "issue:create", `delivery of ${name}`);
+          assertEqual(d.attempts, 1, `attempts of ${name}`);
+          assertEqual(d.responseStatus, status, `response status of ${name}`);
+          must(typeof d.error === "string" && d.error.length > 0, `error of ${name} is empty`);
+          must(d.lastAttemptAt && d.nextAttemptAt, `lastAttemptAt or nextAttemptAt of ${name} is missing`);
+          const gap = (Date.parse(d.nextAttemptAt) - Date.parse(d.lastAttemptAt)) / 1000;
+          console.log(`  ${name}: ${d.status}, attempts ${d.attempts}, HTTP ${d.responseStatus}, next attempt after ${gap.toFixed(1)} s`);
+          must(gap >= GAP_MIN_S && gap <= GAP_MAX_S, `next attempt of ${name} comes ${gap.toFixed(1)} s after the last one, expected ${GAP_MIN_S} to ${GAP_MAX_S} s`);
+        }
+        const refusedByB = rx.B.rejections().slice(rejectionMarks.B);
+        assertEqual(refusedByB.length, 1, "rejections recorded by B");
+        assertEqual(refusedByB[0].reason, "signature", "reason B gave");
+        assertEqual(rx.A.rejections().length - rejectionMarks.A, 0, "rejections recorded by A (a 503 is not a rejection)");
+      } catch (e) {
+        failure = e;
+      }
+      // Repair the receivers, and remove both webhooks so that the retry in a minute finds
+      // nothing to deliver: the next steps start with no leftover delivery.
+      rx.A.setMode("ok");
+      rx.B.setSecret(goodB);
+      let cleanup = null;
+      for (const name of ["A", "B"]) {
+        try {
+          await nat("mutation($id:ID!){deleteWebhook(id:$id)}", { id: webhookIds[name] });
+          delete webhookIds[name];
+        } catch (e) {
+          cleanup ??= e;
+        }
+      }
+      if (failure) throw failure;
+      if (cleanup) throw new StepFailure(`could not remove the webhooks of the failed deliveries: ${describeError(cleanup)}`);
+    });
+
+    // ------------------------------------------------------------------------ W7 SDK reads
+    await step("W7 A and B are registered again (their webhooks were removed by W6)", async () => {
+      const payload = await client.createWebhook({ url: rx.A.url, allPublicTeams: true, resourceTypes: ["Issue", "Comment", "IssueLabel", "Project"] });
+      assertEqual(payload.success, true, "success");
+      const webhook = await payload.webhook;
+      webhookIds.A = need(webhook?.id, "webhook id", "W7 A");
+      secrets.A = mask(webhook.secret);
+      rx.A.setSecret(secrets.A);
+      assertEqual(isShape(secrets.A), true, "secret of A has the generated shape");
+      const own = mask(`compat-b-${randomBytes(12).toString("hex")}`);
+      const data = await nat(
+        "mutation($i:CreateWebhookInput!){createWebhook(input:$i){id}}",
+        { i: { url: rx.B.url, name: "B second project", projectId: bet.id, resources: ["ISSUE", "COMMENT", "LABEL", "MILESTONE"], secret: own } },
+      );
+      webhookIds.B = need(data.createWebhook?.id, "webhook id", "W7 B");
+      secrets.B = own;
+      rx.B.setSecret(own);
+    });
+    await step("W7 client.webhooks() returns the three webhooks with their resource types", async () => {
+      const list = await client.webhooks();
+      assertEqual(list.nodes.length, 3, "webhook nodes");
+      const wanted = [webhookIds.A, webhookIds.B, need(webhookIds.C, "webhook C", "W1 C")].sort();
+      assertEqual(JSON.stringify(list.nodes.map((n) => n.id).sort()), JSON.stringify(wanted), "ids of the nodes");
+      for (const n of list.nodes) must(n.resourceTypes.length > 0, `webhook ${n.id} lists no resource types`);
+    });
+    await step("W7 team.webhooks() returns only the webhook scoped to that project", async () => {
+      const team = await client.team(alp.id);
+      const list = await team.webhooks();
+      assertEqual(list.nodes.length, 1, "webhook nodes of the project");
+      assertEqual(list.nodes[0].id, need(webhookIds.C, "webhook C", "W1 C"), "the webhook of the project");
+    });
+
+    const projectOf = {};
+    await step("W7 a project with its own webhook gets a milestone and two issues: Project create and Issue create x2 to A and to that webhook", async () => {
+      const created = (await nat("mutation($i:CreateProjectInput!){createProject(input:$i){id key}}", { i: { key: "TMP", name: "Temporary" } })).createProject;
+      projectOf.id = need(created?.id, "project id", "W7 project");
+      projectOf.key = created.key;
+      const data = await nat(
+        "mutation($i:CreateWebhookInput!){createWebhook(input:$i){id}}",
+        { i: { url: rx.B.url, name: "D temporary project", projectId: projectOf.id, resources: ["ISSUE", "COMMENT", "LABEL", "MILESTONE"], secret: secrets.B } },
+      );
+      webhookIds.D = need(data.createWebhook?.id, "webhook id", "W7 D");
+      await settle();
+    });
+    await expectEvents(
+      "W7 temporary project: milestone and two issues reach A and the webhook of the project",
+      async () => {
+        const p = need(projectOf.id, "project", "W7 project");
+        await nat("mutation($p:ID!){createMilestone(projectId:$p,input:{name:\"Temporary milestone\"}){id}}", { p });
+        await nat("mutation($p:ID!){createIssue(input:{projectId:$p,title:\"First\"}){id}}", { p });
+        await nat("mutation($p:ID!){createIssue(input:{projectId:$p,title:\"Second\"}){id}}", { p });
+      },
+      // The webhook of the project delivers to receiver B's address.
+      ["A:Project:create", "B:Project:create", "A:Issue:create", "B:Issue:create", "A:Issue:create", "B:Issue:create"],
+    );
+    await expectEvents(
+      "W7 project delete: Issue remove x2 and Project remove to A only",
+      async () => {
+        await nat("mutation($id:ID!,$k:String!){deleteProject(id:$id,confirmKey:$k)}", { id: need(projectOf.id, "project", "W7 project"), k: need(projectOf.key, "project key", "W7 project") });
+        // The webhook of the project is gone with it: nothing left to wait for.
+        delete webhookIds.D;
+      },
+      ["A:Issue:remove", "A:Issue:remove", "A:Project:remove"],
+    );
+    await step("W7 the webhook of the deleted project is gone, the other three remain", async () => {
+      const res = await nativeCall({ cookie: ctx.ownerCookie, query: "{ webhooks { id } }" });
+      const ids = (res.json?.data?.webhooks ?? []).map((w) => w.id);
+      must(ids.length > 0, `webhooks query failed: ${scrub(res.json?.errors?.[0]?.message ?? `HTTP ${res.status}`)}`);
+      assertEqual(ids.length, 3, "webhooks left");
+      assertEqual(ids.includes(webhookIds.A) && ids.includes(webhookIds.B) && ids.includes(webhookIds.C), true, "A, B and C are still listed");
+    });
+
+    // ---------------------------------------------------------------------- W8 /graphql CRUD
+    await step("W8 createWebhook with a team key, a label and enabled false", async () => {
+      const payload = await client.createWebhook({ url: rx.C.url, teamId: alp.key, resourceTypes: ["Issue"], label: "compat tmp", enabled: false });
+      assertEqual(payload.success, true, "success");
+      const webhook = await payload.webhook;
+      s.crud = need(webhook?.id, "webhook id", "W8 create");
+      mask(webhook.secret);
+      assertEqual((await webhook.team)?.id, alp.id, "team");
+      assertEqual(webhook.label, "compat tmp", "label");
+      assertEqual(webhook.enabled, false, "enabled");
+    });
+    await step("W8 updateWebhook changes label, resource types and enabled", async () => {
+      const payload = await client.updateWebhook(need(s.crud, "webhook", "W8 create"), { label: "compat tmp 2", resourceTypes: ["Issue", "Comment"], enabled: true });
+      assertEqual(payload.success, true, "success");
+      const webhook = await payload.webhook;
+      assertEqual(webhook.label, "compat tmp 2", "label");
+      assertEqual(webhook.resourceTypes.length, 2, "resource types");
+      assertEqual(webhook.enabled, true, "enabled");
+    });
+    await step("W8 deleteWebhook returns success and entityId, the webhook is then not found", async () => {
+      const id = need(s.crud, "webhook", "W8 create");
+      const payload = await client.deleteWebhook(id);
+      assertEqual(payload.success, true, "success");
+      assertEqual(payload.entityId, id, "entityId");
+      const res = await lin("query($id:String!){webhook(id:$id){id}}", { id });
+      const e = res.json?.errors?.[0];
+      must(e, "the lookup of the deleted webhook returned no error");
+      assertEqual(e.extensions?.code === "NOT_FOUND" || /not found/i.test(String(e.message)), true, `the lookup is refused as not found (${scrub(e.message)})`);
+    });
+    await step("W8 a Reaction resource type is rejected with the supported list", async () => {
+      const res = await lin("mutation($i:WebhookCreateInput!){webhookCreate(input:$i){success}}", {
+        i: { url: rx.C.url, resourceTypes: ["Reaction"], allPublicTeams: true },
+      });
+      const e = need(res.json?.errors?.[0], "a refusal", "W8 Reaction");
+      const text = String(e.message);
+      assertEqual(/Reaction is not supported/.test(text), true, `the refusal names the type (${scrub(text)})`);
+      for (const name of ["Issue", "Comment", "IssueLabel", "Project"]) assertEqual(text.includes(name), true, `the refusal lists ${name}`);
+    });
+    await step("W8 the refused and the deleted webhooks left exactly three", async () => {
+      assertEqual((await natRead("{ webhooks { id } }")).webhooks.length, 3, "webhooks");
+    });
   } finally {
     await Promise.allSettled(receivers.map((r) => r.close()));
   }

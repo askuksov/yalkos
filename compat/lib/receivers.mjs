@@ -201,6 +201,8 @@ const countOf = (receivers) => receivers.reduce((n, r) => n + r.requests(), 0);
 // quietMs. webhookIds is an object { name: id } (names appear in the error) or a list of ids.
 export async function waitSettled({ ctx, webhookIds, receivers, maxMs = 15_000, pollMs = 500, quietMs = 500 }) {
   const entries = Array.isArray(webhookIds) ? webhookIds.map((id) => [id, id]) : Object.entries(webhookIds);
+  // Nothing to look at would "settle" at once and hide a missing registration.
+  if (entries.length === 0) throw new Error("waitSettled needs at least one webhook id");
   const started = Date.now();
   let seen = countOf(receivers);
   let lastChange = Date.now();
