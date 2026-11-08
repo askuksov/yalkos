@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mask, scrub, resetMasks } from "./mask.mjs";
-import { parseSetupCode, databaseName, assertPsql, startInstance } from "./server.mjs";
+import { parseSetupCode, databaseName, assertPsql, startInstance, createDatabase, maskUrlPassword } from "./server.mjs";
 import { bootstrap } from "./bootstrap.mjs";
 
 // The exact shape slog's JSON handler writes (see the Go test for the setup log).
@@ -179,4 +179,65 @@ console.log("stopped");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// Runs fn with a fake `psql` first on PATH. The script answers --version and
+// otherwise runs `body` (shell).
+async function withFakePsql(body, fn) {
+  const dir = mkdtempSync(join(tmpdir(), "yalkos-compat-fakepsql-"));
+  const prevPath = process.env.PATH;
+  try {
+    const script = join(dir, "psql");
+    writeFileSync(script, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "psql (fake)"; exit 0; fi\n${body}\n`);
+    chmodSync(script, 0o755);
+    process.env.PATH = `${dir}:${prevPath}`;
+    await fn();
+  } finally {
+    process.env.PATH = prevPath;
+    rmSync(dir, { recursive: true, force: true });
+    resetMasks();
+  }
+}
+
+test("a psql error that echoes the URL never carries the password", async () => {
+  resetMasks();
+  const password = "Sup3rS3cretPw";
+  const url = `postgres://admin:${password}@127.0.0.1:1/postgres`;
+  await withFakePsql('echo "psql: could not connect using $1" >&2; exit 2', async () => {
+    assert.throws(
+      () => createDatabase(url),
+      (err) => {
+        assert.match(err.message, /^psql failed: /);
+        assert.match(err.message, /could not connect/);
+        assert.ok(!err.message.includes(password), `password leaked: ${err.message}`);
+        return true;
+      },
+    );
+  });
+});
+
+test("a hung psql is killed after the timeout and the error names the statement, not the URL", async () => {
+  resetMasks();
+  const password = "Sup3rS3cretPw";
+  const url = `postgres://admin:${password}@127.0.0.1:1/postgres`;
+  await withFakePsql("exec sleep 30", async () => {
+    const started = Date.now();
+    assert.throws(
+      () => createDatabase(url, { timeoutMs: 300 }),
+      (err) => {
+        assert.match(err.message, /^psql timed out after 0\.3 s: CREATE DATABASE$/);
+        assert.ok(!err.message.includes(password));
+        return true;
+      },
+    );
+    assert.ok(Date.now() - started < 5000, "the hung psql was not killed");
+  });
+});
+
+test("maskUrlPassword survives a malformed escape and still masks the raw password", () => {
+  resetMasks();
+  assert.doesNotThrow(() => maskUrlPassword("postgres://u:abc%E0%A4%Axyz@h/db"));
+  assert.equal(scrub("x abc%E0%A4%Axyz y"), "x *** y");
+  assert.doesNotThrow(() => maskUrlPassword("not a url"));
+  resetMasks();
 });

@@ -10,6 +10,7 @@ import { mask, scrub } from "./mask.mjs";
 const LOG_LINES = 200;
 const READY_TIMEOUT_MS = 30_000;
 const STOP_TIMEOUT_MS = 20_000;
+const PSQL_TIMEOUT_MS = 60_000;
 
 // Returns the one-time setup code from a `setup required` log line, or null.
 export function parseSetupCode(line) {
@@ -32,31 +33,63 @@ export function databaseName() {
 }
 
 export function assertPsql() {
-  const r = spawnSync("psql", ["--version"], { encoding: "utf8" });
+  const r = spawnSync("psql", ["--version"], { encoding: "utf8", timeout: 10_000, killSignal: "SIGKILL" });
   if (r.error || r.status !== 0) {
     throw new Error("psql is required on PATH (install the PostgreSQL client)");
   }
 }
 
-function psql(url, sql) {
-  const r = spawnSync("psql", [url, "-v", "ON_ERROR_STOP=1", "-X", "-q", "-c", sql], { encoding: "utf8" });
-  if (r.error) throw new Error(`psql failed to start: ${r.error.message}`);
-  if (r.status !== 0) throw new Error(`psql failed: ${r.stderr.trim()}`);
+// Registers the password of a database URL as a secret, so that a psql error
+// that echoes the URL is scrubbed. Passwords shorter than 8 characters are not
+// registered: the local and CI service password is the word `yalkos`, and
+// registering it would blank that word in all output. A short REAL secret
+// therefore stays unmasked in a psql error; use a longer one.
+export function maskUrlPassword(url) {
+  let u;
+  try {
+    u = new URL(url);
+  } catch {
+    return;
+  }
+  const passwords = [u.password];
+  try {
+    passwords.push(decodeURIComponent(u.password));
+  } catch {
+    // malformed escape: the raw form alone is registered
+  }
+  for (const pw of passwords) {
+    if (pw.length >= 8) mask(pw);
+  }
+}
+
+function psql(url, sql, timeoutMs) {
+  maskUrlPassword(url);
+  const r = spawnSync("psql", [url, "-v", "ON_ERROR_STOP=1", "-X", "-q", "-c", sql], {
+    encoding: "utf8",
+    timeout: timeoutMs,
+    killSignal: "SIGKILL",
+  });
+  if (r.error?.code === "ETIMEDOUT") {
+    // Name the statement, never the URL.
+    throw new Error(`psql timed out after ${timeoutMs / 1000} s: ${sql.split(/\s+/).slice(0, 2).join(" ")}`);
+  }
+  if (r.error) throw new Error(scrub(`psql failed to start: ${r.error.message}`));
+  if (r.status !== 0) throw new Error(scrub(`psql failed: ${r.stderr.trim()}`));
 }
 
 // Creates an empty database next to the one adminUrl points at.
-export function createDatabase(adminUrl) {
+export function createDatabase(adminUrl, { timeoutMs = PSQL_TIMEOUT_MS } = {}) {
   assertPsql();
   const name = databaseName();
-  psql(adminUrl, `CREATE DATABASE ${name}`);
+  psql(adminUrl, `CREATE DATABASE ${name}`, timeoutMs);
   const u = new URL(adminUrl);
   u.pathname = `/${name}`;
   return { name, url: u.toString() };
 }
 
-export function dropDatabase(adminUrl, name) {
+export function dropDatabase(adminUrl, name, { timeoutMs = PSQL_TIMEOUT_MS } = {}) {
   if (!/^yalkos_compat_[0-9a-f]{8}$/.test(name)) throw new Error(`refusing to drop database ${name}`);
-  psql(adminUrl, `DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+  psql(adminUrl, `DROP DATABASE IF EXISTS ${name} WITH (FORCE)`, timeoutMs);
 }
 
 function freePort() {

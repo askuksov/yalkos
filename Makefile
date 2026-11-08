@@ -62,7 +62,7 @@ warn = @printf '$(YELLOW)! %s$(NC)\n' '$(1)'
 	shell web-shell db-up db-down db-shell db-logs migrate-up migrate-down migrate-status \
 	build web-deps build-web build-go docker \
 	generate check-generated fmt lint check \
-	test test-go test-web \
+	test test-go test-web compat compat-latest \
 	clean clean-all
 
 # =============================================================================
@@ -242,6 +242,31 @@ test-go: db-up ## Run Go tests with -race against PostgreSQL in Docker
 test-web: ## Run frontend tests in the Node container
 	$(call step,Running frontend tests)
 	$(RUN_WEB) pnpm test
+
+# The compatibility check builds a host binary (make build makes a Linux one in
+# Docker) and needs psql, Node and pnpm; the database comes from db-up unless
+# TOOLS=host (CI has its own service).
+COMPAT_DATABASE_URL ?= postgres://yalkos:$(YALKOS_DB_PASSWORD)@localhost:$(YALKOS_DB_PORT)/postgres?sslmode=disable
+COMPAT_PNPM         ?= pnpm
+export COMPAT_DATABASE_URL
+
+compat: $(if $(filter host,$(TOOLS)),,db-up) ## Run the SDK and webhook compatibility checks against a local build
+	$(call step,Building bin/yalkos-host)
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/yalkos-host ./cmd/yalkos
+	$(call step,Installing compatibility check dependencies)
+	cd compat && $(COMPAT_PNPM) install --frozen-lockfile
+	$(call step,Running compatibility checks)
+	cd compat && COMPAT_BIN=../bin/yalkos-host node run.mjs
+	$(call done,Compatibility checks passed)
+
+compat-latest: $(if $(filter host,$(TOOLS)),,db-up) ## Run the compatibility checks with the newest SDK version (never touches the lockfile)
+	$(call step,Building bin/yalkos-host)
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/yalkos-host ./cmd/yalkos
+	$(call step,Installing compatibility check dependencies)
+	cd compat && $(COMPAT_PNPM) install --frozen-lockfile
+	$(call step,Running compatibility checks with the newest SDK)
+	cd compat && COMPAT_BIN=../bin/yalkos-host node run.mjs --mode latest
+	$(call done,Compatibility checks finished)
 
 # =============================================================================
 ##@ Utilities
