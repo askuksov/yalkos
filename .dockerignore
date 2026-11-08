@@ -4,6 +4,7 @@ bin
 tmp
 .pnpm-store
 web/node_modules
+compat/node_modules
 web/dist
 **/.DS_Store
 .env*
