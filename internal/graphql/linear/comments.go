@@ -111,10 +111,22 @@ func (r *Resolver) commentConn(ctx context.Context, it issue.Issue, f *CommentFi
 	return out, nil
 }
 
+// onlyIssueIDEq reports whether the issue filter carries no predicate other
+// than id.eq; the others would be ignored silently.
+func onlyIssueIDEq(f *NullableIssueFilter) bool {
+	if f.Null != nil {
+		return false
+	}
+	return f.ID == nil || (f.ID.Neq == nil && f.ID.In == nil && f.ID.Nin == nil)
+}
+
 // rootComments needs the issue in filter.issue.id.eq.
 func (r *Resolver) rootComments(ctx context.Context, f *CommentFilter, a page.Args) (*CommentConnection, error) {
 	if _, err := r.actor(ctx); err != nil {
 		return nil, err
+	}
+	if f != nil && f.Issue != nil && !onlyIssueIDEq(f.Issue) {
+		return nil, badArg("filter", "Invalid filter: only filter.issue.id.eq is supported in filter.issue")
 	}
 	if f == nil || f.Issue == nil || f.Issue.ID == nil || f.Issue.ID.Eq == nil {
 		return nil, badArg("filter", "comments needs filter.issue.id.eq; or use issue(id).comments")
