@@ -4,7 +4,7 @@
 // Waiting for deliveries uses the native deliveries field, never the database.
 import { randomBytes } from "node:crypto";
 import { LinearClient } from "@linear/sdk";
-import { createRunner, assertEqual, StepFailure, MissingPrerequisite, need } from "../lib/check.mjs";
+import { createRunner, assertEqual, StepFailure, changeThenSettle, need } from "../lib/check.mjs";
 import { gql, gqlOk } from "../lib/api.mjs";
 import { mask, scrub } from "../lib/mask.mjs";
 import { startReceiver, waitSettled } from "../lib/receivers.mjs";
@@ -84,20 +84,13 @@ export async function run(ctx) {
   function expectEvents(name, change, expected, extra) {
     return step(name, async () => {
       const marks = receivers.map((r) => [r.events().length, r.rejections().length]);
-      let changeError = null;
-      try {
-        await change();
-      } catch (e) {
-        changeError = e;
-      }
-      await settle();
+      const changeError = await changeThenSettle(change, settle);
       const events = [];
       const rejections = [];
       receivers.forEach((r, i) => {
         events.push(...r.events().slice(marks[i][0]).filter((e) => e.handler !== "*"));
         rejections.push(...r.rejections().slice(marks[i][1]));
       });
-      if (changeError instanceof MissingPrerequisite) throw changeError;
       if (changeError) throw new StepFailure(`the change failed: ${describeError(changeError)}`);
       const got = tally(events.map((e) => `${e.rx}:${e.type}:${e.action}`));
       const want = tally(expected);

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createRunner, assertEqual, assertMultiset, assertMatch, StepFailure, MissingPrerequisite, need } from "./check.mjs";
+import { createRunner, assertEqual, assertMultiset, assertMatch, StepFailure, MissingPrerequisite, need, changeThenSettle } from "./check.mjs";
 
 // Run fn with console.log captured so runner output does not pollute test output.
 async function capture(fn) {
@@ -102,4 +102,27 @@ test("need returns falsy values that are not null or undefined", () => {
   assert.equal(need(0, "count", "s"), 0);
   assert.equal(need("", "text", "s"), "");
   assert.equal(need(false, "flag", "s"), false);
+});
+
+test("a missing prerequisite of a change is rethrown without waiting for deliveries", async () => {
+  let settled = 0;
+  const settle = async () => {
+    settled++;
+    throw new Error("waitSettled needs at least one webhook id");
+  };
+  await assert.rejects(
+    changeThenSettle(() => need(undefined, "webhook A", "W1 A"), settle),
+    (err) => err instanceof MissingPrerequisite && /webhook A is missing/.test(err.message),
+  );
+  assert.equal(settled, 0, "settle must not run");
+
+  // Positive controls: a normal change settles, and its own error is returned after settling.
+  let calls = 0;
+  const ok = await changeThenSettle(() => {}, async () => { calls++; });
+  assert.equal(ok, null);
+  assert.equal(calls, 1);
+  const failure = new Error("boom");
+  const returned = await changeThenSettle(() => { throw failure; }, async () => { calls++; });
+  assert.equal(returned, failure);
+  assert.equal(calls, 2);
 });
