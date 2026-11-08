@@ -401,3 +401,28 @@ test("only an issue opened by the workflow's bot is found, updated or closed", a
   assert.equal((await manageIssue({ report: reportOf("DRIFT"), runUrl: RUN_URL, gh: c.gh, expectedVersion: EXPECTED })).action, "none");
   assert.equal(mutations(c.calls).length, 0);
 });
+
+test("an oversized summary is cut below the GitHub limit, inside the one fence, with a notice", () => {
+  const clean = {
+    candidate: "101.2.0",
+    baseline: null,
+    result: "BREAK",
+    documents: { extracted: 53, valid: 53 },
+    added: [],
+    removed: [],
+    retyped: [],
+    steps: Array.from({ length: 500 }, (_, i) => ({ stage: "sdk", name: `step ${i}`, ok: false, message: "m".repeat(2000) })),
+    errors: [],
+  };
+  const body = issueBody(clean, "101.2.0", RUN_URL);
+  assert.ok(body.length < 65000, `body has ${body.length} characters`);
+  const parts = body.split(/^```\n/m);
+  assert.equal(parts.length, 3, "opening and closing fence only");
+  assert.ok(parts[1].trimEnd().endsWith("... truncated; see the uploaded report"));
+  assert.ok(!parts[1].includes("`"));
+  assert.equal(parts[2], `\nRun: ${RUN_URL}\n`);
+
+  // A small summary is left whole.
+  const small = issueBody({ ...clean, steps: [] }, "101.2.0", RUN_URL);
+  assert.ok(!small.includes("truncated"));
+});

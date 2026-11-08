@@ -28,6 +28,9 @@ const MAX_TEXT = 2000;
 const MAX_ENTRIES = 200;
 const MAX_ENTRY = 300;
 const MAX_STEPS = 500;
+// The summary part of an issue body, below the 65536 characters GitHub accepts.
+const MAX_SUMMARY = 60000;
+const TRUNCATED = "... truncated; see the uploaded report";
 
 export const issueTitle = (version, result) => `${PREFIX} ${version}: ${result}`;
 
@@ -142,7 +145,9 @@ function fence(text) {
 // nothing taken from the report can link, mention or render), and the run link.
 export function issueBody(clean, version, runUrl) {
   const heading = `Daily check of \`@linear/sdk\` ${version}: ${clean.result}`;
-  const summary = scrub(render(clean).markdown.trimEnd());
+  let summary = scrub(render(clean).markdown.trimEnd());
+  // GitHub refuses a body over 65536 characters: the summary is cut well below that.
+  if (summary.length > MAX_SUMMARY) summary = `${summary.slice(0, MAX_SUMMARY)}\n${TRUNCATED}`;
   return `${heading}\n\n${fence(summary)}\n\nRun: ${runUrl}\n`;
 }
 
