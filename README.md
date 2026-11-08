@@ -293,7 +293,8 @@ Older SDK versions are not tested: the pinned and the newest version are the who
 Run it yourself:
 
 ```sh
-make db-up          # the PostgreSQL the checks use; or set COMPAT_DATABASE_URL to any other server
+make db-up          # the PostgreSQL the checks use (Docker); for another server run
+                    # TOOLS=host COMPAT_DATABASE_URL=postgres://... make compat instead
 make compat         # the pinned SDK
 make compat-latest  # the newest SDK, installed in a throwaway copy; the lockfile is never touched
 ```
