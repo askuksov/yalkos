@@ -17,6 +17,9 @@ import { runStatic } from "./lib/static.mjs";
 import { assertPsql, createDatabase, dropDatabase, startInstance } from "./lib/server.mjs";
 import { bootstrap } from "./lib/bootstrap.mjs";
 import { scrub } from "./lib/mask.mjs";
+import { isValidSdkVersion } from "./lib/version.mjs";
+
+export { isValidSdkVersion };
 import { buildReport, clearReport, exitCode, render, writeReport } from "./lib/report.mjs";
 
 const compatDir = path.dirname(fileURLToPath(import.meta.url));
@@ -55,6 +58,9 @@ function parseArgs(argv, env) {
   }
   if (!["pinned", "latest", "latest-inner"].includes(opts.mode)) {
     fail(`unknown mode: ${opts.mode} (use pinned or latest)`);
+  }
+  if (opts.sdkVersion !== null && !isValidSdkVersion(opts.sdkVersion)) {
+    fail(`invalid SDK version ${JSON.stringify(opts.sdkVersion)}: use "latest" or a version such as 101.1.0 or 102.0.0-beta.1`);
   }
   if (opts.mode === "pinned" && opts.sdkVersion) fail("--sdk-version is only used with --mode latest");
   return opts;

@@ -1,0 +1,115 @@
+name: Compat (latest SDK)
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '@linear/sdk version to check'
+        default: latest
+
+concurrency:
+  group: compat-latest
+
+permissions:
+  contents: read
+
+env:
+  TOOLS: host
+  # The version is only ever read from the environment, never put into a script.
+  COMPAT_SDK_VERSION: ${{ inputs.version || 'latest' }}
+
+jobs:
+  # The newest SDK is code we do not control: it runs here, without a token
+  # that can write, and hands over nothing but the report artifact.
+  latest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: yalkos
+          POSTGRES_PASSWORD: yalkos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yalkos"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      COMPAT_DATABASE_URL: postgres://yalkos:yalkos@localhost:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # No caches in this job: it runs the newest SDK, so a cache it could write
+      # must not be restored by any other workflow.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: compat/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # The runner context is not available in the job env, so the report
+      # directory is set from the step environment.
+      - name: Choose the report directory
+        run: echo "COMPAT_REPORT_DIR=$RUNNER_TEMP/compat-report" >> "$GITHUB_ENV"
+      - id: check
+        run: make compat-latest
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compat-report
+          path: ${{ runner.temp }}/compat-report
+
+  # Reads the report as data and manages the issue. It runs even when the check
+  # failed, which is when an issue is needed.
+  report:
+    needs: latest
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
+          name: compat-report
+          path: ${{ runner.temp }}/compat-report
+      # The version to report on comes from here, not from the report: the
+      # input when one was given, otherwise the registry.
+      - name: Find the expected version
+        id: expected
+        run: |
+          version="$COMPAT_SDK_VERSION"
+          if [ "$version" = latest ]; then
+            version="$(npm view @linear/sdk version)"
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "not a plain version: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Open, update or close the issue for this SDK version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT_DIR: ${{ runner.temp }}/compat-report
+          EXPECTED_VERSION: ${{ steps.expected.outputs.version }}
+        run: node compat/lib/issue.mjs "$REPORT_DIR/compat-report.json" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --expected-version "$EXPECTED_VERSION"
