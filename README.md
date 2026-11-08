@@ -153,7 +153,7 @@ const mine = await client.issues({ filter: { assignee: { isMe: { eq: true } } } 
 - After `deleteIssue` or `deleteProject` the deleted item can no longer be read: use `payload.success` and `payload.entityId`, not `await payload.entity`.
 - Query cost: each query may cost up to 10 000 points (0.1 per field, 1 per object, times the page size for lists); the `X-Complexity` response header shows a query's cost. With the SDK's full selections keep `first` at 200 or below.
 - Other tools need a configurable endpoint: `LINEAR_GRAPHQL_ENDPOINT=https://<host>/graphql` for linear-cli; SDK-based tools need `apiUrl`.
-- API keys are limited to 5 000 requests per hour per user on every endpoint (`API_RATE_LIMIT`, `0` turns it off). Responses carry `X-RateLimit-Requests-Limit`, `-Remaining` and `-Reset`; over the limit the answer is 429 with `Retry-After`.
+- API keys are limited to 5 000 requests per hour per user on every endpoint (`API_RATE_LIMIT`, `0` turns it off, at most 1 000 000). Responses carry `X-RateLimit-Requests-Limit`, `-Remaining` and `-Reset`; over the limit the answer is 429 with `Retry-After`.
 
 ### Projects and issues
 
@@ -409,7 +409,7 @@ Server configuration (environment variables):
 | `BASE_URL` | `http://localhost:8080` | Public URL (invite links, `Secure` cookies for https) |
 | `DATA_DIR` | `./data` (`/data` in Docker) | Uploaded files (created with mode 0700) |
 | `MAX_UPLOAD_MB` | `25` | Largest file to upload, 1–1024 |
-| `API_RATE_LIMIT` | `5000` | API-key requests per hour and user on every endpoint; `0` turns the limit off |
+| `API_RATE_LIMIT` | `5000` | API-key requests per hour and user on every endpoint, 0 to 1000000; `0` turns the limit off |
 | `WEBHOOK_ALLOW_PRIVATE` | `true` | `false` blocks webhook destinations on loopback and private networks; link-local and cloud metadata addresses are always blocked |
 
 Local ports used by `make dev` / `make test`, override if they are taken:

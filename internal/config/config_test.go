@@ -96,17 +96,24 @@ func TestAPIRateLimitConfig(t *testing.T) {
 	if err != nil || cfg.APIRateLimit != 5000 {
 		t.Fatalf("default = %d, %v; want 5000", cfg.APIRateLimit, err)
 	}
-	for v, want := range map[string]int{"0": 0, "120": 120} {
-		cfg, err := Load(env(map[string]string{"DATABASE_URL": "postgres://x", "API_RATE_LIMIT": v}))
-		if err != nil || cfg.APIRateLimit != want {
-			t.Fatalf("%q = %d, %v; want %d", v, cfg.APIRateLimit, err, want)
-		}
+	for _, tc := range []struct {
+		val  string
+		want int
+	}{{"0", 0}, {"120", 120}, {"1000000", 1000000}} {
+		t.Run("accept "+tc.val, func(t *testing.T) {
+			cfg, err := Load(env(map[string]string{"DATABASE_URL": "postgres://x", "API_RATE_LIMIT": tc.val}))
+			if err != nil || cfg.APIRateLimit != tc.want {
+				t.Errorf("%q = %d, %v; want %d", tc.val, cfg.APIRateLimit, err, tc.want)
+			}
+		})
 	}
-	for _, v := range []string{"-1", "abc", "1.5"} {
-		_, err := Load(env(map[string]string{"DATABASE_URL": "postgres://x", "API_RATE_LIMIT": v}))
-		if err == nil || err.Error() != "API_RATE_LIMIT must be a non-negative integer" {
-			t.Fatalf("%q: err = %v", v, err)
-		}
+	for _, v := range []string{"-1", "abc", "1.5", "1000001", "99999999999999999999"} {
+		t.Run("reject "+v, func(t *testing.T) {
+			_, err := Load(env(map[string]string{"DATABASE_URL": "postgres://x", "API_RATE_LIMIT": v}))
+			if err == nil || err.Error() != "API_RATE_LIMIT must be a whole number from 0 to 1000000" {
+				t.Errorf("%q: err = %v", v, err)
+			}
+		})
 	}
 }
 

@@ -40,6 +40,10 @@ const (
 )
 
 // New returns a limiter allowing perHour (> 0) requests per hour and user.
+// The config caps perHour at one million: that keeps the per-token refill
+// interval exact (3.6 ms) and nonzero, and the bucket capacity equal to
+// perHour. Far larger values would truncate the interval in the integer
+// division below.
 func New(perHour int, now func() time.Time) *Limiter {
 	return &Limiter{limit: perHour, interval: window / time.Duration(perHour), now: now, buckets: map[uuid.UUID]*bucket{}}
 }

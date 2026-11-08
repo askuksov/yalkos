@@ -98,3 +98,30 @@ func TestIdleBucketsDropped(t *testing.T) {
 		t.Fatalf("A after drop = %+v, want a full bucket", r)
 	}
 }
+
+func TestMaxLimitBurst(t *testing.T) {
+	const limit = 1_000_000
+	c := newClock()
+	l := New(limit, c.now)
+	u := uuid.New()
+	for i := range limit {
+		if r := l.Take(u); !r.Allowed {
+			t.Fatalf("take %d of %d denied: %+v", i+1, limit, r)
+		}
+	}
+	if r := l.Take(u); r.Allowed || r.RetryAfter <= 0 {
+		t.Fatalf("take %d = %+v, want denied with a retry delay", limit+1, r)
+	}
+}
+
+func TestIntervalNonzero(t *testing.T) {
+	for _, limit := range []int{1, 5000, 1_000_000} {
+		l := New(limit, newClock().now)
+		if l.interval <= 0 {
+			t.Fatalf("limit %d: interval = %v, want > 0", limit, l.interval)
+		}
+		if got := int(window / l.interval); got != limit {
+			t.Fatalf("limit %d: bucket capacity = %d", limit, got)
+		}
+	}
+}

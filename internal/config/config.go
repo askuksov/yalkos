@@ -11,6 +11,11 @@ import (
 	"strings"
 )
 
+// MaxAPIRateLimit is the highest accepted API_RATE_LIMIT. One million requests
+// per hour gives an exact refill interval of 3.6 ms per token, so the
+// limiter's bucket capacity equals the limit.
+const MaxAPIRateLimit = 1_000_000
+
 // Config is the process configuration.
 type Config struct {
 	// DatabaseURL is the PostgreSQL connection string (DATABASE_URL, required).
@@ -27,7 +32,7 @@ type Config struct {
 	// MaxUploadMB caps one uploaded file (MAX_UPLOAD_MB, 1–1024, default 25).
 	MaxUploadMB int
 	// APIRateLimit is the number of API-key requests per hour and user
-	// (API_RATE_LIMIT, default 5000; 0 turns the limit off).
+	// (API_RATE_LIMIT, 0–1000000, default 5000; 0 turns the limit off).
 	APIRateLimit int
 	// WebhookAllowPrivate lets webhooks target loopback and private networks
 	// (WEBHOOK_ALLOW_PRIVATE: true|false, default true). Link-local and
@@ -73,8 +78,8 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.APIRateLimit = 5000
 	if v := getenv("API_RATE_LIMIT"); v != "" {
 		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 {
-			return Config{}, errors.New("API_RATE_LIMIT must be a non-negative integer")
+		if err != nil || n < 0 || n > MaxAPIRateLimit {
+			return Config{}, fmt.Errorf("API_RATE_LIMIT must be a whole number from 0 to %d", MaxAPIRateLimit)
 		}
 		cfg.APIRateLimit = n
 	}
