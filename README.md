@@ -344,6 +344,7 @@ Optional settings live in `deploy/.env` (copy `deploy/.env.example`): the databa
 | `make fmt` | Format Go code |
 | `make test` | Go tests (with `-race`, against PostgreSQL in Docker) and frontend tests |
 | `make test-go` / `make test-web` | Only the Go tests / only the frontend tests |
+| `make compat` / `make compat-latest` | SDK and webhook compatibility checks against a local build, with the pinned / the newest `@linear/sdk` (needs Go, Node 24, pnpm, `psql`) |
 | `make clean` / `make clean-all` | Remove build outputs / also remove dev caches |
 
 Run `make` with no target to list everything by group (`NO_COLOR=1` turns colors off). The `.githooks/` directory holds the maintainer's opt-in local hooks.
