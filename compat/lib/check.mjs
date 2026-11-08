@@ -23,6 +23,21 @@ export function need(value, what, step) {
   return value;
 }
 
+// Runs change() and then settle() (waiting for what the change caused). Returns the
+// error change() threw, or null. A missing prerequisite is rethrown at once: nothing
+// was changed, so there is nothing to wait for, and a failing settle() must not hide it.
+export async function changeThenSettle(change, settle) {
+  let changeError = null;
+  try {
+    await change();
+  } catch (e) {
+    changeError = e;
+  }
+  if (changeError instanceof MissingPrerequisite) throw changeError;
+  await settle();
+  return changeError;
+}
+
 function describe(value) {
   if (value instanceof Error) return value.message;
   if (typeof value === "string") return value;
