@@ -15,8 +15,6 @@ type Issue {
   reactions: [Reaction!]!
   customerTicketCount: Int!
   sharedAccess: IssueSharedAccess!
-  "Suggested git branch name: identifier and title."
-  branchName: String!
   delegate: User
   botActor: ActorBot
   sourceComment: Comment

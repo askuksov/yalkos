@@ -34,7 +34,7 @@ func (r *Resolver) issueOut(i issue.Issue) *Issue {
 		ID: i.ID.String(), Identifier: i.Identifier, Number: float64(i.Number), Title: i.Title,
 		Description: nonEmpty(i.Description), Priority: float64(i.Priority), PriorityLabel: linearpayload.PriorityLabel(i.Priority),
 		SortOrder: i.SortOrder, BoardOrder: i.SortOrder, PrioritySortOrder: i.SortOrder,
-		URL: linearpayload.IssueURL(r.d.base(), i.Identifier), BranchName: branchName(i.Identifier, i.Title),
+		URL: linearpayload.IssueURL(r.d.base(), i.Identifier),
 		DueDate: i.DueDate, CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt, CompletedAt: i.CompletedAt, CanceledAt: i.CanceledAt,
 		PreviousIdentifiers: []string{}, Reactions: []Reaction{}, ReactionData: JSONObject{V: []any{}},
 		SharedAccess: &IssueSharedAccess{DisallowedIssueFields: []IssueSharedAccessDisallowedField{}, SharedWithUsers: []User{}},

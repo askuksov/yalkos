@@ -299,14 +299,12 @@ type Issue struct {
 	IntegrationSourceType *IntegrationService `json:"integrationSourceType,omitempty"`
 	URL                   string              `json:"url"`
 	// KEY-N with the team's current key.
-	Identifier          string             `json:"identifier"`
-	PriorityLabel       string             `json:"priorityLabel"`
-	PreviousIdentifiers []string           `json:"previousIdentifiers"`
-	Reactions           []Reaction         `json:"reactions"`
-	CustomerTicketCount int                `json:"customerTicketCount"`
-	SharedAccess        *IssueSharedAccess `json:"sharedAccess"`
-	// Suggested git branch name: identifier and title.
-	BranchName                string               `json:"branchName"`
+	Identifier                string               `json:"identifier"`
+	PriorityLabel             string               `json:"priorityLabel"`
+	PreviousIdentifiers       []string             `json:"previousIdentifiers"`
+	Reactions                 []Reaction           `json:"reactions"`
+	CustomerTicketCount       int                  `json:"customerTicketCount"`
+	SharedAccess              *IssueSharedAccess   `json:"sharedAccess"`
 	Delegate                  *User                `json:"delegate,omitempty"`
 	BotActor                  *ActorBot            `json:"botActor,omitempty"`
 	SourceComment             *Comment             `json:"sourceComment,omitempty"`

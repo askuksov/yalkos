@@ -251,7 +251,6 @@ type ComplexityRoot struct {
 		AutoClosedAt              func(childComplexity int) int
 		BoardOrder                func(childComplexity int) int
 		BotActor                  func(childComplexity int) int
-		BranchName                func(childComplexity int) int
 		CanceledAt                func(childComplexity int) int
 		Children                  func(childComplexity int, after *string, before *string, filter *IssueFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
 		Comments                  func(childComplexity int, after *string, before *string, filter *CommentFilter, first *int, includeArchived *bool, last *int, orderBy *PaginationOrderBy) int
@@ -1914,12 +1913,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Issue.BotActor(childComplexity), true
-	case "Issue.branchName":
-		if e.ComplexityRoot.Issue.BranchName == nil {
-			break
-		}
-
-		return e.ComplexityRoot.Issue.BranchName(childComplexity), true
 	case "Issue.canceledAt":
 		if e.ComplexityRoot.Issue.CanceledAt == nil {
 			break
@@ -6223,8 +6216,6 @@ type Issue {
   reactions: [Reaction!]!
   customerTicketCount: Int!
   sharedAccess: IssueSharedAccess!
-  "Suggested git branch name: identifier and title."
-  branchName: String!
   delegate: User
   botActor: ActorBot
   sourceComment: Comment
@@ -7691,8 +7682,6 @@ func (ec *executionContext) childFields_Issue(ctx context.Context, field graphql
 		return ec.fieldContext_Issue_customerTicketCount(ctx, field)
 	case "sharedAccess":
 		return ec.fieldContext_Issue_sharedAccess(ctx, field)
-	case "branchName":
-		return ec.fieldContext_Issue_branchName(ctx, field)
 	case "delegate":
 		return ec.fieldContext_Issue_delegate(ctx, field)
 	case "botActor":
@@ -14549,29 +14538,6 @@ func (ec *executionContext) fieldContext_Issue_sharedAccess(_ context.Context, f
 		},
 	}
 	return fc, nil
-}
-
-func (ec *executionContext) _Issue_branchName(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Issue_branchName(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.BranchName, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_Issue_branchName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Issue", field, false, false, "String")
 }
 
 func (ec *executionContext) _Issue_delegate(ctx context.Context, field graphql.CollectedField, obj *Issue) (ret graphql.Marshaler) {
@@ -35715,11 +35681,6 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "sharedAccess":
 			out.Values[i] = ec._Issue_sharedAccess(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "branchName":
-			out.Values[i] = ec._Issue_branchName(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
