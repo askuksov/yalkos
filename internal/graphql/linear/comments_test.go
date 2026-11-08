@@ -115,6 +115,50 @@ func TestRootCommentsNeedIssue(t *testing.T) {
 		want(t, "NOT_FOUND", "invalid input", "Issue not found", "")
 }
 
+func TestRootCommentsRejectUnsupportedIssuePredicates(t *testing.T) {
+	f := newIssueFix(t)
+	f.comment(t, "YLK-1", "a")
+	f.comment(t, "YLK-2", "b")
+	msg := "Invalid filter: only filter.issue.id.eq is supported in filter.issue"
+	eq := `eq: "YLK-1"`
+	// Each case is the body of filter.issue; the new check runs first, so
+	// every case reports the same message even without an eq.
+	cases := []struct{ name, issue string }{
+		{"neq alone", `id: { neq: "YLK-2" }`},
+		{"in alone", `id: { in: ["YLK-1"] }`},
+		{"nin alone", `id: { nin: ["YLK-2"] }`},
+		{"null alone", `null: false`},
+		{"neq with eq", `id: { ` + eq + `, neq: "YLK-2" }`},
+		{"in with eq", `id: { ` + eq + `, in: ["YLK-1"] }`},
+		{"empty in with eq", `id: { ` + eq + `, in: [] }`},
+		{"nin with eq", `id: { ` + eq + `, nin: ["YLK-2"] }`},
+		{"null with eq", `id: { ` + eq + ` }, null: false`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f.gql(t, f.ownerKey, `{ comments(filter: { issue: { `+c.issue+` } }) { nodes { id } } }`, nil).fails(t).
+				want(t, "INVALID_INPUT", "invalid input", msg, "filter")
+		})
+	}
+	// The schema has no other issue fields; the server must refuse them too.
+	for _, c := range []struct{ name, issue string }{
+		{"title with eq", `id: { ` + eq + ` }, title: { eq: "x" }`},
+		{"and with eq", `id: { ` + eq + ` }, and: [{ id: { eq: "YLK-1" } }]`},
+		{"or with eq", `id: { ` + eq + ` }, or: [{ id: { eq: "YLK-1" } }]`},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f.gql(t, f.ownerKey, `{ comments(filter: { issue: { `+c.issue+` } }) { nodes { id } } }`, nil).fails(t)
+		})
+	}
+	t.Run("eq only", func(t *testing.T) {
+		var out struct{ Comments struct{ Nodes []commentNode } }
+		f.gql(t, f.ownerKey, `{ comments(filter: { issue: { id: { `+eq+` } } }) { nodes { body } } }`, nil).ok(t, &out)
+		if got := bodies(out.Comments.Nodes); !slices.Equal(got, []string{"a"}) {
+			t.Fatalf("eq only: %v", got)
+		}
+	})
+}
+
 func TestCommentByID(t *testing.T) {
 	f := newIssueFix(t)
 	c := f.comment(t, "YLK-2", "hello")
