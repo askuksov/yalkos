@@ -259,6 +259,32 @@ test("TestRunStaticFiftyTwoGoPassesIsTooling", async (t) => {
   assert.equal(res.result, "TOOLING");
 });
 
+test("TestRunStaticPackageLevelGoFailureIsTooling", async (t) => {
+  const root = tmpDir(t);
+  writeSchema(root, "type Query { a: String }\n");
+  const nodeModules = writeBundle(root, allEntries());
+  // A build error or panic: the package fails and no subtest does.
+  const packageFails = async () => ({
+    lines: [
+      JSON.stringify({ Action: "output", Package: "p", Output: "build failed\n" }),
+      JSON.stringify({ Action: "fail", Package: "p" }),
+    ],
+    exitCode: 1,
+  });
+  const res = await runStatic({ nodeModules, repoRoot: root, runGo: packageFails });
+  assert.equal(res.result, "TOOLING");
+  assert.ok(res.errors.includes("go test failed at package level (build error, panic or setup failure); no document was checked"));
+  assert.ok(!res.errors.some((e) => e.includes("(package)")));
+
+  // Positive control: a failure of one document is still compared per document.
+  const drift = await runStatic({
+    nodeModules: writeBundle(tmpDir(t), allEntries({ viewer: "query viewer { nope }" })),
+    repoRoot: root,
+    runGo: goStub({ pass: OPS.filter((o) => o !== "viewer"), fail: ["viewer"] }),
+  });
+  assert.equal(drift.result, "DRIFT");
+});
+
 test("TestRunStaticAdditiveIsDrift", async (t) => {
   const root = tmpDir(t);
   writeSchema(root, "type Query { a: String }\n");
