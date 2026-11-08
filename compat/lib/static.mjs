@@ -137,6 +137,14 @@ export async function runStatic({ nodeModules, repoRoot, baselineNodeModules, ru
       return result;
     }
 
+    // A package that failed without a failed document (build error, panic, setup
+    // failure) says nothing about the documents: the check did not run.
+    if (go.failures.some((f) => f.test === "(package)")) {
+      result.errors.push("go test failed at package level (build error, panic or setup failure); no document was checked");
+      result.result = "TOOLING";
+      return result;
+    }
+
     const validated = validateDocuments({ schemaDir: path.join(repoRoot, "api", "graphql", "linear"), docsDir: documentsDir });
     const invalid = validated.filter((v) => v.messages.length > 0);
     result.documents.valid = validated.length - invalid.length;
