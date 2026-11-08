@@ -9,12 +9,16 @@ const ERRORS_SHOWN = 30;
 // Combines the static result and the stages into one class:
 // TOOLING > BREAK > DRIFT > INFO > OK. A run without a stage, a stage without a
 // step and a run error are TOOLING: a check that did not run is never green.
-// stages: [{ name, steps: [{ name, ok, message }], error }], errors: run errors.
+// A failed step flagged `prerequisite` only lacked the result of an earlier step; it
+// follows that step's failure instead of deciding the class (unless nothing else failed).
+// stages: [{ name, steps: [{ name, ok, message, prerequisite? }], error }], errors: run errors.
 export function classify({ staticResult, stages, errors = [] }) {
   if (staticResult.result === "TOOLING") return "TOOLING";
   if (errors.length > 0 || stages.length === 0 || stages.some((s) => s.steps.length === 0)) return "TOOLING";
   const failed = stages.flatMap((s) => s.steps).filter((s) => !s.ok);
-  if (staticResult.result === "BREAK" || failed.some((s) => !ADDITIVE_STEP.test(s.message))) return "BREAK";
+  const causes = failed.filter((s) => !s.prerequisite);
+  const decisive = causes.length > 0 ? causes : failed;
+  if (staticResult.result === "BREAK" || decisive.some((s) => !ADDITIVE_STEP.test(s.message))) return "BREAK";
   if (staticResult.result === "DRIFT" || failed.length > 0) return "DRIFT";
   return staticResult.result === "INFO" ? "INFO" : "OK";
 }

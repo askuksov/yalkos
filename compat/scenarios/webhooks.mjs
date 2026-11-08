@@ -4,7 +4,7 @@
 // Waiting for deliveries uses the native deliveries field, never the database.
 import { randomBytes } from "node:crypto";
 import { LinearClient } from "@linear/sdk";
-import { createRunner, assertEqual, StepFailure } from "../lib/check.mjs";
+import { createRunner, assertEqual, StepFailure, MissingPrerequisite, need } from "../lib/check.mjs";
 import { gql, gqlOk } from "../lib/api.mjs";
 import { mask, scrub } from "../lib/mask.mjs";
 import { startReceiver, waitSettled } from "../lib/receivers.mjs";
@@ -13,9 +13,10 @@ const SECRET_SHAPE = /^yal_wh_[0-9A-Za-z]{40}$/;
 // A text for a step message: scrubbed, first line only.
 const describeError = (e) => scrub(`${e?.constructor?.name}: ${String(e?.message).split("\n")[0]}`);
 
-// Fails the step with a clear text when an earlier step did not produce its value.
-function need(value, name, step) {
-  if (value === undefined || value === null) throw new StepFailure(`${name} is missing: step "${step}" did not complete`);
+// A lookup inside a step that found nothing is a failure of this step. Values stored by
+// an earlier step go through need(), which marks the step as a consequence instead.
+function found(value, what) {
+  if (value === undefined || value === null) throw new StepFailure(`${what} was not found`);
   return value;
 }
 const must = (cond, msg) => {
@@ -57,7 +58,12 @@ export async function run(ctx) {
       try {
         await fn();
       } catch (e) {
-        throw new StepFailure(e instanceof StepFailure ? scrub(e.message) : describeError(e));
+        // A StepFailure keeps its class (a missing prerequisite stays one); the text is scrubbed.
+        if (e instanceof StepFailure) {
+          e.message = scrub(e.message);
+          throw e;
+        }
+        throw new StepFailure(describeError(e));
       }
     });
 
@@ -91,6 +97,7 @@ export async function run(ctx) {
         events.push(...r.events().slice(marks[i][0]).filter((e) => e.handler !== "*"));
         rejections.push(...r.rejections().slice(marks[i][1]));
       });
+      if (changeError instanceof MissingPrerequisite) throw changeError;
       if (changeError) throw new StepFailure(`the change failed: ${describeError(changeError)}`);
       const got = tally(events.map((e) => `${e.rx}:${e.type}:${e.action}`));
       const want = tally(expected);
@@ -133,7 +140,7 @@ export async function run(ctx) {
       });
       assertEqual(payload.success, true, "success");
       const webhook = await payload.webhook;
-      webhookIds.A = need(webhook?.id, "webhook id", "A");
+      webhookIds.A = found(webhook?.id, "webhook id");
       secrets.A = mask(webhook.secret);
       rx.A.setSecret(secrets.A);
       assertEqual(isShape(secrets.A), true, "secret has the generated shape (yal_wh_ + 40 base62)");
@@ -149,7 +156,7 @@ export async function run(ctx) {
         "mutation($i:CreateWebhookInput!){createWebhook(input:$i){id secret project{key}}}",
         { i: { url: rx.B.url, name: "B second project", projectId: bet.id, resources: ["ISSUE", "COMMENT", "LABEL", "MILESTONE"], secret: own } },
       );
-      webhookIds.B = need(data.createWebhook?.id, "webhook id", "B");
+      webhookIds.B = found(data.createWebhook?.id, "webhook id");
       secrets.B = own;
       rx.B.setSecret(own);
       assertEqual(data.createWebhook.secret === own, true, "secret returned verbatim");
@@ -180,7 +187,7 @@ export async function run(ctx) {
       const nodes = res.json?.data?.webhooks?.nodes ?? [];
       assertEqual(nodes.length, 3, "webhook nodes");
       const c = nodes.find((n) => n.id === need(webhookIds.C, "webhook C", "W1 C"));
-      need(c, "webhook C in the list", "W1 checkExists");
+      found(c, "webhook C in the list");
       assertEqual(c.url, rx.C.url, "url of C");
       assertEqual(c.team?.id, alp.id, "team of C");
       assertEqual(c.enabled, true, "enabled of C");
@@ -189,7 +196,7 @@ export async function run(ctx) {
     // ------------------------------------------------------------------- W2 change stream
     const stateOf = async (project, type) => {
       const data = await natRead("query($p:String!){project(id:$p){states{id type}}}", { p: project.id });
-      return need(data.project.states.find((x) => x.type === type), `a ${type} state of ${project.key}`, "states").id;
+      return found(data.project.states.find((x) => x.type === type), `a ${type} state of ${project.key}`).id;
     };
 
     await expectEvents(
@@ -528,7 +535,7 @@ export async function run(ctx) {
         query: "mutation($i:CreateWebhookInput!){createWebhook(input:$i){id}}",
         variables: { i: { url: "http://169.254.169.254/latest/meta-data/", resources: ["ISSUE"] } },
       });
-      const e = need(refusedReason(res), "a refusal", "native create");
+      const e = found(refusedReason(res), "a refusal");
       assertEqual(e.field, "url", "field");
       assertEqual(e.reason, "not_allowed", "reason");
     });
@@ -536,7 +543,7 @@ export async function run(ctx) {
       const res = await lin("mutation($i:WebhookCreateInput!){webhookCreate(input:$i){success}}", {
         i: { url: "http://169.254.169.254/", resourceTypes: ["Issue"], allPublicTeams: true },
       });
-      const e = need(refusedReason(res), "a refusal", "/graphql create");
+      const e = found(refusedReason(res), "a refusal");
       assertEqual(/not allowed|invalid url/i.test(e.message), true, `the refusal names the address (${e.message})`);
     });
     await step("W5 an update to http://[fe80::1]/ is refused and the webhook keeps its address", async () => {
@@ -546,7 +553,7 @@ export async function run(ctx) {
         query: "mutation($id:ID!,$i:UpdateWebhookInput!){updateWebhook(id:$id,input:$i){id}}",
         variables: { id, i: { url: "http://[fe80::1]/" } },
       });
-      const e = need(refusedReason(res), "a refusal", "native update");
+      const e = found(refusedReason(res), "a refusal");
       assertEqual(e.reason, "not_allowed", "reason");
       const back = await natRead("query($id:ID!){webhook(id:$id){url}}", { id });
       assertEqual(back.webhook.url, rx.B.url, "url after the refused update");
@@ -614,7 +621,7 @@ export async function run(ctx) {
       const payload = await client.createWebhook({ url: rx.A.url, allPublicTeams: true, resourceTypes: ["Issue", "Comment", "IssueLabel", "Project"] });
       assertEqual(payload.success, true, "success");
       const webhook = await payload.webhook;
-      webhookIds.A = need(webhook?.id, "webhook id", "W7 A");
+      webhookIds.A = found(webhook?.id, "webhook id");
       secrets.A = mask(webhook.secret);
       rx.A.setSecret(secrets.A);
       assertEqual(isShape(secrets.A), true, "secret of A has the generated shape");
@@ -623,7 +630,7 @@ export async function run(ctx) {
         "mutation($i:CreateWebhookInput!){createWebhook(input:$i){id}}",
         { i: { url: rx.B.url, name: "B second project", projectId: bet.id, resources: ["ISSUE", "COMMENT", "LABEL", "MILESTONE"], secret: own } },
       );
-      webhookIds.B = need(data.createWebhook?.id, "webhook id", "W7 B");
+      webhookIds.B = found(data.createWebhook?.id, "webhook id");
       secrets.B = own;
       rx.B.setSecret(own);
     });
@@ -644,13 +651,13 @@ export async function run(ctx) {
     const projectOf = {};
     await step("W7 a project with its own webhook gets a milestone and two issues: Project create and Issue create x2 to A and to that webhook", async () => {
       const created = (await nat("mutation($i:CreateProjectInput!){createProject(input:$i){id key}}", { i: { key: "TMP", name: "Temporary" } })).createProject;
-      projectOf.id = need(created?.id, "project id", "W7 project");
+      projectOf.id = found(created?.id, "project id");
       projectOf.key = created.key;
       const data = await nat(
         "mutation($i:CreateWebhookInput!){createWebhook(input:$i){id}}",
         { i: { url: rx.B.url, name: "D temporary project", projectId: projectOf.id, resources: ["ISSUE", "COMMENT", "LABEL", "MILESTONE"], secret: secrets.B } },
       );
-      webhookIds.D = need(data.createWebhook?.id, "webhook id", "W7 D");
+      webhookIds.D = found(data.createWebhook?.id, "webhook id");
       await settle();
     });
     await expectEvents(
@@ -686,7 +693,7 @@ export async function run(ctx) {
       const payload = await client.createWebhook({ url: rx.C.url, teamId: alp.key, resourceTypes: ["Issue"], label: "compat tmp", enabled: false });
       assertEqual(payload.success, true, "success");
       const webhook = await payload.webhook;
-      s.crud = need(webhook?.id, "webhook id", "W8 create");
+      s.crud = found(webhook?.id, "webhook id");
       mask(webhook.secret);
       assertEqual((await webhook.team)?.id, alp.id, "team");
       assertEqual(webhook.label, "compat tmp", "label");
@@ -714,7 +721,7 @@ export async function run(ctx) {
       const res = await lin("mutation($i:WebhookCreateInput!){webhookCreate(input:$i){success}}", {
         i: { url: rx.C.url, resourceTypes: ["Reaction"], allPublicTeams: true },
       });
-      const e = need(res.json?.errors?.[0], "a refusal", "W8 Reaction");
+      const e = found(res.json?.errors?.[0], "a refusal");
       const text = String(e.message);
       assertEqual(/Reaction is not supported/.test(text), true, `the refusal names the type (${scrub(text)})`);
       for (const name of ["Issue", "Comment", "IssueLabel", "Project"]) assertEqual(text.includes(name), true, `the refusal lists ${name}`);

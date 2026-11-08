@@ -90,7 +90,7 @@ test("classify: a stage with 0 steps is TOOLING, and TOOLING from static wins", 
   assert.equal(classify({ staticResult: okStatic({ result: "TOOLING" }), stages: [stage("a", [pass("x")])] }), "TOOLING");
 });
 
-test("render shows one line per step and the summary table shape of the spec", () => {
+test("render shows one line per step and the documented summary table shape", () => {
   resetMasks();
   const staticResult = okStatic({
     result: "DRIFT",
