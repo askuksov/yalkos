@@ -6,10 +6,12 @@
 // Stages that restart the instance come last; the rate limit stage is the final one.
 import { run as bootstrap } from "./bootstrap.mjs";
 import { run as sdk } from "./sdk.mjs";
+import { run as webhooks } from "./webhooks.mjs";
 import { run as ratelimit } from "./ratelimit.mjs";
 
 export const STAGES = [
   { name: "bootstrap", env: {}, restart: false, run: bootstrap },
   { name: "sdk", env: {}, restart: false, run: sdk },
+  { name: "webhooks", env: {}, restart: false, run: webhooks },
   { name: "ratelimit", env: { API_RATE_LIMIT: "5" }, restart: true, run: ratelimit },
 ];
