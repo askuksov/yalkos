@@ -210,6 +210,89 @@ func TestFilterArchived(t *testing.T) {
 	f.check(t, "project neq (archived still hidden)", issue.Filter{Project: &issue.IDCond{Neq: &f.ylk.ID}}, func(issue.Issue) bool { return false })
 }
 
+// A branch of Any or All that names a project (Eq or In) may match issues of
+// an archived project, as at the top level; other branches match only live
+// projects unless IncludeArchived is set. Deleted issues never match.
+func TestFilterArchivedInGroups(t *testing.T) {
+	f := newListFixture(t)
+	if _, err := f.projects.SetArchived(context.Background(), f.users.Admin, f.web.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	web, ylk := f.web.ID, f.ylk.ID
+	inWeb := func(i issue.Issue) bool { return i.ProjectID == web }
+	// WEB issues all have priority 1; YLK has priority 1 on numbers 2, 7, 12, 17.
+	prio1 := &issue.IntCond{Eq: ptr(1)}
+	ylkPrio1 := func(i issue.Issue) bool { return !inWeb(i) && i.Priority == 1 }
+	webEq := issue.Filter{Project: &issue.IDCond{Eq: &web}}
+	webIn := issue.Filter{Project: &issue.IDCond{In: []uuid.UUID{web}}}
+	cases := []struct {
+		name string
+		flt  issue.Filter
+		keep func(issue.Issue) bool
+	}{
+		{"top-level project eq", webEq, inWeb},
+		{"top-level project in", webIn, inWeb},
+		{"any project eq", issue.Filter{Any: []issue.Filter{webEq}}, inWeb},
+		{"any project in", issue.Filter{Any: []issue.Filter{webIn}}, inWeb},
+		{"all project eq", issue.Filter{All: []issue.Filter{webEq}}, inWeb},
+		{"all project in", issue.Filter{All: []issue.Filter{webIn}}, inWeb},
+		{"any without project", issue.Filter{Any: []issue.Filter{{Priority: prio1}}}, ylkPrio1},
+		{"all without project", issue.Filter{All: []issue.Filter{{Priority: prio1}}}, ylkPrio1},
+		{"any mixed branches", issue.Filter{Any: []issue.Filter{webEq, {Priority: prio1}}},
+			func(i issue.Issue) bool { return inWeb(i) || ylkPrio1(i) }},
+		{"any named branch keeps its other conditions", issue.Filter{Any: []issue.Filter{
+			{Project: &issue.IDCond{Eq: &web}, Title: &issue.TextCond{Eq: ptr("W0")}},
+			{Priority: prio1},
+		}}, func(i issue.Issue) bool { return i.Title == "W0" || ylkPrio1(i) }},
+		{"all named and other conjunct", issue.Filter{All: []issue.Filter{webIn, {Title: &issue.TextCond{Eq: ptr("W1")}}}},
+			func(i issue.Issue) bool { return i.Title == "W1" }},
+		{"top-level condition and named any branch", issue.Filter{
+			Title: &issue.TextCond{StartsWith: ptr("W")},
+			Any:   []issue.Filter{webEq, {Priority: prio1}},
+		}, inWeb},
+		{"nested any in all", issue.Filter{All: []issue.Filter{{Any: []issue.Filter{webEq, {Priority: prio1}}}}},
+			func(i issue.Issue) bool { return inWeb(i) || ylkPrio1(i) }},
+		{"nested all in any", issue.Filter{Any: []issue.Filter{{All: []issue.Filter{webIn}}, {Priority: prio1}}},
+			func(i issue.Issue) bool { return inWeb(i) || ylkPrio1(i) }},
+		{"two any groups, one named", issue.Filter{All: []issue.Filter{
+			{Any: []issue.Filter{webEq, {Priority: prio1}}},
+			{Any: []issue.Filter{{Title: &issue.TextCond{StartsWith: ptr("W")}}, {Title: &issue.TextCond{StartsWith: ptr("Y")}}}},
+		}}, func(i issue.Issue) bool { return inWeb(i) || ylkPrio1(i) }},
+		{"named branch for another project", issue.Filter{Any: []issue.Filter{{Project: &issue.IDCond{Eq: &ylk}}, {Priority: prio1}}},
+			func(i issue.Issue) bool { return !inWeb(i) }},
+		{"any project neq", issue.Filter{Any: []issue.Filter{{Project: &issue.IDCond{Neq: &ylk}}}}, none},
+		{"any project nin", issue.Filter{Any: []issue.Filter{{Project: &issue.IDCond{Nin: []uuid.UUID{ylk}}}}}, none},
+		{"any empty project in", issue.Filter{Any: []issue.Filter{{Project: &issue.IDCond{In: []uuid.UUID{}}}, {Priority: prio1}}}, ylkPrio1},
+		{"empty any", issue.Filter{Any: []issue.Filter{}}, func(i issue.Issue) bool { return !inWeb(i) }},
+		{"sub-filter include archived ignored", issue.Filter{Any: []issue.Filter{{IncludeArchived: true, Priority: prio1}}}, ylkPrio1},
+		{"include archived, any without project", issue.Filter{IncludeArchived: true, Any: []issue.Filter{{Priority: prio1}}},
+			func(i issue.Issue) bool { return i.Priority == 1 }},
+		{"include archived, any mixed", issue.Filter{IncludeArchived: true, Any: []issue.Filter{webEq, {Priority: prio1}}},
+			func(i issue.Issue) bool { return inWeb(i) || i.Priority == 1 }},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) { f.check(t, c.name, c.flt, c.keep) })
+	}
+	t.Run("deleted never listed", func(t *testing.T) {
+		ctx := context.Background()
+		gone := f.all[len(f.all)-1]
+		// An archived project's issues cannot be deleted: unarchive for it.
+		if _, err := f.projects.SetArchived(ctx, f.users.Admin, web, false); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.issues.Delete(ctx, f.users.Member, gone.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.projects.SetArchived(ctx, f.users.Admin, web, true); err != nil {
+			t.Fatal(err)
+		}
+		live := func(i issue.Issue) bool { return i.ID != gone.ID }
+		f.check(t, "any project eq", issue.Filter{Any: []issue.Filter{webEq}}, func(i issue.Issue) bool { return inWeb(i) && live(i) })
+		f.check(t, "all project in", issue.Filter{All: []issue.Filter{webIn}}, func(i issue.Issue) bool { return inWeb(i) && live(i) })
+		f.check(t, "include archived", issue.Filter{IncludeArchived: true, Any: []issue.Filter{webEq}}, func(i issue.Issue) bool { return inWeb(i) && live(i) })
+	})
+}
+
 func TestDeletedNotListed(t *testing.T) {
 	f := newListFixture(t)
 	gone := f.all[3]
