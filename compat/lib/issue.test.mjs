@@ -151,6 +151,38 @@ test("a changed result adds a comment and an unchanged one does nothing", async 
   assert.equal(mutations(same.calls).length, 0);
 });
 
+test("a changed result comments and renames the open issue, so the next run finds nothing to do", async () => {
+  const open = [{ number: 12, title: "[compat] @linear/sdk 101.2.0: DRIFT" }];
+  const first = fakeGh(open);
+  const outcome = await manageIssue({ report: reportOf("BREAK"), runUrl: RUN_URL, gh: first.gh, expectedVersion: EXPECTED });
+  assert.equal(outcome.action, "comment");
+  const made = mutations(first.calls);
+  assert.equal(made.length, 2);
+  assert.deepEqual(made[0].args, ["issue", "comment", "12", "--body-file", "-"]);
+  assert.match(made[0].input, /RESULT: BREAK/);
+  assert.deepEqual(made[1].args, ["issue", "edit", "12", "--title", "[compat] @linear/sdk 101.2.0: BREAK"]);
+
+  // The next daily run sees the renamed issue and stays quiet.
+  const renamed = fakeGh([{ number: 12, title: "[compat] @linear/sdk 101.2.0: BREAK" }]);
+  const next = await manageIssue({ report: reportOf("BREAK"), runUrl: RUN_URL, gh: renamed.gh, expectedVersion: EXPECTED });
+  assert.equal(next.action, "none");
+  assert.equal(mutations(renamed.calls).length, 0);
+
+  // Positive control: an unchanged title is quiet too.
+  const same = fakeGh(open);
+  assert.equal((await manageIssue({ report: reportOf("DRIFT"), runUrl: RUN_URL, gh: same.gh, expectedVersion: EXPECTED })).action, "none");
+  assert.equal(mutations(same.calls).length, 0);
+});
+
+test("a forged report never renames or comments on an open issue", async () => {
+  const open = [{ number: 12, title: "[compat] @linear/sdk 101.2.0: DRIFT" }];
+  for (const report of [{ ...reportOf("BREAK"), candidate: "--title x" }, { ...reportOf("BREAK"), result: "FINE" }, reportOf("BREAK", "999.0.0")]) {
+    const { gh, calls } = fakeGh(open);
+    await assert.rejects(manageIssue({ report, runUrl: RUN_URL, gh, expectedVersion: EXPECTED }), /invalid|expected/);
+    assert.equal(calls.length, 0);
+  }
+});
+
 test("a passing result closes the open issue with a comment", async () => {
   const { gh, calls } = fakeGh([{ number: 5, title: "[compat] @linear/sdk 101.2.0: BREAK" }]);
   const outcome = await manageIssue({ report: reportOf("OK"), runUrl: RUN_URL, gh, expectedVersion: EXPECTED });
