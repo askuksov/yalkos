@@ -7,6 +7,22 @@ export class StepFailure extends Error {
   }
 }
 
+// A step that could not run because an earlier step did not produce the value it
+// needs. It is a consequence of that earlier failure, never a cause of its own.
+export class MissingPrerequisite extends StepFailure {
+  constructor(message) {
+    super(message);
+    this.name = "MissingPrerequisite";
+  }
+}
+
+// Fails the step with a clear text when an earlier step did not produce its value.
+// Only for values stored by an earlier step; a lookup inside a step is a plain failure.
+export function need(value, what, step) {
+  if (value === undefined || value === null) throw new MissingPrerequisite(`${what} is missing: step "${step}" did not complete`);
+  return value;
+}
+
 function describe(value) {
   if (value instanceof Error) return value.message;
   if (typeof value === "string") return value;
@@ -28,7 +44,9 @@ export function createRunner(stage) {
         console.log(`PASS ${stage}/${name}`);
       } catch (err) {
         const message = describe(err);
-        steps.push({ name, ok: false, message });
+        const record = { name, ok: false, message };
+        if (err instanceof MissingPrerequisite) record.prerequisite = true;
+        steps.push(record);
         console.log(`FAIL ${stage}/${name}: ${message}`);
       }
     },

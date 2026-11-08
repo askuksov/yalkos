@@ -4,7 +4,7 @@
 // and are never written as literals.
 import { randomBytes } from "node:crypto";
 import { LinearClient, AuthenticationLinearError, InvalidInputLinearError } from "@linear/sdk";
-import { createRunner, assertEqual, assertMatch, assertMultiset, StepFailure } from "../lib/check.mjs";
+import { createRunner, assertEqual, assertMatch, assertMultiset, StepFailure, need } from "../lib/check.mjs";
 
 // The workspace the bootstrap sets up.
 const WORKSPACE_NAME = "CI Workspace";
@@ -12,9 +12,10 @@ const slugOf = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
 
 const ids = (issues) => issues.map((i) => i.identifier);
 
-// Fails the step with a clear text when an earlier step did not produce its value.
-function need(value, name, step) {
-  if (value === undefined || value === null) throw new StepFailure(`${name} is missing: step "${step}" did not complete`);
+// A lookup inside a step that found nothing is a failure of this step. Values stored by
+// an earlier step go through need(), which marks the step as a consequence instead.
+function found(value, what) {
+  if (value === undefined || value === null) throw new StepFailure(`${what} was not found`);
   return value;
 }
 
@@ -63,8 +64,8 @@ export async function run(ctx) {
     const teams = await client.teams();
     alpTeam = teams.nodes.find((t) => t.key === alp.key);
     betTeam = teams.nodes.find((t) => t.key === bet.key);
-    need(alpTeam, `team ${alp.key}`, "teams");
-    need(betTeam, `team ${bet.key}`, "teams");
+    found(alpTeam, `team ${alp.key}`);
+    found(betTeam, `team ${bet.key}`);
     assertEqual(alpTeam.id, alp.id, `${alp.key} id`);
     assertEqual(betTeam.id, bet.id, `${bet.key} id`);
   });
@@ -75,15 +76,15 @@ export async function run(ctx) {
     todo = states.nodes.find((s) => s.name === "Todo");
     inProgress = states.nodes.find((s) => s.type === "started");
     betDone = (await need(betTeam, "team", "teams").states()).nodes.find((s) => s.type === "completed");
-    need(todo, "state Todo", "team.states");
-    need(inProgress, "a started state", "team.states");
-    need(betDone, "a completed state of the second team", "team.states");
+    found(todo, "state Todo");
+    found(inProgress, "a started state");
+    found(betDone, "a completed state of the second team");
   });
 
   await runner.step("users", async () => {
     const users = await client.users();
     memberUser = users.nodes.find((u) => u.email === ctx.member.email);
-    need(memberUser, `user ${ctx.member.email}`, "users");
+    found(memberUser, `user ${ctx.member.email}`);
     assertEqual(memberUser.id, ctx.member.id, "member id");
   });
 
@@ -102,7 +103,7 @@ export async function run(ctx) {
   await runner.step("projects", async () => {
     const projects = await client.projects();
     milestone = projects.nodes.find((p) => p.name === ctx.milestone.name);
-    need(milestone, `project ${ctx.milestone.name}`, "projects");
+    found(milestone, `project ${ctx.milestone.name}`);
     assertEqual(milestone.id, ctx.milestone.id, "milestone id");
   });
 
@@ -285,7 +286,7 @@ export async function run(ctx) {
   await runner.step("project create, status update, delete", async () => {
     const org = await client.organization;
     const done = org.projectStatuses.find((s) => s.type === "completed");
-    need(done, "a completed project status", "project create, status update, delete");
+    found(done, "a completed project status");
     const created = await (await client.createProject({ teamIds: [alp.id], name: `Payments ${token}`, content: "# Scope" })).project;
     const pinned = await (await client.updateProject(created.id, { statusId: done.id })).project;
     const status = await pinned.status;
