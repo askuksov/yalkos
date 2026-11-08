@@ -146,7 +146,7 @@ const me = await client.viewer;
 const mine = await client.issues({ filter: { assignee: { isMe: { eq: true } } } });
 ```
 
-- Tested with `@linear/sdk` 100.x. The SDK requires an `https://` URL except on `localhost`.
+- Tested with `@linear/sdk` 101.x and the newest release ([below](#compatibility)). The SDK requires an `https://` URL except on `localhost`.
 - Names: a Team is a Yalkos project, a Project is a milestone, a WorkflowState is a state, an IssueLabel is a label (issue types are the labels of the Type group), the Organization is the workspace.
 - Supported: the viewer, users, teams with their states, members and labels, workflow states, issues (read, filter, sort, search, create, update, move to another team with `teamId`, delete), comments, labels and label groups, projects with their statuses, webhooks (`webhooks`, `webhook`, `Team.webhooks`, `webhookCreate`, `webhookUpdate`, `webhookDelete`, `webhookRotateSecret`; [below](#webhooks)), and the files uploaded to an issue (read only). `issue(id:)` and `team(id:)` also take `YLK-12` and `YLK`.
 - Not available: estimates, cycles, issue relations, archiving issues and link attachments. An input or filter field that is not supported is rejected with an error naming it, never ignored.
@@ -278,6 +278,45 @@ A change that cascades sends its own events: deleting a label or a milestone sen
 A delivery succeeds on any 2xx answer within 5 seconds; redirects are not followed and count as failures. A failed delivery is tried up to four times in total: at once, then after 1 minute, 1 hour and 6 hours. When a delivery fails all four attempts and nothing reached the receiver since it was created, the webhook is disabled; the page shows a banner, and **Enable** turns it on again (earlier deliveries are not resent). The webhook's page lists its newest 50 deliveries with status, response, attempts and error, and the same list is available as `Webhook.deliveries` in the Yalkos API. **Send test** posts a signed test delivery (`type: "WebhookTest"`, `action: "test"`) straight away; it works for disabled webhooks, appears in the log and never disables a webhook. **Rotate secret** replaces the secret at once; update the receiver as well, because deliveries signed with the new secret fail on the old one.
 
 Destinations: `http` or `https` URLs. Webhooks may point at private networks (a receiver on the same host or LAN); `WEBHOOK_ALLOW_PRIVATE=false` forbids loopback and private ranges. Link-local and cloud metadata addresses (such as `169.254.169.254`) are always refused, the address is checked when the connection is made (so DNS tricks do not help), redirects are not followed and proxy settings from the environment are ignored. A workspace can have at most 50 webhooks. Changes to webhooks themselves are not recorded in issue history and send no webhooks.
+
+### Compatibility
+
+Yalkos serves a Linear-compatible API at `/graphql` and sends webhooks in the Linear-compatible format. Two scripts check this against a fresh instance: one drives the official `@linear/sdk` client, the other receives webhooks with the SDK's `LinearWebhookClient` and with a hand-written signature check. Both live in `compat/`.
+
+| Checked | When | Blocks pull requests |
+| :--- | :--- | :--- |
+| `@linear/sdk` 101.1.0 (pinned in `compat/package.json`) | every pull request and push to `main` (job `compat`) | yes |
+| the newest `@linear/sdk` on npm | every day (workflow *Compat (latest SDK)*) | no; opens an issue |
+
+Older SDK versions are not tested: the pinned and the newest version are the whole policy.
+
+Run it yourself:
+
+```sh
+make db-up          # the PostgreSQL the checks use; or set COMPAT_DATABASE_URL to any other server
+make compat         # the pinned SDK
+make compat-latest  # the newest SDK, installed in a throwaway copy; the lockfile is never touched
+```
+
+It needs Go, Node.js 24, pnpm and the `psql` client. Each run builds `bin/yalkos-host`, starts it on a private database that is dropped afterwards, and prints one line per step and a result. `COMPAT_PNPM` sets the pnpm command (default `pnpm`), `COMPAT_SDK_VERSION` the version for `make compat-latest` (default `latest`), `COMPAT_KEEP=1` keeps the database.
+
+Results:
+
+| Result | Meaning | Pull request check |
+| :--- | :--- | :--- |
+| `OK` | every step passes | green |
+| `INFO` | the SDK changed outside what Yalkos supports; Yalkos is not affected | green |
+| `DRIFT` | the SDK asks for a field, argument or type Yalkos does not have yet | red |
+| `BREAK` | Yalkos answers differently than the SDK expects: a validation error of another kind, a failed scenario step, a changed webhook behavior | red |
+| `TOOLING` | the check itself did not run (nothing extracted, install failed, a stage without steps) | red |
+
+A red `compat` check on a pull request means the change broke what the pinned SDK relies on; the step list in the job summary names the failing step. The daily run reports `DRIFT`, `BREAK` and `TOOLING` as one issue per SDK version, titled `[compat] @linear/sdk <version>: <RESULT>`; it adds a comment when the result changes and closes the issue when the version passes. The workflow executes the newest SDK in one job and manages issues in a separate job that only reads the report.
+
+Bumping the pin, when a new version appears:
+
+1. Result `OK`: change `@linear/sdk` in `compat/package.json`, update `compat/pnpm-lock.yaml` (`pnpm --dir compat install`) and the version in this section.
+2. Result `DRIFT`: first add what is missing in a normal pull request, then bump.
+3. Result `BREAK`: decide in the issue whether it is a Yalkos bug or an SDK change Yalkos does not follow.
 
 ## Using Yalkos
 
