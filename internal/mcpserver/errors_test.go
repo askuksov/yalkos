@@ -1,13 +1,20 @@
 package mcpserver
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 )
 
@@ -28,20 +35,79 @@ func TestUserText(t *testing.T) {
 		{errf("Issue %s not found.", "YLK-9"), "Issue YLK-9 not found."},
 	}
 	for _, c := range cases {
-		if got := userText(c.err, logger); got != c.want {
+		if got := userText(c.err, "test_tool", logger); got != c.want {
 			t.Errorf("userText(%v) = %q, want %q", c.err, got, c.want)
 		}
 	}
 	if buf.String() != "" {
 		t.Errorf("known errors logged: %s", buf.String())
 	}
-	if got := userText(errors.New("boom"), logger); got != "Internal error; try again later." {
+	if got := userText(errors.New("boom"), "test_tool", logger); got != "Internal error; try again later." {
 		t.Errorf("internal = %q", got)
 	}
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
-	if len(lines) != 1 || !strings.Contains(lines[0], "boom") || !strings.Contains(lines[0], `"level":"ERROR"`) {
+	if len(lines) != 1 || !strings.Contains(lines[0], "boom") || !strings.Contains(lines[0], `"tool":"test_tool"`) || !strings.Contains(lines[0], `"level":"ERROR"`) {
 		t.Errorf("log = %q", buf.String())
 	}
+}
+
+// TestInternalErrorLog checks the log record of an unexpected tool error that
+// goes through a real MCP call.
+func TestInternalErrorLog(t *testing.T) {
+	const secret = "distinctive-argument-value-7f3a"
+	var buf syncBuffer
+	e := newEnvLogger(t, slog.New(slog.NewJSONHandler(&buf, nil)))
+
+	srv := mcp.NewServer(&mcp.Implementation{Name: "yalkos-test", Version: "0"}, nil)
+	addTool(srv, &e.deps, &mcp.Tool{Name: "explode", Description: "Always fails."},
+		func(context.Context, *call, struct {
+			Note string `json:"note"`
+		}) (any, error) {
+			return nil, errors.New("database exploded")
+		})
+	h := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{
+		Stateless: true, JSONResponse: true, DisableLocalhostProtection: true,
+	})
+	ts := httptest.NewServer(Guard(e.base, authn.Middleware(e.deps.Accounts, e.base, quiet), h))
+	t.Cleanup(ts.Close)
+	e2 := *e
+	e2.url = ts.URL
+
+	text := e2.fail(t, "explode", map[string]any{"note": secret})
+
+	var rec map[string]any
+	for _, l := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
+		var m map[string]any
+		if err := json.Unmarshal([]byte(l), &m); err == nil && m["msg"] == "mcp tool failed" {
+			rec = m
+		}
+	}
+
+	t.Run("record exists", func(t *testing.T) {
+		if rec == nil {
+			t.Fatalf("no mcp tool failed record in %s", buf.String())
+		}
+	})
+	t.Run("tool attribute", func(t *testing.T) {
+		if rec["tool"] != "explode" {
+			t.Errorf("tool = %v, want explode (record %v)", rec["tool"], rec)
+		}
+	})
+	t.Run("error text", func(t *testing.T) {
+		if rec["error"] != "database exploded" || rec["level"] != "ERROR" {
+			t.Errorf("record = %v", rec)
+		}
+	})
+	t.Run("no argument values", func(t *testing.T) {
+		if strings.Contains(buf.String(), secret) {
+			t.Errorf("argument value logged: %s", buf.String())
+		}
+	})
+	t.Run("user text unchanged", func(t *testing.T) {
+		if text != "Internal error; try again later." {
+			t.Errorf("text = %q", text)
+		}
+	})
 }
 
 func TestCutAndLinks(t *testing.T) {

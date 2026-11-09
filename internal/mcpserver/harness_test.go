@@ -321,7 +321,7 @@ func errText(t *testing.T, err error) string {
 	if err == nil {
 		t.Fatal("want error, got nil")
 	}
-	return userText(err, quiet)
+	return userText(err, "test_tool", quiet)
 }
 
 // syncBuffer is a log sink safe for concurrent writes and reads.

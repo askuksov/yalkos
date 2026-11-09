@@ -33,8 +33,8 @@ var inputParams = map[string]string{
 }
 
 // userText turns a tool error into one sentence for the agent. Unexpected
-// errors are logged and hidden behind a generic text.
-func userText(err error, logger *slog.Logger) string {
+// errors are logged with the tool name and hidden behind a generic text.
+func userText(err error, tool string, logger *slog.Logger) string {
 	var ue *userError
 	var ie *kit.InputError
 	var nf kit.NotFoundError
@@ -52,7 +52,7 @@ func userText(err error, logger *slog.Logger) string {
 	case errors.Is(err, kit.ErrForbidden):
 		return "You do not have permission to do this."
 	}
-	logger.Error("mcp tool failed", slog.String("error", err.Error()))
+	logger.Error("mcp tool failed", slog.String("tool", tool), slog.String("error", err.Error()))
 	return "Internal error; try again later."
 }
 
