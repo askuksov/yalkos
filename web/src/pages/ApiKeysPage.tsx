@@ -49,7 +49,7 @@ export function ApiKeysPage() {
               <strong>{t('apiKeys.once')}</strong> {t('apiKeys.copyNow')}
             </p>
             <code>{created}</code>{' '}
-            <Button size="sm" onClick={() => void copy(created)}>
+            <Button size="sm" aria-label={t('apiKeys.copyKey')} onClick={() => void copy(created)}>
               {t('common:actions.copy')}
             </Button>{' '}
             {failed && <span role="status">{t('common:status.copyFailed')} </span>}

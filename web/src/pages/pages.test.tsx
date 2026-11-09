@@ -182,8 +182,12 @@ describe('ApiKeysPage', () => {
     serve(keysPage())
     renderAt('/settings/api-keys')
     await screen.findByRole('heading', { name: 'Connect an AI agent' })
-    const copies = screen.getAllByRole('button', { name: 'Copy' })
-    expect(copies).toHaveLength(3)
+    const copies = [
+      screen.getByRole('button', { name: 'Copy Claude Code command' }),
+      screen.getByRole('button', { name: 'Copy OpenCode configuration' }),
+      screen.getByRole('button', { name: 'Copy environment variable export' }),
+    ]
+    expect(screen.getAllByRole('button', { name: /^Copy/ })).toHaveLength(3)
     await user.click(copies[1])
     const cfg = JSON.parse(await navigator.clipboard.readText())
     expect(cfg.mcp.yalkos).toEqual({
