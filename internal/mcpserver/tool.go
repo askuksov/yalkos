@@ -107,7 +107,7 @@ func addTool[In any](srv *mcp.Server, d *Deps, t *mcp.Tool, h func(ctx context.C
 		}
 		isErr := err != nil
 		if isErr {
-			text = userText(err, d.Logger)
+			text = userText(err, t.Name, d.Logger)
 		}
 		d.Logger.Info("mcp tool", "tool", t.Name, "user_id", a.User.ID, "duration_ms", time.Since(start).Milliseconds(), "error", isErr)
 		return &mcp.CallToolResult{IsError: isErr, Content: []mcp.Content{&mcp.TextContent{Text: text}}}, nil, nil
