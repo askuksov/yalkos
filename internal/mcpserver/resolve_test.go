@@ -114,6 +114,56 @@ func TestResolveLabels(t *testing.T) {
 	}
 }
 
+func TestResolveLabelsGroupFormCollision(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("free label and grouped label share Group/Name", func(t *testing.T) {
+		e := newEnv(t)
+		area := e.group(t, "Area", false)
+		e.label(t, "Area/UI", nil)
+		e.label(t, "UI", &area.ID)
+		c := e.newCall(e.users.Owner)
+		_, err := c.labels(ctx, []string{"area/ui"})
+		if got, want := errText(t, err), `Label "area/ui" is ambiguous: a free label and label UI of group Area; rename one.`; got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+
+	t.Run("free label Group/Name without a grouped counterpart resolves", func(t *testing.T) {
+		e := newEnv(t)
+		e.group(t, "Area", false)
+		free := e.label(t, "Area/UI", nil)
+		c := e.newCall(e.users.Owner)
+		ids, err := c.labels(ctx, []string{"area/ui"})
+		if err != nil || len(ids) != 1 || ids[0] != free.ID {
+			t.Errorf("area/ui = %v, %v (want the free label %s)", ids, err, free.ID)
+		}
+	})
+
+	t.Run("grouped Group/Name without a free counterpart resolves", func(t *testing.T) {
+		e := newEnv(t)
+		area := e.group(t, "Area", false)
+		grouped := e.label(t, "UI", &area.ID)
+		c := e.newCall(e.users.Owner)
+		ids, err := c.labels(ctx, []string{"area/ui"})
+		if err != nil || len(ids) != 1 || ids[0] != grouped.ID {
+			t.Errorf("area/ui = %v, %v (want %s)", ids, err, grouped.ID)
+		}
+	})
+
+	t.Run("bare name of the grouped label still resolves to it", func(t *testing.T) {
+		e := newEnv(t)
+		area := e.group(t, "Area", false)
+		e.label(t, "Area/UI", nil)
+		grouped := e.label(t, "UI", &area.ID)
+		c := e.newCall(e.users.Owner)
+		ids, err := c.labels(ctx, []string{"ui"})
+		if err != nil || len(ids) != 1 || ids[0] != grouped.ID {
+			t.Errorf("ui = %v, %v (want %s)", ids, err, grouped.ID)
+		}
+	})
+}
+
 func TestTypeNotFound(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
