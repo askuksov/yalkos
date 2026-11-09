@@ -3,7 +3,8 @@ import { Trans, useTranslation } from 'react-i18next'
 import { useCopy } from '../lib/clipboard'
 import { Button } from '../ui/Button'
 
-function Snippet({ label, text }: { label?: string; text: string }) {
+/** copyLabel is the accessible name of the Copy button; it must say what is copied and never contain the key. */
+function Snippet({ label, text, copyLabel }: { label?: string; text: string; copyLabel: string }) {
   const { t } = useTranslation('common')
   const { copy, failed } = useCopy()
   return (
@@ -12,7 +13,7 @@ function Snippet({ label, text }: { label?: string; text: string }) {
       <pre className="snippet">
         <code>{text}</code>
       </pre>
-      <Button size="sm" onClick={() => void copy(text)}>
+      <Button size="sm" aria-label={copyLabel} onClick={() => void copy(text)}>
         {t('actions.copy')}
       </Button>
       {failed && <span role="status"> {t('status.copyFailed')}</span>}
@@ -40,10 +41,10 @@ export function AgentSetup({ apiKey }: { apiKey?: string }) {
       <p>
         <Trans t={t} i18nKey="apiKeys.agent.intro" values={{ url }} components={{ code: <code /> }} />
       </p>
-      <Snippet label={t('apiKeys.agent.claudeCode')} text={claudeCode} />
-      <Snippet label={t('apiKeys.agent.openCode')} text={openCode} />
+      <Snippet label={t('apiKeys.agent.claudeCode')} text={claudeCode} copyLabel={t('apiKeys.agent.copyClaudeCode')} />
+      <Snippet label={t('apiKeys.agent.openCode')} text={openCode} copyLabel={t('apiKeys.agent.copyOpenCode')} />
       <p>{t('apiKeys.agent.openCodeKey')}</p>
-      <Snippet text={openCodeKey} />
+      <Snippet text={openCodeKey} copyLabel={t('apiKeys.agent.copyEnv')} />
       <p>{t('apiKeys.agent.warning')}</p>
     </section>
   )

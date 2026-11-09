@@ -28,6 +28,7 @@
     "headerExample": "Authorization: Bearer <key>",
     "once": "You will not see this key again.",
     "copyNow": "Copy it now.",
+    "copyKey": "Copy new API key",
     "name": "Key name",
     "create": "Create key",
     "key": "Key",
@@ -45,6 +46,9 @@
       "claudeCode": "Claude Code",
       "openCode": "OpenCode (opencode.json)",
       "openCodeKey": "Start OpenCode with the key in YALKOS_API_KEY:",
+      "copyClaudeCode": "Copy Claude Code command",
+      "copyOpenCode": "Copy OpenCode configuration",
+      "copyEnv": "Copy environment variable export",
       "warning": "Anyone with the key can act as you. Revoke it here if it leaks."
     }
   }

@@ -76,7 +76,7 @@ describe('setup snippet copy', () => {
   const open = async () => {
     renderAt('/settings/api-keys')
     await screen.findByRole('heading', { name: 'Connect an AI agent' })
-    return screen.getAllByRole('button', { name: 'Copy' })[0]
+    return screen.getByRole('button', { name: 'Copy Claude Code command' })
   }
 
   it('writes the snippet through the clipboard API', async () => {
@@ -128,14 +128,13 @@ describe('setup snippet copy', () => {
     await user.click(await open())
     expect(await screen.findByRole('status')).toBeInTheDocument()
     writeText?.mockResolvedValue(undefined)
-    await user.click(screen.getAllByRole('button', { name: 'Copy' })[0])
+    await user.click(screen.getByRole('button', { name: 'Copy Claude Code command' }))
     await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
   })
 })
 
 describe('new API key copy', () => {
-  // The key section comes first on the page, so its button is the first Copy.
-  const copyKey = () => screen.getAllByRole('button', { name: 'Copy' })[0]
+  const copyKey = () => screen.getByRole('button', { name: 'Copy new API key' })
 
   it('writes the key through the clipboard API', async () => {
     const { user, writeText } = session('works')
@@ -199,5 +198,97 @@ describe('new API key copy', () => {
       expect(el.getAttribute('title') ?? '').not.toContain(plain)
     }
     expect(screen.getAllByRole('button').every((b) => !(b.getAttribute('aria-label') ?? '').includes(plain))).toBe(true)
+  })
+})
+
+describe('copy button names', () => {
+  const names = {
+    key: 'Copy new API key',
+    claude: 'Copy Claude Code command',
+    openCode: 'Copy OpenCode configuration',
+    env: 'Copy environment variable export',
+  }
+  const button = (name: string) => screen.getByRole('button', { name })
+
+  it('names the new key button', async () => {
+    const { user } = session('works')
+    await createKey(user)
+    expect(button(names.key)).toHaveTextContent('Copy')
+  })
+
+  it('names the Claude Code button', async () => {
+    const { user } = session('works')
+    await createKey(user)
+    expect(button(names.claude)).toHaveTextContent('Copy')
+  })
+
+  it('names the OpenCode button', async () => {
+    const { user } = session('works')
+    await createKey(user)
+    expect(button(names.openCode)).toHaveTextContent('Copy')
+  })
+
+  it('names the environment variable button', async () => {
+    const { user } = session('works')
+    await createKey(user)
+    expect(button(names.env)).toHaveTextContent('Copy')
+  })
+
+  it('copies the new key', async () => {
+    const { user, writeText } = session('works')
+    await createKey(user)
+    await user.click(button(names.key))
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(plain)
+  })
+
+  it('copies the Claude Code command', async () => {
+    const { user, writeText } = session('works')
+    await createKey(user)
+    await user.click(button(names.claude))
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(claudeCommand(plain))
+  })
+
+  it('copies the OpenCode configuration', async () => {
+    const { user, writeText } = session('works')
+    await createKey(user)
+    await user.click(button(names.openCode))
+    expect(writeText).toHaveBeenCalledTimes(1)
+    const text = writeText?.mock.calls[0][0] as string
+    expect(JSON.parse(text)).toEqual({
+      mcp: {
+        yalkos: {
+          type: 'remote',
+          url: `${window.location.origin}/mcp`,
+          headers: { Authorization: 'Bearer {env:YALKOS_API_KEY}' },
+          oauth: false,
+        },
+      },
+    })
+    expect(text).not.toContain(plain)
+  })
+
+  it('copies the environment variable export', async () => {
+    const { user, writeText } = session('works')
+    await createKey(user)
+    await user.click(button(names.env))
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(`export YALKOS_API_KEY=${plain}`)
+  })
+
+  it('gives the four buttons four distinct names', async () => {
+    const { user } = session('works')
+    await createKey(user)
+    const labels = screen.getAllByRole('button', { name: /^Copy/ }).map((b) => b.getAttribute('aria-label'))
+    expect(labels).toEqual([names.key, names.claude, names.openCode, names.env])
+    expect(new Set(labels).size).toBe(4)
+  })
+
+  it('keeps the key value out of every button name', async () => {
+    const { user } = session('works')
+    await createKey(user)
+    for (const b of screen.getAllByRole('button')) {
+      expect(b.getAttribute('aria-label') ?? '').not.toContain(plain)
+      expect(b.getAttribute('title') ?? '').not.toContain(plain)
+    }
+    expect(screen.queryByRole('button', { name: new RegExp(plain) })).not.toBeInTheDocument()
   })
 })
