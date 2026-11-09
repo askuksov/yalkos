@@ -22,16 +22,11 @@ import { useMilestones } from '../milestones/useMilestones'
 import s from './command.module.css'
 import type { IssueTarget } from './recent'
 import { PaletteChildCountQuery, PaletteMilestonesQuery, PaletteSearchQuery, useDebounced } from './search'
+import { sharedProject } from './targets'
 
 type PageProps = { q: string; targets: IssueTarget[]; done: () => void }
 
 const has = (label: string, q: string) => label.toLowerCase().includes(q.trim().toLowerCase())
-
-/** The one project all targets share, or null. */
-function sharedProject(targets: IssueTarget[]): string | null {
-  const ids = new Set(targets.map((x) => x.projectId))
-  return ids.size === 1 ? [...ids][0] : null
-}
 
 export function StatePage({ q, targets, done }: PageProps) {
   const update = useIssueMutation()

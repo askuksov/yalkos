@@ -196,4 +196,57 @@ describe('issue list', () => {
     expect(await screen.findByRole('button', { name: 'Started 1' })).toBeInTheDocument()
     expect(await screen.findByText('Issue 7')).toBeInTheDocument()
   })
+  describe('state and milestone for checked issues', () => {
+    const key = (k: string, extra = {}) => fireEvent.keyDown(document.body, { key: k, code: `Key${k.toUpperCase()}`, ...extra })
+    const ops = { id: 'p2', key: 'OPS', name: 'Operations' }
+    const checkTwo = async (second: ReturnType<typeof issueRow>) => {
+      serve({
+        ...signedInAs(owner, [project(), project(ops)]),
+        IssueGroup: (v: Vars) => conn((v?.filter as { stateType?: { eq?: string } } | undefined)?.stateType?.eq === 'UNSTARTED' ? [todo(1), second] : []),
+      })
+      renderAt('/my-issues')
+      await screen.findByText('Issue 2')
+      key('j')
+      key('x')
+      key('j')
+      key('x')
+      await screen.findByRole('toolbar', { name: '2 selected' })
+    }
+    const fromOps = () => todo(2, { project: { id: 'p2', key: 'OPS', archivedAt: null } })
+
+    it('hides state and milestone in the palette for issues from different projects', async () => {
+      await checkTwo(fromOps())
+      key('k', { ctrlKey: true })
+      const dialog = await screen.findByRole('dialog', { name: 'Command palette' })
+      expect(await within(dialog).findByRole('option', { name: 'Assign to…' })).toBeInTheDocument()
+      expect(within(dialog).getByRole('option', { name: 'Set priority…' })).toBeInTheDocument()
+      expect(within(dialog).queryByRole('option', { name: 'Change state…' })).not.toBeInTheDocument()
+      expect(within(dialog).queryByRole('option', { name: 'Set milestone…' })).not.toBeInTheDocument()
+    })
+
+    it('ignores S and M for issues from different projects', async () => {
+      await checkTwo(fromOps())
+      key('s')
+      key('m')
+      expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument()
+      // Other shortcuts still work for the same selection.
+      key('p')
+      expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument()
+    })
+
+    it('offers state and milestone in the palette for issues from one project', async () => {
+      await checkTwo(todo(2))
+      key('k', { ctrlKey: true })
+      const dialog = await screen.findByRole('dialog', { name: 'Command palette' })
+      expect(await within(dialog).findByRole('option', { name: 'Change state…' })).toBeInTheDocument()
+      expect(within(dialog).getByRole('option', { name: 'Set milestone…' })).toBeInTheDocument()
+    })
+
+    it('opens the state page with S for issues from one project', async () => {
+      await checkTwo(todo(2))
+      key('s')
+      const dialog = await screen.findByRole('dialog', { name: 'Command palette' })
+      expect(await within(dialog).findByRole('option', { name: 'Done' })).toBeInTheDocument()
+    })
+  })
 })

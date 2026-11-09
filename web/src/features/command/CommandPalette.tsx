@@ -22,6 +22,7 @@ import { AssigneePage, DeletePage, DuePage, GoMilestonePage, LabelsPage, Milesto
 import { getRecent, type IssueTarget } from './recent'
 import { PaletteSearchQuery, useDebounced } from './search'
 import { ShortcutsHelp } from './ShortcutsHelp'
+import { sharedProject } from './targets'
 
 const PaletteIssueQuery = graphql(`
   query PaletteIssue($id: String!) {
@@ -182,16 +183,17 @@ function RootPage({ q, targets, searchOnly, push, close, onHelp }: RootProps) {
     { key: 'logout', label: t('actions.logOut'), run: () => logout.mutate() },
   ].filter((i) => has(i.label))
   const single = targets.length === 1 ? targets[0] : null
+  const sameProject = sharedProject(targets) !== null
   const thisIssue: Item[] = targets.length
     ? [
-        { key: 'state', label: t('issue.state'), run: () => push('state') },
+        ...(sameProject ? [{ key: 'state', label: t('issue.state'), run: () => push('state') }] : []),
         { key: 'assignee', label: t('issue.assignee'), run: () => push('assignee') },
         { key: 'priority', label: t('issue.priority'), run: () => push('priority') },
         { key: 'type', label: t('issue.type'), run: () => push('type') },
         { key: 'labels', label: t('issue.labels'), run: () => push('labels') },
-        ...(new Set(targets.map((x) => x.projectId)).size === 1 ? [{ key: 'milestone', label: t('issue.milestone'), run: () => push('milestone') }] : []),
+        ...(sameProject ? [{ key: 'milestone', label: t('issue.milestone'), run: () => push('milestone') }] : []),
         { key: 'due', label: t('issue.due'), run: () => push('due') },
-        ...(new Set(targets.map((x) => x.projectId)).size === 1 ? [{ key: 'parent', label: t('issue.parent'), run: () => push('parent') }] : []),
+        ...(sameProject ? [{ key: 'parent', label: t('issue.parent'), run: () => push('parent') }] : []),
         ...(single
           ? [
               { key: 'sub', label: t('issue.subIssue'), run: () => (close(), openCreateIssue({ projectId: single.projectId, parentId: single.id, parentIdentifier: single.identifier })) },
