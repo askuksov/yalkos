@@ -219,12 +219,33 @@ func (c *call) oneLabel(x *labelIndex, name string) (uuid.UUID, error) {
 			hits = append(hits, l)
 		}
 	}
+	// byGroup finds the grouped label that the Group/Name form points at.
+	byGroup := func() (label.Label, bool) {
+		g, n, ok := strings.Cut(name, "/")
+		if !ok {
+			return label.Label{}, false
+		}
+		for _, l := range x.all {
+			if plain(l) && l.ParentID != nil && same(l.Name, n) && same(x.groups[*l.ParentID].Name, g) {
+				return l, true
+			}
+		}
+		return label.Label{}, false
+	}
 	// A free label is reachable only by its bare name; grouped ones also
-	// answer to Group/Name, so the free one wins a clash.
+	// answer to Group/Name, so the free one wins a clash of bare names.
 	var free []label.Label
 	for _, l := range hits {
 		if l.ParentID == nil {
 			free = append(free, l)
+		}
+	}
+	// A free label literally named Group/Name would hide the grouped label
+	// of that form, so the name is ambiguous instead.
+	if len(free) == 1 {
+		if l, ok := byGroup(); ok {
+			return uuid.Nil, errf("Label %q is ambiguous: a free label and label %s of group %s; rename one.",
+				name, l.Name, x.groups[*l.ParentID].Name)
 		}
 	}
 	if len(hits) > 1 && len(free) == 1 {
@@ -241,12 +262,8 @@ func (c *call) oneLabel(x *labelIndex, name string) (uuid.UUID, error) {
 		}
 		return uuid.Nil, errf("Label %q is ambiguous: %s.", name, nameList(forms))
 	}
-	if g, n, ok := strings.Cut(name, "/"); ok {
-		for _, l := range x.all {
-			if plain(l) && l.ParentID != nil && same(l.Name, n) && same(x.groups[*l.ParentID].Name, g) {
-				return l.ID, nil
-			}
-		}
+	if l, ok := byGroup(); ok {
+		return l.ID, nil
 	}
 	for _, id := range x.types.LabelIDs {
 		if same(x.byID[id].Name, name) {
