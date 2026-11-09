@@ -6,6 +6,7 @@ import s from '../app/app.module.css'
 import { PageHeader } from '../app/PageHeader'
 import { errorMessage, request } from '../api/client'
 import { ApiKeysQuery, CreateApiKeyMutation, RevokeApiKeyMutation } from '../api/operations'
+import { useCopy } from '../lib/clipboard'
 import { formatDateTime } from '../lib/date'
 import { Button } from '../ui/Button'
 import { AgentSetup } from './AgentSetup'
@@ -16,6 +17,7 @@ export function ApiKeysPage() {
   const keys = useQuery({ queryKey: ['apiKeys'], queryFn: () => request(ApiKeysQuery) })
   const [name, setName] = useState('')
   const [created, setCreated] = useState('')
+  const { copy, failed, reset } = useCopy()
   const refresh = () => qc.invalidateQueries({ queryKey: ['apiKeys'] })
   const create = useMutation({
     mutationFn: () => request(CreateApiKeyMutation, { name }),
@@ -45,10 +47,17 @@ export function ApiKeysPage() {
               <strong>{t('apiKeys.once')}</strong> {t('apiKeys.copyNow')}
             </p>
             <code>{created}</code>{' '}
-            <Button size="sm" onClick={() => void navigator.clipboard?.writeText(created)}>
+            <Button size="sm" onClick={() => void copy(created)}>
               {t('common:actions.copy')}
             </Button>{' '}
-            <Button size="sm" onClick={() => setCreated('')}>
+            {failed && <span role="status">{t('common:status.copyFailed')} </span>}
+            <Button
+              size="sm"
+              onClick={() => {
+                setCreated('')
+                reset()
+              }}
+            >
               {t('common:actions.done')}
             </Button>
           </section>
