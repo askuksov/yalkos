@@ -96,6 +96,15 @@ form select {
   margin-block-start: var(--space-1);
 }
 
+.notice {
+  margin-block: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--warning-bg);
+}
+
 .secret code {
   word-break: break-all;
 }
