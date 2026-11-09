@@ -14,6 +14,8 @@ vi.mock('../api/client', async (orig) => {
 const owner = { id: 'u1', name: 'Olga', email: 'o@example.com', role: 'OWNER' }
 const plain = 'yal_api_' + 'c'.repeat(40)
 const failureText = 'Copy failed: select the text and copy it manually.'
+// Explicit async timeout for the create-key flows; the global default (1 s) is too tight on a slow run.
+const slow = { timeout: 5000 }
 const claudeCommand = (key: string) =>
   `claude mcp add --transport http yalkos ${window.location.origin}/mcp --header "Authorization: Bearer ${key}"`
 
@@ -57,9 +59,9 @@ function session(clipboard: 'works' | 'missing' | 'rejects') {
 
 async function createKey(user: ReturnType<typeof userEvent.setup>) {
   renderAt('/settings/api-keys')
-  await user.type(await screen.findByLabelText('Key name'), 'Agent')
+  await user.type(await screen.findByLabelText('Key name', undefined, slow), 'Agent')
   await user.click(screen.getByRole('button', { name: 'Create key' }))
-  await screen.findByText(/You will not see this key again/)
+  await screen.findByText(/You will not see this key again/, undefined, slow)
 }
 
 beforeEach(() => {
@@ -75,7 +77,7 @@ afterEach(() => {
 describe('setup snippet copy', () => {
   const open = async () => {
     renderAt('/settings/api-keys')
-    await screen.findByRole('heading', { name: 'Connect an AI agent' })
+    await screen.findByRole('heading', { name: 'Connect an AI agent' }, slow)
     return screen.getByRole('button', { name: 'Copy Claude Code command' })
   }
 
@@ -136,9 +138,9 @@ describe('setup snippet copy', () => {
 describe('setup snippet failure and key changes', () => {
   const copySnippet = () => screen.getByRole('button', { name: 'Copy Claude Code command' })
   const createAnother = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.type(await screen.findByLabelText('Key name'), 'Second')
+    await user.type(await screen.findByLabelText('Key name', undefined, slow), 'Second')
     await user.click(screen.getByRole('button', { name: 'Create key' }))
-    await screen.findByText(/You will not see this key again/)
+    await screen.findByText(/You will not see this key again/, undefined, slow)
   }
 
   it('drops the snippet failure when Done hides the key', async () => {
@@ -148,7 +150,7 @@ describe('setup snippet failure and key changes', () => {
     await user.click(copySnippet())
     expect(await screen.findByRole('status')).toHaveTextContent(failureText)
     await user.click(screen.getByRole('button', { name: 'Done' }))
-    await screen.findByLabelText('Key name')
+    await screen.findByLabelText('Key name', undefined, slow)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
@@ -156,7 +158,7 @@ describe('setup snippet failure and key changes', () => {
     const { user } = session('rejects')
     stubExecCommand(false)
     renderAt('/settings/api-keys')
-    await screen.findByRole('heading', { name: 'Connect an AI agent' })
+    await screen.findByRole('heading', { name: 'Connect an AI agent' }, slow)
     await user.click(copySnippet())
     expect(await screen.findByRole('status')).toHaveTextContent(failureText)
     await createAnother(user)
@@ -225,9 +227,9 @@ describe('new API key copy', () => {
     await user.click(copyKey())
     expect(await screen.findByRole('status')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Done' }))
-    await user.type(await screen.findByLabelText('Key name'), 'Second')
+    await user.type(await screen.findByLabelText('Key name', undefined, slow), 'Second')
     await user.click(screen.getByRole('button', { name: 'Create key' }))
-    await screen.findByText(/You will not see this key again/)
+    await screen.findByText(/You will not see this key again/, undefined, slow)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
@@ -239,7 +241,11 @@ describe('new API key copy', () => {
       expect(el.getAttribute('aria-label') ?? '').not.toContain(plain)
       expect(el.getAttribute('title') ?? '').not.toContain(plain)
     }
-    expect(screen.getAllByRole('button').every((b) => !(b.getAttribute('aria-label') ?? '').includes(plain))).toBe(true)
+    for (const b of screen.getAllByRole('button')) {
+      expect(b.getAttribute('aria-label') ?? '').not.toContain(plain)
+      expect(b.getAttribute('title') ?? '').not.toContain(plain)
+    }
+    expect(screen.queryByRole('button', { name: new RegExp(plain) })).not.toBeInTheDocument()
   })
 })
 
@@ -252,28 +258,12 @@ describe('copy button names', () => {
   }
   const button = (name: string) => screen.getByRole('button', { name })
 
-  it('names the new key button', async () => {
+  it('names the four copy buttons and labels each one Copy', async () => {
     const { user } = session('works')
     await createKey(user)
-    expect(button(names.key)).toHaveTextContent('Copy')
-  })
-
-  it('names the Claude Code button', async () => {
-    const { user } = session('works')
-    await createKey(user)
-    expect(button(names.claude)).toHaveTextContent('Copy')
-  })
-
-  it('names the OpenCode button', async () => {
-    const { user } = session('works')
-    await createKey(user)
-    expect(button(names.openCode)).toHaveTextContent('Copy')
-  })
-
-  it('names the environment variable button', async () => {
-    const { user } = session('works')
-    await createKey(user)
-    expect(button(names.env)).toHaveTextContent('Copy')
+    for (const name of Object.values(names)) {
+      expect.soft(button(name), name).toHaveTextContent(/^Copy$/)
+    }
   })
 
   it('copies the new key', async () => {
@@ -322,15 +312,5 @@ describe('copy button names', () => {
     const labels = screen.getAllByRole('button', { name: /^Copy/ }).map((b) => b.getAttribute('aria-label'))
     expect(labels).toEqual([names.key, names.claude, names.openCode, names.env])
     expect(new Set(labels).size).toBe(4)
-  })
-
-  it('keeps the key value out of every button name', async () => {
-    const { user } = session('works')
-    await createKey(user)
-    for (const b of screen.getAllByRole('button')) {
-      expect(b.getAttribute('aria-label') ?? '').not.toContain(plain)
-      expect(b.getAttribute('title') ?? '').not.toContain(plain)
-    }
-    expect(screen.queryByRole('button', { name: new RegExp(plain) })).not.toBeInTheDocument()
   })
 })

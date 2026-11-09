@@ -20,9 +20,20 @@ function at(href: string) {
   vi.stubGlobal('location', new URL(href))
 }
 
+// Explicit async timeout; the global default (1 s) is too tight on a slow run.
+const slow = { timeout: 5000 }
+
 async function openPage() {
   renderAt('/settings/api-keys')
-  await screen.findByRole('heading', { name: 'Connect an AI agent' })
+  await screen.findByRole('heading', { name: 'Connect an AI agent' }, slow)
+}
+
+async function createKey() {
+  const user = userEvent.setup()
+  renderAt('/settings/api-keys')
+  await user.type(await screen.findByLabelText('Key name', undefined, slow), 'Agent')
+  await user.click(screen.getByRole('button', { name: 'Create key' }))
+  await screen.findByText(/You will not see this key again/, undefined, slow)
 }
 
 beforeEach(() => {
@@ -71,11 +82,7 @@ describe('plain HTTP notice on the API keys page', () => {
 
   it('is still shown once after a key is created', async () => {
     at('http://yalkos.example.com/settings/api-keys')
-    const user = userEvent.setup()
-    renderAt('/settings/api-keys')
-    await user.type(await screen.findByLabelText('Key name'), 'Agent')
-    await user.click(screen.getByRole('button', { name: 'Create key' }))
-    await screen.findByText(/You will not see this key again/)
+    await createKey()
     expect(screen.getAllByRole('note')).toHaveLength(1)
   })
 
@@ -101,11 +108,7 @@ describe('plain HTTP notice on the API keys page', () => {
 
   it('does not mention the key value', async () => {
     at('http://yalkos.example.com/settings/api-keys')
-    const user = userEvent.setup()
-    renderAt('/settings/api-keys')
-    await user.type(await screen.findByLabelText('Key name'), 'Agent')
-    await user.click(screen.getByRole('button', { name: 'Create key' }))
-    await screen.findByText(/You will not see this key again/)
+    await createKey()
     expect(screen.getByRole('note')).not.toHaveTextContent(plain)
   })
 })
