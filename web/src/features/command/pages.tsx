@@ -352,10 +352,15 @@ export function DeletePage({ targets, done }: PageProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const remove = useMutation({
-    mutationFn: () => Promise.all(targets.map((x) => request(DeleteIssueMutation, { id: x.id }))),
+    // Wait for every request so the lists are refreshed after the last deletion, even if another one failed.
+    mutationFn: async () => {
+      const results = await Promise.allSettled(targets.map((x) => request(DeleteIssueMutation, { id: x.id })))
+      const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+      if (failed) throw failed.reason
+    },
+    onSettled: () => Promise.all(['issues', 'children'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
     onSuccess: () => {
       toast.show(t('deleted', { count: targets.length }))
-      void Promise.all(['issues', 'children'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
       const open = targets.find((x) => pathname === `/issue/${x.identifier}`)
       if (open) navigate(open.projectKey ? `/p/${open.projectKey}` : '/my-issues', { replace: true })
       done()
