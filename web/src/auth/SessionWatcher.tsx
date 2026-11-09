@@ -22,7 +22,7 @@ const startedUnder = new WeakMap<object, number>()
 export function SessionWatcher() {
   const qc = useQueryClient()
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
 
   // Record start generations on every path, public ones included.
   useEffect(
@@ -39,7 +39,7 @@ export function SessionWatcher() {
       if (!(err instanceof GraphQLRequestError) || err.code !== 'AUTHENTICATION_ERROR') return
       startSession()
       qc.clear()
-      navigate('/login', { replace: true, state: { from: pathname } })
+      navigate('/login', { replace: true, state: { from: pathname + search } })
     }
     const offQueries = qc.getQueryCache().subscribe((e) => {
       if (e.type === 'updated' && e.action.type === 'error') onError(e.action.error)
@@ -54,7 +54,7 @@ export function SessionWatcher() {
       offQueries()
       offMutations()
     }
-  }, [qc, navigate, pathname])
+  }, [qc, navigate, pathname, search])
 
   return null
 }
