@@ -133,6 +133,48 @@ describe('setup snippet copy', () => {
   })
 })
 
+describe('setup snippet failure and key changes', () => {
+  const copySnippet = () => screen.getByRole('button', { name: 'Copy Claude Code command' })
+  const createAnother = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.type(await screen.findByLabelText('Key name'), 'Second')
+    await user.click(screen.getByRole('button', { name: 'Create key' }))
+    await screen.findByText(/You will not see this key again/)
+  }
+
+  it('drops the snippet failure when Done hides the key', async () => {
+    const { user } = session('rejects')
+    stubExecCommand(false)
+    await createKey(user)
+    await user.click(copySnippet())
+    expect(await screen.findByRole('status')).toHaveTextContent(failureText)
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await screen.findByLabelText('Key name')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('drops the snippet failure when a key is created', async () => {
+    const { user } = session('rejects')
+    stubExecCommand(false)
+    renderAt('/settings/api-keys')
+    await screen.findByRole('heading', { name: 'Connect an AI agent' })
+    await user.click(copySnippet())
+    expect(await screen.findByRole('status')).toHaveTextContent(failureText)
+    await createAnother(user)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('drops the snippet failure when a second key is created', async () => {
+    const { user } = session('rejects')
+    stubExecCommand(false)
+    await createKey(user)
+    await user.click(copySnippet())
+    expect(await screen.findByRole('status')).toHaveTextContent(failureText)
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await createAnother(user)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+})
+
 describe('new API key copy', () => {
   const copyKey = () => screen.getByRole('button', { name: 'Copy new API key' })
 
