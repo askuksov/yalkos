@@ -219,6 +219,45 @@ describe('SessionWatcher', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/login'))
   })
 
+  it('keeps the query string in the return address when a query loses the session', async () => {
+    serve({ ...signedIn, ApiKeys: lost })
+    const { router } = renderAt('/settings/api-keys?tab=keys&x=1')
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/login$/))
+    expect(router.state.location.state).toEqual({ from: '/settings/api-keys?tab=keys&x=1' })
+  })
+
+  it('returns to the original URL with its query string after signing in again', async () => {
+    let alive = true
+    let lose = true
+    serve({
+      ...shell,
+      SetupStatus: () => ({ setupStatus: { needed: false } }),
+      Viewer: () => {
+        if (!alive) throw new GraphQLRequestError('AUTHENTICATION_ERROR', 'Authentication required')
+        return { viewer: owner }
+      },
+      ApiKeys: () => {
+        if (lose) {
+          lose = false
+          alive = false
+          return lost()
+        }
+        return { apiKeys: [] }
+      },
+      Login: () => {
+        alive = true
+        return { login: { id: 'u1' } }
+      },
+    })
+    const { router } = renderAt('/settings/api-keys?tab=keys&x=1')
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/login$/))
+    await userEvent.type(await screen.findByLabelText('Email'), 'o@example.com')
+    await userEvent.type(screen.getByLabelText('Password'), 'owner-password')
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/api-keys'))
+    expect(router.state.location.search).toBe('?tab=keys&x=1')
+  })
+
   it('redirects to /login when a mutation loses the session', async () => {
     serve({ ...signedIn, ApiKeys: () => ({ apiKeys: [] }), CreateApiKey: lost })
     renderAt('/settings/api-keys')
