@@ -103,6 +103,15 @@ func TestInternalErrorLog(t *testing.T) {
 			t.Errorf("argument value logged: %s", buf.String())
 		}
 	})
+	t.Run("no api key", func(t *testing.T) {
+		// e2.fail filled ownerKey; an empty key would make the check vacuous.
+		if e2.ownerKey == "" {
+			t.Fatal("owner key is empty")
+		}
+		if strings.Contains(buf.String(), e2.ownerKey) {
+			t.Error("api key reached the internal error log")
+		}
+	})
 	t.Run("user text unchanged", func(t *testing.T) {
 		if text != "Internal error; try again later." {
 			t.Errorf("text = %q", text)
