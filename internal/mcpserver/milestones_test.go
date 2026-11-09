@@ -43,6 +43,60 @@ func TestCreateMilestone(t *testing.T) {
 	}
 }
 
+func TestCreateMilestoneLead(t *testing.T) {
+	const noneErr = `Invalid lead: "none" has nothing to clear on a new milestone; leave lead out.`
+	listed := func(e *env) []string {
+		var out struct{ Milestones []struct{ Name string } }
+		decode(t, e.ok(t, "list_milestones", map[string]any{"project": "YLK", "includeDone": true}), &out)
+		names := []string{}
+		for _, m := range out.Milestones {
+			names = append(names, m.Name)
+		}
+		return names
+	}
+
+	for _, lead := range []string{"none", "None", "  NONE "} {
+		t.Run("rejects "+strings.TrimSpace(lead), func(t *testing.T) {
+			e := newEnv(t)
+			e.project(t, "YLK", "App")
+			if got := e.fail(t, "create_milestone", map[string]any{"project": "YLK", "name": "Bank APIs", "lead": lead}); got != noneErr {
+				t.Errorf("got %q, want %q", got, noneErr)
+			}
+			if names := listed(e); len(names) != 0 {
+				t.Errorf("milestones after rejected create = %v", names)
+			}
+		})
+	}
+
+	t.Run("without lead", func(t *testing.T) {
+		e := newEnv(t)
+		e.project(t, "YLK", "App")
+		got, text := e.milestoneCall(t, "create_milestone", map[string]any{"project": "YLK", "name": "Bank APIs"})
+		if got.Name != "Bank APIs" || strings.Contains(text, `"lead"`) {
+			t.Errorf("created = %s", text)
+		}
+	})
+
+	t.Run("with me", func(t *testing.T) {
+		e := newEnv(t)
+		e.project(t, "YLK", "App")
+		got, _ := e.milestoneCall(t, "create_milestone", map[string]any{"project": "YLK", "name": "Bank APIs", "lead": "me"})
+		if got.Lead != "Owner" {
+			t.Errorf("lead = %q, want Owner", got.Lead)
+		}
+	})
+
+	t.Run("update none still clears", func(t *testing.T) {
+		e := newEnv(t)
+		e.project(t, "YLK", "App")
+		e.milestoneCall(t, "create_milestone", map[string]any{"project": "YLK", "name": "Bank APIs", "lead": "me"})
+		got, text := e.milestoneCall(t, "update_milestone", map[string]any{"project": "YLK", "milestone": "Bank APIs", "lead": "none"})
+		if got.Lead != "" || strings.Contains(text, `"lead"`) {
+			t.Errorf("after clearing = %s", text)
+		}
+	})
+}
+
 func TestUpdateMilestone(t *testing.T) {
 	e := newEnv(t)
 	p := e.project(t, "YLK", "App")

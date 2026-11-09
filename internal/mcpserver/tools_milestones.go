@@ -73,6 +73,9 @@ func registerMilestoneTools(srv *mcp.Server, d *Deps) {
 			ci.TargetDate = &t
 		}
 		if given(in.Lead) {
+			if isNone(in.Lead) {
+				return nil, errf(`Invalid lead: "none" has nothing to clear on a new milestone; leave lead out.`)
+			}
 			if ci.LeadID, err = c.person(ctx, in.Lead); err != nil {
 				return nil, err
 			}
