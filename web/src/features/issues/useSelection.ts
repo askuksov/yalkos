@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 
 import { isInteractive, useEscape, useHotkey } from '../../lib/hotkeys'
 import { usePalette } from '../command/palette'
-import { targetsFrom } from '../command/targets'
+import { sharedProject, targetsFrom } from '../command/targets'
 
 /**
  * Keyboard selection over the rows rendered in container ([data-row-id],
@@ -62,6 +62,8 @@ export function useSelection(
   const openPage = (page: 'state' | 'assignee' | 'priority' | 'type' | 'labels' | 'milestone') => {
     const t = targets()
     if (!t.length) return false
+    // State and milestone are per project: decline the key for a mixed selection.
+    if ((page === 'state' || page === 'milestone') && sharedProject(t) === null) return false
     palette.open(page, t)
   }
   useHotkey('s', () => openPage('state'), { enabled: checkable })
