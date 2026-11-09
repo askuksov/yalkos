@@ -1,18 +1,21 @@
 import { Trans, useTranslation } from 'react-i18next'
 
+import { useCopy } from '../lib/clipboard'
 import { Button } from '../ui/Button'
 
 function Snippet({ label, text }: { label?: string; text: string }) {
   const { t } = useTranslation('common')
+  const { copy, failed } = useCopy()
   return (
     <div>
       {label && <h3>{label}</h3>}
       <pre className="snippet">
         <code>{text}</code>
       </pre>
-      <Button size="sm" onClick={() => void navigator.clipboard?.writeText(text)}>
+      <Button size="sm" onClick={() => void copy(text)}>
         {t('actions.copy')}
       </Button>
+      {failed && <span role="status"> {t('status.copyFailed')}</span>}
     </div>
   )
 }
