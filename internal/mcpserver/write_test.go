@@ -7,11 +7,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/audit"
 	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/page"
+	"github.com/askuksov/yalkos/internal/domain/project"
 )
 
 type summaryJSON struct {
@@ -171,6 +175,98 @@ func TestLabelNamedLikeType(t *testing.T) {
 	if got.Type != "Bug" || !slices.Equal(got.Labels, []string{"Bug"}) {
 		t.Errorf("type Bug + free Bug = %+v", got)
 	}
+}
+
+// TestWriteFreeLabelNamedLikeType checks that labels: ["Bug"] picks the free
+// label named Bug and never the Bug type, and that the issue type is untouched.
+func TestWriteFreeLabelNamedLikeType(t *testing.T) {
+	// setup makes a project with a free label Bug (next to the Bug type) and
+	// returns the project, the free label and the id of the Bug type.
+	setup := func(t *testing.T) (*env, project.Project, label.Label, uuid.UUID) {
+		t.Helper()
+		e := newEnv(t)
+		p := e.project(t, "YLK", "App")
+		free := e.label(t, "Bug", nil)
+		ti, err := e.deps.Labels.TypeInfo(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		types, err := e.deps.Labels.ByIDs(context.Background(), ti.LabelIDs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, l := range types {
+			if l.Name == "Bug" {
+				return e, p, free, l.ID
+			}
+		}
+		t.Fatal("no Bug type")
+		return nil, p, free, uuid.Nil
+	}
+	// stored returns the label ids saved on the issue.
+	stored := func(t *testing.T, e *env, ref string) []uuid.UUID {
+		t.Helper()
+		i, err := e.deps.Issues.Get(context.Background(), ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return i.LabelIDs
+	}
+	check := func(t *testing.T, e *env, got summaryJSON, wantType string, free label.Label, bugType uuid.UUID, wantBugType bool) {
+		t.Helper()
+		if got.Type != wantType || !slices.Equal(got.Labels, []string{"Bug"}) {
+			t.Errorf("summary = %+v, want type %q and label Bug", got, wantType)
+		}
+		ids := stored(t, e, got.Identifier)
+		if !slices.Contains(ids, free.ID) {
+			t.Errorf("free Bug label missing from %v", ids)
+		}
+		if slices.Contains(ids, bugType) != wantBugType {
+			t.Errorf("Bug type in %v = %v, want %v", ids, !wantBugType, wantBugType)
+		}
+	}
+
+	t.Run("create keeps the default type", func(t *testing.T) {
+		e, _, free, bugType := setup(t)
+		got := e.write(t, "create_issue", map[string]any{"project": "YLK", "title": "One", "labels": []string{"Bug"}})
+		check(t, e, got, "Task", free, bugType, false)
+	})
+	t.Run("create keeps the given type", func(t *testing.T) {
+		e, _, free, bugType := setup(t)
+		got := e.write(t, "create_issue", map[string]any{"project": "YLK", "title": "One", "type": "Feature", "labels": []string{"bug"}})
+		check(t, e, got, "Feature", free, bugType, false)
+	})
+	t.Run("create with the Bug type and the free label", func(t *testing.T) {
+		e, _, free, bugType := setup(t)
+		got := e.write(t, "create_issue", map[string]any{"project": "YLK", "title": "One", "type": "Bug", "labels": []string{"Bug"}})
+		check(t, e, got, "Bug", free, bugType, true)
+	})
+	t.Run("update keeps the current type", func(t *testing.T) {
+		e, p, free, bugType := setup(t)
+		e.issue(t, issue.CreateInput{ProjectID: &p.ID, Title: "One"})
+		e.write(t, "update_issue", map[string]any{"issue": "YLK-1", "type": "Feature"})
+		got := e.write(t, "update_issue", map[string]any{"issue": "YLK-1", "labels": []string{"Bug"}})
+		check(t, e, got, "Feature", free, bugType, false)
+	})
+	t.Run("update keeps the Bug type", func(t *testing.T) {
+		e, p, free, bugType := setup(t)
+		e.issue(t, issue.CreateInput{ProjectID: &p.ID, Title: "One", LabelIDs: []uuid.UUID{bugType}})
+		got := e.write(t, "update_issue", map[string]any{"issue": "YLK-1", "labels": []string{"Bug"}})
+		check(t, e, got, "Bug", free, bugType, true)
+	})
+	t.Run("update keeps no type", func(t *testing.T) {
+		e, p, free, bugType := setup(t)
+		e.issue(t, issue.CreateInput{ProjectID: &p.ID, Title: "One"})
+		e.write(t, "update_issue", map[string]any{"issue": "YLK-1", "type": "none"})
+		got := e.write(t, "update_issue", map[string]any{"issue": "YLK-1", "labels": []string{"Bug"}})
+		check(t, e, got, "", free, bugType, false)
+	})
+	t.Run("update sets another type next to the free label", func(t *testing.T) {
+		e, p, free, bugType := setup(t)
+		e.issue(t, issue.CreateInput{ProjectID: &p.ID, Title: "One"})
+		got := e.write(t, "update_issue", map[string]any{"issue": "YLK-1", "labels": []string{"Bug"}, "type": "Feature"})
+		check(t, e, got, "Feature", free, bugType, false)
+	})
 }
 
 func TestAmbiguousAssigneeChangesNothing(t *testing.T) {
