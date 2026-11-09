@@ -103,7 +103,8 @@ export function ApiKeysPage() {
             ))}
           </tbody>
         </table>
-        <AgentSetup apiKey={created} />
+        {/* Remount on a key change so a copy failure or an in-flight copy of the old snippet is dropped. */}
+        <AgentSetup key={created || 'none'} apiKey={created} />
       </div>
     </>
   )
