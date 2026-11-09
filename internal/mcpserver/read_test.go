@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -226,8 +227,10 @@ type issueJSON struct {
 		Size int64
 		URL  string
 	}
-	CommentCount int
-	Comments     []commentJSON
+	AttachmentsTotal     int
+	AttachmentsTruncated bool
+	CommentCount         int
+	Comments             []commentJSON
 }
 
 type commentJSON struct {
@@ -310,6 +313,60 @@ func TestGetIssue(t *testing.T) {
 	}
 	if got.CreatedAt == "" || got.UpdatedAt == "" || got.CompletedAt != "" || got.DueDate != "" {
 		t.Errorf("times = %q %q %q %q", got.CreatedAt, got.UpdatedAt, got.CompletedAt, got.DueDate)
+	}
+}
+
+func TestGetIssueAttachmentCap(t *testing.T) {
+	cases := []struct {
+		name      string
+		count     int
+		wantLen   int
+		wantTotal int
+		wantTrunc bool
+	}{
+		{"none", 0, 0, 0, false},
+		{"exactly the cap", 50, 50, 0, false},
+		{"one over the cap", 51, 50, 51, true},
+		{"well over the cap", 60, 50, 60, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newEnv(t)
+			ctx := context.Background()
+			p := e.project(t, "YLK", "App")
+			i := e.issue(t, issue.CreateInput{ProjectID: &p.ID, Title: "Many files"})
+			for n := range tc.count {
+				name := fmt.Sprintf("file-%02d.txt", n)
+				if _, err := e.deps.Attachments.Upload(ctx, e.users.Owner, name, strings.NewReader("data "+name), &i.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			text := e.ok(t, "get_issue", map[string]any{"issue": "YLK-1"})
+			var got issueJSON
+			decode(t, text, &got)
+			if len(got.Attachments) != tc.wantLen {
+				t.Fatalf("attachments = %d, want %d", len(got.Attachments), tc.wantLen)
+			}
+			for n, a := range got.Attachments {
+				if want := fmt.Sprintf("file-%02d.txt", n); a.Name != want {
+					t.Fatalf("attachment %d = %q, want %q (order must stay oldest first)", n, a.Name, want)
+				}
+			}
+			if got.AttachmentsTotal != tc.wantTotal || got.AttachmentsTruncated != tc.wantTrunc {
+				t.Errorf("total = %d, truncated = %v; want %d, %v", got.AttachmentsTotal, got.AttachmentsTruncated, tc.wantTotal, tc.wantTrunc)
+			}
+			var raw map[string]json.RawMessage
+			decode(t, text, &raw)
+			_, hasTotal := raw["attachmentsTotal"]
+			_, hasTrunc := raw["attachmentsTruncated"]
+			_, hasList := raw["attachments"]
+			if hasTotal != tc.wantTrunc || hasTrunc != tc.wantTrunc {
+				t.Errorf("metadata keys present: total=%v truncated=%v, want %v", hasTotal, hasTrunc, tc.wantTrunc)
+			}
+			if hasList != (tc.wantLen > 0) {
+				t.Errorf("attachments key present = %v, want %v", hasList, tc.wantLen > 0)
+			}
+		})
 	}
 }
 

@@ -30,6 +30,9 @@ const (
 	// so a page of long comments stays readable for the client.
 	maxCommentsText = 30_000
 	maxSubIssues    = 50
+	// maxAttachments caps the files get_issue lists; the real count is
+	// reported next to them when there are more.
+	maxAttachments = 50
 )
 
 type searchIn struct {
@@ -304,6 +307,8 @@ type issueOut struct {
 	CompletedAt          string          `json:"completedAt,omitempty"`
 	CanceledAt           string          `json:"canceledAt,omitempty"`
 	Attachments          []attachmentOut `json:"attachments,omitempty"`
+	AttachmentsTotal     int             `json:"attachmentsTotal,omitempty"`
+	AttachmentsTruncated bool            `json:"attachmentsTruncated,omitempty"`
 	CommentCount         int             `json:"commentCount"`
 	Comments             []commentOut    `json:"comments,omitempty"`
 }
@@ -403,6 +408,11 @@ func (c *call) getIssue(ctx context.Context, ref string) (issueOut, error) {
 	if err != nil {
 		return issueOut{}, err
 	}
+	if len(files) > maxAttachments {
+		out.AttachmentsTotal = len(files)
+		out.AttachmentsTruncated = true
+		files = files[:maxAttachments]
+	}
 	for _, a := range files {
 		out.Attachments = append(out.Attachments, attachmentOut{Name: a.Name, Size: a.Size, URL: c.link(attachment.URL(a))})
 	}
@@ -467,7 +477,7 @@ func registerReadTools(srv *mcp.Server, d *Deps) {
 
 	addTool(srv, d, &mcp.Tool{
 		Name: "get_issue", Title: "Get issue", Annotations: readOnly("Get issue"),
-		Description: "Get one issue by identifier (YLK-12): all fields, the description, sub-issues, files and the latest comments. Use list_comments for older comments.",
+		Description: "Get one issue by identifier (YLK-12): all fields, the description, sub-issues, files (up to 50; attachmentsTotal and attachmentsTruncated appear when there are more) and the latest comments. Use list_comments for older comments.",
 	}, func(ctx context.Context, c *call, in issueIn) (any, error) {
 		return c.getIssue(ctx, in.Issue)
 	})
