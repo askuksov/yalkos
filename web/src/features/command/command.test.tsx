@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GraphQLRequestError } from '../../api/client'
-import { conn, owner, pageIssue, project, signedInAs } from '../../test/fixtures'
+import { conn, issueRow, owner, pageIssue, project, signedInAs, stateOf } from '../../test/fixtures'
 import { renderAt } from '../../test/render'
-import { callsOf, mocked, serve } from '../../test/serve'
+import { callsOf, deferred, mocked, serve } from '../../test/serve'
 import { pushRecent } from './recent'
 
 vi.mock('../../api/client', async (orig) => {
@@ -131,5 +131,59 @@ describe('command palette', () => {
     fireEvent.keyDown(document.body, { key: '?', code: 'Slash', shiftKey: true })
     const help = await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })
     expect(within(help).getByText('Command palette')).toBeInTheDocument()
+  })
+})
+
+describe('palette deletion of checked issues', () => {
+  const key = (k: string) => fireEvent.keyDown(document.body, { key: k, code: `Key${k.toUpperCase()}` })
+  const row = (n: number) => issueRow(n, { state: stateOf('s-todo') })
+
+  async function confirmDeleteOfTwo(extra: Record<string, (v: Vars) => unknown>) {
+    serve(
+      handlers({
+        IssueCount: () => ({ issues: { totalCount: 2 } }),
+        IssueGroup: (v: Vars) => conn((v?.filter as { stateType?: { eq?: string } } | undefined)?.stateType?.eq === 'UNSTARTED' ? [row(1), row(2)] : []),
+        ...extra,
+      }),
+    )
+    renderAt('/my-issues')
+    await screen.findByText('Issue 2')
+    key('j')
+    key('x')
+    key('j')
+    key('x')
+    await screen.findByRole('toolbar', { name: '2 selected' })
+    modK()
+    const dialog = await screen.findByRole('dialog', { name: 'Command palette' })
+    await userEvent.click(await within(dialog).findByRole('option', { name: 'Delete' }))
+    const before = callsOf('IssueGroup').length
+    await userEvent.click(await within(dialog).findByRole('option', { name: 'Delete 2 issues' }))
+    return { dialog, before }
+  }
+
+  it('refreshes issue lists after a late success when another deletion failed', async () => {
+    const late = deferred<{ deleteIssue: boolean }>()
+    const { dialog, before } = await confirmDeleteOfTwo({
+      DeleteIssue: (v: Vars) => {
+        if (v?.id === 'i1') throw new GraphQLRequestError('NOT_FOUND', 'Issue not found')
+        return late.promise
+      },
+    })
+    await waitFor(() => expect(callsOf('DeleteIssue')).toHaveLength(2))
+    expect(callsOf('IssueGroup')).toHaveLength(before)
+
+    late.resolve({ deleteIssue: true })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Not found.')
+    expect(screen.queryByText('2 issues deleted')).not.toBeInTheDocument()
+    expect(dialog).toBeVisible()
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/my-issues$/)
+    await waitFor(() => expect(callsOf('IssueGroup').length).toBeGreaterThan(before))
+  })
+
+  it('closes the palette and refreshes issue lists after deleting every issue', async () => {
+    const { before } = await confirmDeleteOfTwo({ DeleteIssue: () => ({ deleteIssue: true }) })
+    expect(await screen.findByText('2 issues deleted')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument())
+    await waitFor(() => expect(callsOf('IssueGroup').length).toBeGreaterThan(before))
   })
 })
