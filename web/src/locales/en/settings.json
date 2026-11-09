@@ -35,6 +35,10 @@
     "lastUsed": "Last used",
     "never": "never",
     "revoke": "Revoke",
+    "insecure": {
+      "title": "This page is not served over HTTPS.",
+      "body": "An API key sent over plain HTTP is not encrypted, so anyone on the network can read it. Use HTTPS before you create or use a key."
+    },
     "agent": {
       "title": "Connect an AI agent",
       "intro": "Claude Code, OpenCode and other MCP clients can find, create and update issues through <code>{{url}}</code>. They act as you, with an API key from this page.",

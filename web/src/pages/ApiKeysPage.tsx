@@ -10,6 +10,7 @@ import { useCopy } from '../lib/clipboard'
 import { formatDateTime } from '../lib/date'
 import { Button } from '../ui/Button'
 import { AgentSetup } from './AgentSetup'
+import { InsecureTransportNotice } from './InsecureTransportNotice'
 
 export function ApiKeysPage() {
   const { t } = useTranslation(['settings', 'common'])
@@ -38,6 +39,7 @@ export function ApiKeysPage() {
     <>
       <PageHeader title={t('apiKeys.title')} />
       <div className={s.content}>
+        <InsecureTransportNotice />
         <p>
           <Trans t={t} i18nKey="apiKeys.hint" values={{ header: t('apiKeys.headerExample') }} components={{ code: <code /> }} />
         </p>
