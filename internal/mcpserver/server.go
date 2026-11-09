@@ -3,6 +3,7 @@
 package mcpserver
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -43,7 +44,7 @@ type Deps struct {
 func NewHandler(d Deps) http.Handler {
 	srv := mcp.NewServer(
 		&mcp.Implementation{Name: "yalkos", Title: "Yalkos", Version: buildinfo.Version},
-		&mcp.ServerOptions{Instructions: instructions, Logger: d.Logger},
+		&mcp.ServerOptions{Instructions: instructions, Logger: sdkLogger(d.Logger)},
 	)
 	registerTools(srv, &d)
 	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return srv }, &mcp.StreamableHTTPOptions{
@@ -53,7 +54,7 @@ func NewHandler(d Deps) http.Handler {
 		// loopback address; Guard checks Origin and requires an API key instead.
 		DisableLocalhostProtection: true,
 		MaxRequestBodyBytes:        maxBody,
-		Logger:                     d.Logger,
+		Logger:                     sdkLogger(d.Logger),
 	})
 }
 
@@ -62,4 +63,32 @@ func registerTools(srv *mcp.Server, d *Deps) {
 	registerReadTools(srv, d)
 	registerWriteTools(srv, d)
 	registerMilestoneTools(srv, d)
+}
+
+// minLevelHandler drops records below min and delegates the rest unchanged.
+type minLevelHandler struct {
+	slog.Handler
+	min slog.Level
+}
+
+// Enabled reports whether level passes both min and the wrapped handler.
+func (h minLevelHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return level >= h.min && h.Handler.Enabled(ctx, level)
+}
+
+func (h minLevelHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return minLevelHandler{Handler: h.Handler.WithAttrs(attrs), min: h.min}
+}
+
+func (h minLevelHandler) WithGroup(name string) slog.Handler {
+	return minLevelHandler{Handler: h.Handler.WithGroup(name), min: h.min}
+}
+
+// sdkLogger returns l without records below Warn, for the MCP SDK, which logs
+// every request at Info. A nil l stays nil (the SDK then discards its logs).
+func sdkLogger(l *slog.Logger) *slog.Logger {
+	if l == nil {
+		return nil
+	}
+	return slog.New(minLevelHandler{Handler: l.Handler(), min: slog.LevelWarn})
 }
