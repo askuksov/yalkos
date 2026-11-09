@@ -120,7 +120,7 @@ Tools:
 | `list_labels` | Issue types and labels, with label groups |
 | `list_users` | Active people with name, email and role; `"me": true` marks the key's owner |
 | `search_issues` | Find issues by project, words, state, assignee, type, labels, milestone, priority or parent; paged |
-| `get_issue` | One issue with description, sub-issues, files and the latest comments |
+| `get_issue` | One issue with description, sub-issues, files (the first 50, plus the total when there are more) and the latest comments |
 | `list_comments` | Comments of an issue, newest page first |
 | `create_issue` | Create an issue or a sub-issue |
 | `update_issue` | Change fields of an issue; only the fields passed change |
