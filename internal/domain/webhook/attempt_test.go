@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/askuksov/yalkos/internal/domain/event"
 	"github.com/askuksov/yalkos/internal/domain/kit"
@@ -631,5 +632,124 @@ func TestRunCleanupStopsWithContext(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("RunCleanup did not stop after its context ended")
+	}
+}
+
+// beginTx starts a transaction the test holds open; it is rolled back at the end
+// unless the test commits it.
+func beginTx(t *testing.T, e emitEnv) pgx.Tx {
+	t.Helper()
+	tx, err := e.pool.Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
+	if _, err := tx.Exec(context.Background(), `SET LOCAL lock_timeout = '5s'`); err != nil {
+		t.Fatal(err)
+	}
+	return tx
+}
+
+// finishedOrWaiting waits until the operation behind done finished or another
+// session waits for a lock. finished tells which; err is the result if it finished.
+func finishedOrWaiting(t *testing.T, e emitEnv, done <-chan error) (finished bool, err error) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		select {
+		case err := <-done:
+			return true, err
+		default:
+		}
+		if waiters(t, e) >= 1 {
+			return false, nil
+		}
+	}
+	t.Fatal("neither finished nor waits for a lock")
+	return false, nil
+}
+
+// A final failure must not miss a success of the same webhook that another
+// transaction is still recording: the webhook stays on.
+func TestFinalFailureSeesConcurrentSuccess(t *testing.T) {
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	e.emitAt(t, atSec(0))
+	e.emitAt(t, atSec(1))
+	ids := e.deliveryIDs(t, w.ID)
+	failed, succeeded := ids[0], ids[1]
+
+	tx := beginTx(t, e)
+	ok := okResult
+	ok.At = atSec(10)
+	if err := e.svc.RecordTx(context.Background(), tx, succeeded, ok, 1, nil); err != nil {
+		t.Fatalf("record success: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		fail := failResult
+		fail.At = atSec(20)
+		done <- e.svc.Record(context.Background(), failed, fail, webhook.MaxAttempts, nil)
+	}()
+	finished, err := finishedOrWaiting(t, e, done)
+	t.Logf("final failure finished before the success committed: %v", finished)
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !finished {
+		err = result(t, done, "final failure")
+	}
+	if err != nil {
+		t.Fatalf("record final failure: %v", err)
+	}
+
+	e.wantEnabled(t, w.ID, true, "after a concurrent success")
+	if d := e.delivery(t, failed); d.Status != "failed" {
+		t.Errorf("failed delivery status = %q, want failed", d.Status)
+	}
+	if d := e.delivery(t, succeeded); d.Status != "succeeded" {
+		t.Errorf("succeeded delivery status = %q, want succeeded", d.Status)
+	}
+}
+
+// A success recorded while a final failure's disable decision is still open
+// waits for it, and the decision stands.
+func TestSuccessWaitsForDisableDecision(t *testing.T) {
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	e.emitAt(t, atSec(0))
+	e.emitAt(t, atSec(1))
+	ids := e.deliveryIDs(t, w.ID)
+	failed, succeeded := ids[0], ids[1]
+
+	tx := beginTx(t, e)
+	fail := failResult
+	fail.At = atSec(10)
+	if err := e.svc.RecordTx(context.Background(), tx, failed, fail, webhook.MaxAttempts, nil); err != nil {
+		t.Fatalf("record final failure: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		ok := okResult
+		ok.At = atSec(20)
+		done <- e.svc.Record(context.Background(), succeeded, ok, 1, nil)
+	}()
+	waitForWaiters(t, e, 1)
+	select {
+	case err := <-done:
+		t.Fatalf("success finished while the disable decision was open (err %v)", err)
+	default:
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := result(t, done, "success"); err != nil {
+		t.Fatalf("record success: %v", err)
+	}
+
+	e.wantEnabled(t, w.ID, false, "the disable decision came first")
+	if d := e.delivery(t, succeeded); d.Status != "succeeded" {
+		t.Errorf("succeeded delivery status = %q, want succeeded", d.Status)
 	}
 }

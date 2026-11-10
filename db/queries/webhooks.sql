@@ -80,10 +80,28 @@ SET status = @status, attempts = @attempts, response_status = @response_status, 
 WHERE id = @id AND status IN ('pending', 'retrying')
 RETURNING webhook_id, resource, created_at;
 
+-- name: LockDeliveryWebhookForShare :one
+-- Taken by Record before it stores a success: serializes success recording with
+-- the disable decision (LockDeliveryWebhookForNoKeyUpdate), while successes do
+-- not block each other or the key share a delivery insert takes. Taken before
+-- the delivery row, the order Delete uses.
+SELECT w.id FROM webhook_deliveries d JOIN webhooks w ON w.id = d.webhook_id WHERE d.id = @id FOR SHARE OF w;
+
+-- name: LockDeliveryWebhookForNoKeyUpdate :one
+-- Taken by Record before it stores a final failure: waits for successes being
+-- recorded (LockDeliveryWebhookForShare), so the disable decision sees them,
+-- and does not block the key share a delivery insert takes. Taken before the
+-- delivery row, the order Delete uses.
+SELECT w.id FROM webhook_deliveries d JOIN webhooks w ON w.id = d.webhook_id WHERE d.id = @id FOR NO KEY UPDATE OF w;
+
 -- name: DisableWebhookForFailures :execrows
 -- Turns an enabled webhook off after a failed delivery created at @since: no
 -- event delivery succeeded at or after that time. One statement, so a
--- concurrent edit of the row is seen as it is.
+-- concurrent edit of the row is seen as it is. Run it after the webhook row was
+-- locked by LockDeliveryWebhookForNoKeyUpdate in an earlier statement of the
+-- same transaction: its new snapshot then sees every success committed before
+-- the lock (a lock wait inside this statement would re-check only the row, not
+-- the NOT EXISTS).
 UPDATE webhooks SET enabled = false, disabled_reason = 'failures', disabled_at = @now, updated_at = @now
 WHERE webhooks.id = @webhook_id AND enabled
   AND NOT EXISTS (

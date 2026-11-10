@@ -19,7 +19,8 @@ import (
 // and the delivery insert then key-shares the webhook row. A webhook edit must
 // therefore not lock the webhook row harder than FOR NO KEY UPDATE, or an edit
 // that moves the webhook to a project (a key share on the project row) and an
-// event write in that project wait for each other.
+// event write in that project wait for each other. Record locks the webhook row
+// before the delivery row, the order Delete uses, so the two cannot deadlock.
 
 // writer is a transaction that behaves like a domain write: it holds a project
 // row lock and emits an event before it commits.
@@ -210,4 +211,87 @@ func TestDeleteWaitsForKeyShare(t *testing.T) {
 	if n := e.count(t, `SELECT count(*) FROM webhooks WHERE id = $1`, w.ID); n != 0 {
 		t.Errorf("webhook rows = %d, want 0", n)
 	}
+}
+
+// Delete holds the webhook row and then cascades to its deliveries; Record of
+// one of those deliveries must wait for it instead of deadlocking.
+func TestRecordDoesNotDeadlockWithDelete(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		res     webhook.Result
+		attempt int
+	}{
+		{"final failure", failResult, webhook.MaxAttempts},
+		{"success", okResult, 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := newEmitEnv(t)
+			w := e.create(t, webhook.CreateInput{Enabled: true})
+			e.emitAt(t, atSec(0))
+			id := e.deliveryIDs(t, w.ID)[0]
+
+			tx := beginTx(t, e)
+			if _, err := tx.Exec(context.Background(), `SELECT id FROM webhooks WHERE id = $1 FOR UPDATE`, w.ID); err != nil {
+				t.Fatal(err)
+			}
+			done := make(chan error, 1)
+			go func() {
+				r := c.res
+				r.At = atSec(10)
+				done <- e.svc.Record(context.Background(), id, r, c.attempt, nil)
+			}()
+			waitForWaiters(t, e, 1)
+
+			if _, err := tx.Exec(context.Background(), `DELETE FROM webhooks WHERE id = $1`, w.ID); err != nil {
+				if isDeadlock(err) {
+					t.Fatalf("delete: deadlock: %v", err)
+				}
+				t.Fatalf("delete: %v", err)
+			}
+			if err := tx.Commit(context.Background()); err != nil {
+				if isDeadlock(err) {
+					t.Fatalf("commit delete: deadlock: %v", err)
+				}
+				t.Fatalf("commit delete: %v", err)
+			}
+			err := result(t, done, "record")
+			if isDeadlock(err) {
+				t.Fatalf("record: deadlock: %v", err)
+			}
+			if !errors.Is(err, webhook.ErrGone) {
+				t.Fatalf("record = %v, want ErrGone", err)
+			}
+		})
+	}
+}
+
+// Control: Record locks the webhook row no harder than FOR NO KEY UPDATE, so
+// neither a success nor a final failure waits for a delivery insert in flight.
+func TestRecordDoesNotWaitForKeyShare(t *testing.T) {
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	e.emitAt(t, atSec(0))
+	e.emitAt(t, atSec(1))
+	ids := e.deliveryIDs(t, w.ID)
+	tx := keyShare(t, e, w.ID)
+
+	done := make(chan error, 1)
+	go func() {
+		ok := okResult
+		ok.At = atSec(10)
+		err := e.svc.Record(context.Background(), ids[1], ok, 1, nil)
+		if err == nil {
+			fail := failResult
+			fail.At = atSec(20)
+			err = e.svc.Record(context.Background(), ids[0], fail, webhook.MaxAttempts, nil)
+		}
+		done <- err
+	}()
+	if err := result(t, done, "record"); err != nil {
+		t.Fatalf("record while a key share is held: %v", err)
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	e.wantEnabled(t, w.ID, true, "after a success and a later final failure")
 }

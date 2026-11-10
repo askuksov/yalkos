@@ -134,7 +134,11 @@ type DisableWebhookForFailuresParams struct {
 
 // Turns an enabled webhook off after a failed delivery created at @since: no
 // event delivery succeeded at or after that time. One statement, so a
-// concurrent edit of the row is seen as it is.
+// concurrent edit of the row is seen as it is. Run it after the webhook row was
+// locked by LockDeliveryWebhookForNoKeyUpdate in an earlier statement of the
+// same transaction: its new snapshot then sees every success committed before
+// the lock (a lock wait inside this statement would re-check only the row, not
+// the NOT EXISTS).
 func (q *Queries) DisableWebhookForFailures(ctx context.Context, arg DisableWebhookForFailuresParams) (int64, error) {
 	result, err := q.db.Exec(ctx, disableWebhookForFailures, arg.Now, arg.WebhookID, arg.Since)
 	if err != nil {
@@ -422,6 +426,36 @@ func (q *Queries) ListWebhooks(ctx context.Context) ([]Webhook, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockDeliveryWebhookForNoKeyUpdate = `-- name: LockDeliveryWebhookForNoKeyUpdate :one
+SELECT w.id FROM webhook_deliveries d JOIN webhooks w ON w.id = d.webhook_id WHERE d.id = $1 FOR NO KEY UPDATE OF w
+`
+
+// Taken by Record before it stores a final failure: waits for successes being
+// recorded (LockDeliveryWebhookForShare), so the disable decision sees them,
+// and does not block the key share a delivery insert takes. Taken before the
+// delivery row, the order Delete uses.
+func (q *Queries) LockDeliveryWebhookForNoKeyUpdate(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockDeliveryWebhookForNoKeyUpdate, id)
+	var id_2 uuid.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
+const lockDeliveryWebhookForShare = `-- name: LockDeliveryWebhookForShare :one
+SELECT w.id FROM webhook_deliveries d JOIN webhooks w ON w.id = d.webhook_id WHERE d.id = $1 FOR SHARE OF w
+`
+
+// Taken by Record before it stores a success: serializes success recording with
+// the disable decision (LockDeliveryWebhookForNoKeyUpdate), while successes do
+// not block each other or the key share a delivery insert takes. Taken before
+// the delivery row, the order Delete uses.
+func (q *Queries) LockDeliveryWebhookForShare(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockDeliveryWebhookForShare, id)
+	var id_2 uuid.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
 }
 
 const lockWorkspaceForWebhooks = `-- name: LockWorkspaceForWebhooks :exec
