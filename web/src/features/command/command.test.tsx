@@ -186,4 +186,18 @@ describe('palette deletion of checked issues', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Command palette' })).not.toBeInTheDocument())
     await waitFor(() => expect(callsOf('IssueGroup').length).toBeGreaterThan(before))
   })
+
+  it('ignores a repeated confirmation while a deletion is running', async () => {
+    const late = deferred<{ deleteIssue: boolean }>()
+    const { dialog } = await confirmDeleteOfTwo({ DeleteIssue: () => late.promise })
+    await waitFor(() => expect(callsOf('DeleteIssue')).toHaveLength(2))
+
+    await userEvent.click(within(dialog).getByRole('option', { name: 'Delete 2 issues' }))
+    await userEvent.keyboard('{Enter}')
+    expect(callsOf('DeleteIssue')).toHaveLength(2)
+
+    late.resolve({ deleteIssue: true })
+    expect(await screen.findByText('2 issues deleted')).toBeInTheDocument()
+    expect(callsOf('DeleteIssue')).toHaveLength(2)
+  })
 })

@@ -363,7 +363,7 @@ export function DeletePage({ targets, done }: PageProps) {
     onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
   })
   return (
-    <Command.Item value="confirm" onSelect={() => remove.mutate()}>
+    <Command.Item value="confirm" disabled={remove.isPending} onSelect={() => remove.mutate()}>
       <span className={s.label}>{t('delete.confirm', { count: targets.length })}</span>
     </Command.Item>
   )
