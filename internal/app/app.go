@@ -122,7 +122,8 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	comments.SetEmitter(webhooks)
 	labels.SetEmitter(webhooks)
 	milestones.SetEmitter(webhooks)
-	// Finished deliveries beyond the newest 50 per webhook are removed hourly.
+	// Hourly, deliveries whose job is gone are failed, and finished deliveries
+	// beyond the newest 50 per webhook are removed.
 	go webhooks.RunCleanup(ctx, time.Hour, logger)
 	var limiter *ratelimit.Limiter
 	if cfg.APIRateLimit > 0 {

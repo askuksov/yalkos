@@ -491,3 +491,130 @@ func TestPoisonedErrorBodyDoesNotStallQueue(t *testing.T) {
 		}
 	}
 }
+
+// blockingSender signals when a send starts and then waits for the attempt's
+// context to end, as a send that hangs until it is cut off would.
+type blockingSender struct{ started chan struct{} }
+
+func (s blockingSender) Send(ctx context.Context, _ webhook.Attempt) webhook.Result {
+	select {
+	case s.started <- struct{}{}:
+	default:
+	}
+	<-ctx.Done()
+	return webhook.Result{At: time.Now(), Err: "connection failed: " + ctx.Err().Error()}
+}
+
+type finalAttempt struct {
+	workerEnv
+	id, hookID uuid.UUID
+	sender     blockingSender
+	client     *river.Client[pgx.Tx]
+}
+
+// startFinalAttempt makes a delivery whose three attempts already failed and
+// starts a client whose sender hangs on the fourth.
+func startFinalAttempt(t *testing.T) finalAttempt {
+	t.Helper()
+	ctx := context.Background()
+	e := newWorkerEnv(t)
+	hook := e.hook(t, "http://127.0.0.1:1/", true)
+	e.emit(t)
+	id := e.deliveries(t)[0].ID
+	// River raises attempt to 4 when it fetches the job.
+	if _, err := e.pool.Exec(ctx, `UPDATE webhook_deliveries SET status = 'retrying', attempts = 3, response_status = 500,
+		last_error = 'HTTP 500', last_attempt_at = now(), next_attempt_at = now() WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.pool.Exec(ctx, `UPDATE river_job SET attempt = 3 WHERE args ->> 'deliveryId' = $1`, id.String()); err != nil {
+		t.Fatal(err)
+	}
+	snd := blockingSender{started: make(chan struct{}, 1)}
+	c, err := delivery.NewClient(e.pool, &delivery.Worker{Service: e.svc, Sender: snd}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		sctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := c.StopAndCancel(sctx); err != nil {
+			t.Errorf("stop client: %v", err)
+		}
+	})
+	select {
+	case <-snd.started:
+	case <-time.After(30 * time.Second):
+		t.Fatal("the final attempt did not start")
+	}
+	return finalAttempt{workerEnv: e, id: id, hookID: hook.ID, sender: snd, client: c}
+}
+
+func (f finalAttempt) job(t *testing.T) (state string, attempt int) {
+	t.Helper()
+	if err := f.pool.QueryRow(context.Background(), `SELECT state::text, attempt FROM river_job WHERE args ->> 'deliveryId' = $1`,
+		f.id.String()).Scan(&state, &attempt); err != nil {
+		t.Fatal(err)
+	}
+	return state, attempt
+}
+
+// TestInterruptedFinalAttemptIsRecovered: a last attempt cut off by the job
+// timeout cannot record its outcome, and River discards the job; the delivery
+// would stay retrying forever, so Cleanup fails it without turning the webhook
+// off.
+func TestInterruptedFinalAttemptIsRecovered(t *testing.T) {
+	ctx := context.Background()
+	f := startFinalAttempt(t)
+	waitFor(t, "the job to leave running", func() bool {
+		s, _ := f.job(t)
+		return s != "running"
+	})
+	if state, attempt := f.job(t); state != "discarded" || attempt != 4 {
+		t.Fatalf("job state = %s, attempt = %d, want discarded after attempt 4", state, attempt)
+	}
+	if d := f.deliveries(t)[0]; d.Status != "retrying" || d.Attempts != 3 {
+		t.Fatalf("delivery before cleanup = %+v, want retrying after 3 attempts", d)
+	}
+
+	if err := f.svc.Cleanup(ctx); err != nil {
+		t.Fatalf("Cleanup: %v", err)
+	}
+	d := f.deliveries(t)[0]
+	if d.Status != "failed" || d.LastError == nil || *d.LastError != webhook.ErrorInterrupted || d.Attempts != 3 ||
+		d.FinishedAt == nil || d.NextAttemptAt != nil {
+		t.Fatalf("delivery after cleanup = %+v, want failed with %q after 3 attempts", d, webhook.ErrorInterrupted)
+	}
+	var enabled bool
+	var reason *string
+	if err := f.pool.QueryRow(ctx, `SELECT enabled, disabled_reason FROM webhooks WHERE id = $1`, f.hookID).Scan(&enabled, &reason); err != nil {
+		t.Fatal(err)
+	}
+	if !enabled || reason != nil {
+		t.Fatalf("webhook enabled = %v, reason = %v, want still on", enabled, reason)
+	}
+}
+
+// TestStoppedFinalAttemptIsRetried is a control: a client stop cancels the last
+// attempt, River puts the job back without counting it, and Cleanup leaves the
+// delivery to that retry.
+func TestStoppedFinalAttemptIsRetried(t *testing.T) {
+	ctx := context.Background()
+	f := startFinalAttempt(t)
+	sctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := f.client.StopAndCancel(sctx); err != nil {
+		t.Fatalf("stop client: %v", err)
+	}
+	if state, attempt := f.job(t); state != "available" || attempt != 3 {
+		t.Fatalf("job state = %s, attempt = %d, want available with attempt 3", state, attempt)
+	}
+	if err := f.svc.Cleanup(ctx); err != nil {
+		t.Fatalf("Cleanup: %v", err)
+	}
+	if d := f.deliveries(t)[0]; d.Status != "retrying" || d.Attempts != 3 || d.LastError == nil || *d.LastError != "HTTP 500" {
+		t.Fatalf("delivery after cleanup = %+v, want retrying after 3 attempts", d)
+	}
+}

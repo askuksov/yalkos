@@ -31,6 +31,9 @@ const (
 
 	// ErrorDisabled is the last_error of a delivery canceled because its webhook is off.
 	ErrorDisabled = "webhook disabled"
+	// ErrorInterrupted is the last_error of a delivery whose job ended or
+	// vanished before its outcome was recorded.
+	ErrorInterrupted = "delivery interrupted"
 
 	statusSucceeded = "succeeded"
 	statusRetrying  = "retrying"
@@ -274,8 +277,38 @@ func (s *Service) Test(ctx context.Context, actor account.User, webhookID uuid.U
 	}, nil
 }
 
-// Cleanup deletes finished deliveries beyond the newest 50 of every webhook.
+// recoverInterrupted fails the unfinished deliveries whose job ended or vanished
+// before their outcome was recorded; nothing would work them again. It touches
+// delivery rows only and never disables a webhook: the outcome is unknown.
+//
+// No grace period is needed: a delivery and its job are inserted in one
+// transaction, River finalizes a job only after Work returned (after Record
+// committed or failed), and a retry keeps the job live. The statement sees
+// deliveries and jobs in one snapshot, and the status condition is re-checked
+// on the latest row version if a concurrent Record changed it. River's tables
+// are unknown to sqlc, hence raw SQL.
+func (s *Service) recoverInterrupted(ctx context.Context) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE webhook_deliveries d
+		SET status = 'failed', last_error = $1, next_attempt_at = NULL, finished_at = $2
+		WHERE d.status IN ('pending', 'retrying')
+		  AND NOT EXISTS (
+		      SELECT 1 FROM river_job j
+		      WHERE j.kind = $3 AND j.args ->> 'deliveryId' = d.id::text
+		        AND j.state IN ('available', 'pending', 'retryable', 'running', 'scheduled'))`,
+		ErrorInterrupted, s.opts.Now(), KindDelivery)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// Cleanup fails deliveries whose job is gone (see recoverInterrupted), then
+// deletes finished deliveries beyond the newest 50 of every webhook.
 func (s *Service) Cleanup(ctx context.Context) error {
+	if _, err := s.recoverInterrupted(ctx); err != nil {
+		return fmt.Errorf("recover interrupted deliveries: %w", err)
+	}
 	if _, err := s.q.CleanupDeliveries(ctx); err != nil {
 		return fmt.Errorf("cleanup deliveries: %w", err)
 	}
