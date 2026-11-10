@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -558,8 +559,14 @@ func TestCleanupKeeps50Finished(t *testing.T) {
 	for i := range 55 {
 		finished = append(finished, insert(a, i, statuses[i%3]))
 	}
-	// Unfinished ones are the oldest of all and still stay.
+	// Unfinished ones with a live job are the oldest of all and still stay.
 	pending := []uuid.UUID{insert(a, -2, "pending"), insert(a, -1, "retrying")}
+	for _, id := range pending {
+		if _, err := e.pool.Exec(ctx, `INSERT INTO river_job (kind, args, queue, max_attempts) VALUES ($1, $2, $3, $4)`,
+			webhook.KindDelivery, webhook.DeliveryArgs{DeliveryID: id}, webhook.QueueDeliveries, webhook.MaxAttempts); err != nil {
+			t.Fatal(err)
+		}
+	}
 	// Another webhook with few finished deliveries is untouched.
 	var others []uuid.UUID
 	for i := range 3 {
@@ -752,4 +759,200 @@ func TestSuccessWaitsForDisableDecision(t *testing.T) {
 	if d := e.delivery(t, succeeded); d.Status != "succeeded" {
 		t.Errorf("succeeded delivery status = %q, want succeeded", d.Status)
 	}
+}
+
+// setJob moves the River job of a delivery to state; River requires
+// finalized_at exactly for the final states.
+func (e emitEnv) setJob(t *testing.T, id uuid.UUID, state string) {
+	t.Helper()
+	tag, err := e.pool.Exec(context.Background(), `
+		UPDATE river_job SET state = $2::text::river_job_state,
+			finalized_at = CASE WHEN $2::text IN ('cancelled', 'completed', 'discarded') THEN now() END
+		WHERE args ->> 'deliveryId' = $1`, id.String(), state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("jobs of delivery %s = %d, want 1", id, tag.RowsAffected())
+	}
+}
+
+// deliveryRow is the whole delivery row as JSON text.
+func (e emitEnv) deliveryRow(t *testing.T, id uuid.UUID) string {
+	t.Helper()
+	var s string
+	if err := e.pool.QueryRow(context.Background(), `SELECT row_to_json(d)::text FROM webhook_deliveries d WHERE id = $1`, id).Scan(&s); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+// A delivery whose job ended or vanished before its outcome was recorded is
+// failed by Cleanup without turning the webhook off; one with a live job and a
+// finished one stay as they are.
+func TestCleanupFailsDeliveriesWithoutLiveJob(t *testing.T) {
+	ctx := context.Background()
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	// The success lives on another webhook, so it cannot hide a wrong disable of w.
+	other := e.create(t, webhook.CreateInput{Enabled: true, Name: "comments", Resources: []event.Resource{event.Comment}})
+	sec := 0
+	newDelivery := func() uuid.UUID {
+		sec++
+		e.emitAt(t, atSec(sec))
+		ids := e.deliveryIDs(t, w.ID)
+		return ids[len(ids)-1]
+	}
+	failAttempts := func(id uuid.UUID, n int) {
+		for attempt := 1; attempt <= n; attempt++ {
+			r := failResult
+			r.At = atSec(100 + 10*attempt)
+			e.record(t, id, r, attempt)
+		}
+	}
+
+	type deliveryCase struct {
+		name string
+		id   uuid.UUID
+	}
+	var live, gone, finished []deliveryCase
+	for _, state := range []string{"available", "pending", "retryable", "running", "scheduled"} {
+		id := newDelivery()
+		if state != "available" {
+			e.setJob(t, id, state)
+		}
+		live = append(live, deliveryCase{"job " + state, id})
+	}
+	retrying := newDelivery()
+	failAttempts(retrying, 2)
+	e.setJob(t, retrying, "retryable")
+	live = append(live, deliveryCase{"retrying, job retryable", retrying})
+
+	for _, state := range []string{"completed", "discarded", "cancelled"} {
+		id := newDelivery()
+		e.setJob(t, id, state)
+		gone = append(gone, deliveryCase{"job " + state, id})
+	}
+	deleted := newDelivery()
+	if _, err := e.pool.Exec(ctx, `DELETE FROM river_job WHERE args ->> 'deliveryId' = $1`, deleted.String()); err != nil {
+		t.Fatal(err)
+	}
+	gone = append(gone, deliveryCase{"job deleted", deleted})
+	otherKind := newDelivery()
+	if _, err := e.pool.Exec(ctx, `UPDATE river_job SET kind = 'other_kind' WHERE args ->> 'deliveryId' = $1`, otherKind.String()); err != nil {
+		t.Fatal(err)
+	}
+	gone = append(gone, deliveryCase{"job of another kind", otherKind})
+	lastTry := newDelivery()
+	failAttempts(lastTry, 3)
+	e.setJob(t, lastTry, "discarded")
+	gone = append(gone, deliveryCase{"retrying, job discarded", lastTry})
+
+	if err := e.emit(t, event.Change{Resource: event.Comment, Action: event.Update, At: atSec(50)}); err != nil {
+		t.Fatal(err)
+	}
+	succeeded := e.deliveryIDs(t, other.ID)[0]
+	ok := okResult
+	ok.At = atSec(60)
+	e.record(t, succeeded, ok, 1)
+	e.setJob(t, succeeded, "completed")
+	finished = append(finished, deliveryCase{"succeeded", succeeded})
+	canceled := newDelivery()
+	if _, err := e.pool.Exec(ctx, `UPDATE webhook_deliveries SET status = 'canceled', last_error = 'webhook disabled', finished_at = $2
+		WHERE id = $1`, canceled, atSec(70)); err != nil {
+		t.Fatal(err)
+	}
+	e.setJob(t, canceled, "completed")
+	finished = append(finished, deliveryCase{"canceled", canceled})
+
+	before := map[uuid.UUID]string{}
+	states := map[uuid.UUID]deliveryState{}
+	for _, c := range append(append(append([]deliveryCase{}, live...), gone...), finished...) {
+		before[c.id] = e.deliveryRow(t, c.id)
+		states[c.id] = e.delivery(t, c.id)
+	}
+
+	if err := e.svc.Cleanup(ctx); err != nil {
+		t.Fatalf("Cleanup: %v", err)
+	}
+
+	for _, c := range append(append([]deliveryCase{}, live...), finished...) {
+		t.Run("unchanged: "+c.name, func(t *testing.T) {
+			if got := e.deliveryRow(t, c.id); got != before[c.id] {
+				t.Errorf("delivery changed:\n before %s\n after  %s", before[c.id], got)
+			}
+		})
+	}
+	clockStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for _, c := range gone {
+		t.Run("failed: "+c.name, func(t *testing.T) {
+			was, d := states[c.id], e.delivery(t, c.id)
+			if d.Status != "failed" {
+				t.Errorf("status = %s, want failed", d.Status)
+			}
+			if d.LastError == nil || *d.LastError != webhook.ErrorInterrupted {
+				t.Errorf("last_error = %s, want %q", strOrNil(d.LastError), webhook.ErrorInterrupted)
+			}
+			if d.Finished == nil || d.Finished.Before(clockStart) || !d.Finished.Before(clockStart.Add(time.Hour)) {
+				t.Errorf("finished_at = %v, want the service clock", d.Finished)
+			}
+			if d.NextAttemptAt != nil {
+				t.Errorf("next_attempt_at = %v, want NULL", d.NextAttemptAt)
+			}
+			if d.Attempts != was.Attempts || !equalPtr(d.ResponseStatus, was.ResponseStatus) ||
+				!equalPtr(d.DurationMS, was.DurationMS) || !equalTimePtr(d.LastAttemptAt, was.LastAttemptAt) {
+				t.Errorf("attempt columns changed: %+v, were %+v", d, was)
+			}
+		})
+	}
+	t.Run("retrying delivery keeps its attempts", func(t *testing.T) {
+		d := e.delivery(t, lastTry)
+		if d.Attempts != 3 || d.ResponseStatus == nil || *d.ResponseStatus != 500 || d.LastAttemptAt == nil ||
+			!d.LastAttemptAt.Equal(atSec(130)) || d.DurationMS == nil || *d.DurationMS != 20 {
+			t.Errorf("delivery = %+v", d)
+		}
+	})
+	e.wantEnabled(t, w.ID, true, "after recovering interrupted deliveries")
+	e.wantEnabled(t, other.ID, true, "the other webhook")
+}
+
+func equalPtr(a, b *int) bool { return (a == nil) == (b == nil) && (a == nil || *a == *b) }
+
+func equalTimePtr(a, b *time.Time) bool { return (a == nil) == (b == nil) && (a == nil || a.Equal(*b)) }
+
+// A Record committed while Cleanup waits for the delivery row wins: Cleanup
+// re-checks the status and leaves the recorded outcome alone.
+func TestCleanupDoesNotOverwriteConcurrentRecord(t *testing.T) {
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	e.emitAt(t, atSec(0))
+	id := e.deliveryIDs(t, w.ID)[0]
+	e.setJob(t, id, "discarded")
+
+	tx := beginTx(t, e)
+	ok := okResult
+	ok.At = atSec(10)
+	if err := e.svc.RecordTx(context.Background(), tx, id, ok, 1, nil); err != nil {
+		t.Fatalf("record success: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- e.svc.Cleanup(context.Background()) }()
+	waitForWaiters(t, e, 1)
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := result(t, done, "cleanup"); err != nil {
+		t.Fatalf("Cleanup: %v", err)
+	}
+	if d := e.delivery(t, id); d.Status != "succeeded" || d.LastError != nil {
+		t.Errorf("delivery = %+v, want succeeded", d)
+	}
+	e.wantEnabled(t, w.ID, true, "after a success")
+}
+
+func strOrNil(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return strconv.Quote(*s)
 }
