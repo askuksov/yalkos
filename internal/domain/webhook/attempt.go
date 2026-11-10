@@ -144,8 +144,16 @@ func resultColumns(r Result) (status *int32, lastErr *string, durMS *int32) {
 // answer, failed when the last attempt fails, retrying (due at next)
 // otherwise. A final failure turns the webhook off unless an event delivery
 // finished successfully at or after the time the failed one was created.
+// A success and a final failure lock the webhook row first, so the disable
+// decision and a concurrent success of the same webhook take turns.
 // ErrGone: nothing unfinished to record on.
 func (s *Service) Record(ctx context.Context, deliveryID uuid.UUID, r Result, attempt int, next *time.Time) error {
+	p := recordParams(deliveryID, r, attempt, next)
+	return s.inTx(ctx, func(tx *q.Queries) error { return s.record(ctx, tx, p) })
+}
+
+// recordParams is the outcome of attempt number attempt as a delivery update.
+func recordParams(deliveryID uuid.UUID, r Result, attempt int, next *time.Time) q.RecordAttemptParams {
 	status, lastErr, durMS := resultColumns(r)
 	p := q.RecordAttemptParams{
 		ID: deliveryID, Attempts: int32(attempt), ResponseStatus: status, LastError: lastErr, DurationMs: durMS,
@@ -164,25 +172,44 @@ func (s *Service) Record(ctx context.Context, deliveryID uuid.UUID, r Result, at
 		end := r.At.Add(r.Duration)
 		p.FinishedAt = &end
 	}
-	return s.inTx(ctx, func(tx *q.Queries) error {
-		row, err := tx.RecordAttempt(ctx, p)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrGone
-		}
-		if err != nil {
-			return fmt.Errorf("record attempt: %w", err)
-		}
-		if p.Status != statusFailed || row.Resource == TestResource {
-			return nil
-		}
-		now := s.opts.Now()
-		if _, err := tx.DisableWebhookForFailures(ctx, q.DisableWebhookForFailuresParams{
-			WebhookID: row.WebhookID, Since: &row.CreatedAt, Now: &now,
-		}); err != nil {
-			return fmt.Errorf("disable webhook: %w", err)
-		}
+	return p
+}
+
+// record stores an attempt in tx and turns the webhook off after a final failure.
+func (s *Service) record(ctx context.Context, tx *q.Queries, p q.RecordAttemptParams) error {
+	// The webhook row first, the order Delete uses. A final failure's lock waits
+	// for successes being recorded; as a separate statement it lets the disable
+	// check below run with a snapshot that sees them.
+	var err error
+	switch p.Status {
+	case statusSucceeded:
+		_, err = tx.LockDeliveryWebhookForShare(ctx, p.ID)
+	case statusFailed:
+		_, err = tx.LockDeliveryWebhookForNoKeyUpdate(ctx, p.ID)
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrGone
+	}
+	if err != nil {
+		return fmt.Errorf("lock webhook: %w", err)
+	}
+	row, err := tx.RecordAttempt(ctx, p)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrGone
+	}
+	if err != nil {
+		return fmt.Errorf("record attempt: %w", err)
+	}
+	if p.Status != statusFailed || row.Resource == TestResource {
 		return nil
-	})
+	}
+	now := s.opts.Now()
+	if _, err := tx.DisableWebhookForFailures(ctx, q.DisableWebhookForFailuresParams{
+		WebhookID: row.WebhookID, Since: &row.CreatedAt, Now: &now,
+	}); err != nil {
+		return fmt.Errorf("disable webhook: %w", err)
+	}
+	return nil
 }
 
 type testData struct {
