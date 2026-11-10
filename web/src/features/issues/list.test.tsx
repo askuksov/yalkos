@@ -2,9 +2,10 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { GraphQLRequestError } from '../../api/client'
 import { conn, issueRow, owner, project, signedInAs, stateOf } from '../../test/fixtures'
 import { renderAt } from '../../test/render'
-import { callsOf, mocked, serve } from '../../test/serve'
+import { callsOf, deferred, mocked, serve } from '../../test/serve'
 
 vi.mock('../../api/client', async (orig) => {
   const actual = await orig<typeof import('../../api/client')>()
@@ -167,6 +168,36 @@ describe('issue list', () => {
     await waitFor(() => expect(callsOf('UpdateIssue')).toHaveLength(2))
     expect(callsOf('UpdateIssue').map((v) => v.id).sort()).toEqual(['i1', 'i2'])
     expect(callsOf('UpdateIssue').every((v) => (v.input as { priority: number }).priority === 2)).toBe(true)
+  })
+
+  it('refreshes the list after a late deletion when another toolbar deletion failed', async () => {
+    const late = deferred<{ deleteIssue: boolean }>()
+    serve(
+      withGroups({ 's-todo': [todo(1), todo(2)] }, {}, {
+        DeleteIssue: (v: Vars) => {
+          if (v?.id === 'i1') throw new GraphQLRequestError('NOT_FOUND', 'Issue not found')
+          return late.promise
+        },
+      }),
+    )
+    renderAt('/p/YLK')
+    await screen.findByText('Issue 2')
+    fireEvent.keyDown(document.body, { key: 'j', code: 'KeyJ' })
+    fireEvent.keyDown(document.body, { key: 'x', code: 'KeyX' })
+    fireEvent.keyDown(document.body, { key: 'j', code: 'KeyJ' })
+    fireEvent.keyDown(document.body, { key: 'x', code: 'KeyX' })
+    const bar = await screen.findByRole('toolbar', { name: '2 selected' })
+    await userEvent.click(within(bar).getByRole('button', { name: 'Delete' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Delete issues' })
+    const before = callsOf('IssueGroup').length
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(callsOf('DeleteIssue')).toHaveLength(2))
+    expect(callsOf('IssueGroup')).toHaveLength(before)
+
+    late.resolve({ deleteIssue: true })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Not found.')
+    expect(screen.queryByText('2 issues deleted')).not.toBeInTheDocument()
+    await waitFor(() => expect(callsOf('IssueGroup').length).toBeGreaterThan(before))
   })
 
   it('shows archived banner and no create button', async () => {

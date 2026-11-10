@@ -15,7 +15,7 @@ import { PriorityIcon } from '../../ui/PriorityIcon'
 import { StateIcon } from '../../ui/StateIcon'
 import { useToast } from '../../ui/useToast'
 import { MoveIssueMutation } from '../issue-page/operations'
-import { DeleteIssueMutation } from '../issues/fragments'
+import { deleteIssues } from '../issues/deleteIssues'
 import ls from '../labels/labels.module.css'
 import { useLabels } from '../labels/useLabels'
 import { useMilestones } from '../milestones/useMilestones'
@@ -352,12 +352,7 @@ export function DeletePage({ targets, done }: PageProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const remove = useMutation({
-    // Wait for every request so the lists are refreshed after the last deletion, even if another one failed.
-    mutationFn: async () => {
-      const results = await Promise.allSettled(targets.map((x) => request(DeleteIssueMutation, { id: x.id })))
-      const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
-      if (failed) throw failed.reason
-    },
+    mutationFn: () => deleteIssues(targets.map((x) => x.id)),
     onSettled: () => Promise.all(['issues', 'children'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
     onSuccess: () => {
       toast.show(t('deleted', { count: targets.length }))

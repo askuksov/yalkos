@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { errorMessage, request } from '../../api/client'
+import { errorMessage } from '../../api/client'
 import { useIssueMutation } from '../../lib/issueCache'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Dialog'
@@ -11,7 +11,7 @@ import { useToast } from '../../ui/useToast'
 import { AssigneePicker, type PickerUser } from '../pickers/AssigneePicker'
 import { PriorityPicker } from '../pickers/PriorityPicker'
 import { type PickerState, StatePicker } from '../pickers/StatePicker'
-import { DeleteIssueMutation } from './fragments'
+import { deleteIssues } from './deleteIssues'
 import s from './issues.module.css'
 
 type Props = {
@@ -40,7 +40,7 @@ export function BulkBar({ ids, states, users, viewerId, onDone }: Props) {
     onDone()
   }
   const remove = useMutation({
-    mutationFn: () => Promise.all(ids.map((id) => request(DeleteIssueMutation, { id }))),
+    mutationFn: () => deleteIssues(ids),
     onSuccess: () => {
       toast.show(t('bulk.deleted', { count: ids.length }))
       setConfirm(false)
