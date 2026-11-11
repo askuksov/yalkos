@@ -283,19 +283,25 @@ func (s *Service) Test(ctx context.Context, actor account.User, webhookID uuid.U
 //
 // No grace period is needed: a delivery and its job are inserted in one
 // transaction, River finalizes a job only after Work returned (after Record
-// committed or failed), and a retry keeps the job live. The statement sees
-// deliveries and jobs in one snapshot, and the status condition is re-checked
-// on the latest row version if a concurrent Record changed it. River's tables
-// are unknown to sqlc, hence raw SQL.
+// committed or failed), and a retry keeps the job live.
+//
+// Rows locked by a recording or a webhook deletion are skipped, not waited
+// for: a deletion locks its deliveries in the cascade's order, so waiting
+// could close a lock cycle with it. A skipped row is picked up by the next
+// run; a delivery recorded before its row is locked is no longer unfinished.
+// River's tables are unknown to sqlc, hence raw SQL.
 func (s *Service) recoverInterrupted(ctx context.Context) (int64, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE webhook_deliveries d
 		SET status = 'failed', last_error = $1, next_attempt_at = NULL, finished_at = $2
-		WHERE d.status IN ('pending', 'retrying')
-		  AND NOT EXISTS (
+		WHERE d.status IN ('pending', 'retrying') AND d.id IN (
+		  SELECT x.id FROM webhook_deliveries x
+		  WHERE x.status IN ('pending', 'retrying')
+		    AND NOT EXISTS (
 		      SELECT 1 FROM river_job j
-		      WHERE j.kind = $3 AND j.args ->> 'deliveryId' = d.id::text
-		        AND j.state IN ('available', 'pending', 'retryable', 'running', 'scheduled'))`,
+		      WHERE j.kind = $3 AND j.args ->> 'deliveryId' = x.id::text
+		        AND j.state IN ('available', 'pending', 'retryable', 'running', 'scheduled'))
+		  FOR UPDATE SKIP LOCKED)`,
 		ErrorInterrupted, s.opts.Now(), KindDelivery)
 	if err != nil {
 		return 0, err
