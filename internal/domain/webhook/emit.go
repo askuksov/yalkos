@@ -56,6 +56,8 @@ type envelope struct {
 // An error must fail the change so that no event is lost.
 func (s *Service) Emit(ctx context.Context, tx pgx.Tx, c event.Change) error {
 	db := s.q.WithTx(tx)
+	// The match key-shares the webhook rows, the lock the delivery insert's
+	// foreign key takes later, so a webhook being deleted is skipped.
 	hooks, err := db.MatchWebhooks(ctx, q.MatchWebhooksParams{
 		Resource:   string(c.Resource),
 		ProjectIds: c.ProjectIDs,

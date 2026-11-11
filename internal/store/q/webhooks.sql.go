@@ -483,6 +483,7 @@ WHERE enabled
   AND $1::text = ANY (resources)
   AND (project_id IS NULL OR $2::boolean OR project_id = ANY ($3::uuid[]))
 ORDER BY created_at, id
+FOR KEY SHARE
 `
 
 type MatchWebhooksParams struct {
@@ -493,6 +494,11 @@ type MatchWebhooksParams struct {
 
 // Enabled webhooks subscribed to the resource whose scope covers the event:
 // all projects, one of the given projects, or any scope (workspace-wide events).
+// FOR KEY SHARE, the lock the delivery insert's foreign key takes anyway, makes
+// the match wait for a deletion in progress and then skip the deleted webhook
+// instead of failing the insert. It does not block edits or recording a
+// delivery (no key change). It runs after any project row lock the caller
+// holds, and locks the rows in created_at, id order.
 func (q *Queries) MatchWebhooks(ctx context.Context, arg MatchWebhooksParams) ([]Webhook, error) {
 	rows, err := q.db.Query(ctx, matchWebhooks, arg.Resource, arg.AnyScope, arg.ProjectIds)
 	if err != nil {

@@ -16,8 +16,9 @@ import (
 )
 
 // Domain writers hold their project row (FOR UPDATE) when they emit an event,
-// and the delivery insert then key-shares the webhook row. A webhook edit must
-// therefore not lock the webhook row harder than FOR NO KEY UPDATE, or an edit
+// and key-share the webhook rows already when they match them (the delivery
+// insert takes the same lock). A webhook edit must therefore not lock the
+// webhook row harder than FOR NO KEY UPDATE, or an edit
 // that moves the webhook to a project (a key share on the project row) and an
 // event write in that project wait for each other. Record locks the webhook row
 // before the delivery row, the order Delete uses, so the two cannot deadlock.
@@ -149,6 +150,39 @@ func TestUpdateNameWithEmitControl(t *testing.T) {
 	}
 	if n := e.count(t, `SELECT count(*) FROM webhook_deliveries WHERE webhook_id = $1`, w.ID); n != 1 {
 		t.Errorf("deliveries = %d, want 1", n)
+	}
+}
+
+// An event write that matches a webhook being deleted waits for the deletion and
+// then skips that webhook instead of failing the change.
+func TestEmitSkipsWebhookBeingDeleted(t *testing.T) {
+	e := newEmitEnv(t)
+	gone := e.create(t, webhook.CreateInput{Enabled: true})
+	kept := e.create(t, webhook.CreateInput{Enabled: true})
+
+	tx := beginTx(t, e)
+	if _, err := tx.Exec(context.Background(), `SELECT id FROM webhooks WHERE id = $1 FOR UPDATE`, gone.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(context.Background(), `DELETE FROM webhooks WHERE id = $1`, gone.ID); err != nil {
+		t.Fatal(err)
+	}
+	emitted := make(chan error, 1)
+	go func() { emitted <- e.emit(t, event.Change{Resource: event.Issue, Action: event.Update}) }()
+	waitForWaiters(t, e, 1)
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatalf("commit delete: %v", err)
+	}
+	if err := result(t, emitted, "event write"); err != nil {
+		t.Fatalf("event write: %v", err)
+	}
+
+	sameIDs(t, e.deliveryWebhooks(t), []uuid.UUID{kept.ID})
+	if n := e.count(t, `SELECT count(*) FROM webhook_deliveries WHERE webhook_id = $1`, gone.ID); n != 0 {
+		t.Errorf("deliveries of the deleted webhook = %d, want 0", n)
+	}
+	if n := e.count(t, `SELECT count(*) FROM river_job`); n != 1 {
+		t.Errorf("jobs = %d, want 1", n)
 	}
 }
 
@@ -345,7 +379,7 @@ func TestCleanupDoesNotDeadlockWithDelete(t *testing.T) {
 }
 
 // cleanupWhileDeleting runs Cleanup while a transaction deletes the webhook and
-// its cascade already holds the delivery held. Cleanup must finish without
+// its cascade already holds the delivery `held`. Cleanup must finish without
 // waiting (check then sees its result before the delete goes on), and the
 // delete must commit.
 func cleanupWhileDeleting(t *testing.T, e emitEnv, hookID, held uuid.UUID, check func(webhook.CleanupResult)) {
