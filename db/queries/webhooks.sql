@@ -117,12 +117,20 @@ VALUES (@id, @webhook_id, 'test', 'test', @payload, @status, 1, @response_status
 
 -- name: CleanupDeliveries :execrows
 -- Keeps the newest 50 finished deliveries of every webhook; unfinished ones stay.
+-- Skips rows another transaction holds instead of waiting: a webhook deletion
+-- locks its deliveries in the cascade's order, so waiting could close a lock
+-- cycle with it. The next run trims what was skipped. FOR UPDATE is not allowed
+-- with the window function, hence the extra level.
 DELETE FROM webhook_deliveries
 WHERE id IN (
-    SELECT ranked.id FROM (
-        SELECT id, row_number() OVER (PARTITION BY webhook_id ORDER BY created_at DESC, id DESC) AS n
-        FROM webhook_deliveries
-        WHERE status IN ('succeeded', 'failed', 'canceled')
-    ) ranked
-    WHERE n > 50
+    SELECT d.id FROM webhook_deliveries d
+    WHERE d.id IN (
+        SELECT ranked.id FROM (
+            SELECT id, row_number() OVER (PARTITION BY webhook_id ORDER BY created_at DESC, id DESC) AS n
+            FROM webhook_deliveries
+            WHERE status IN ('succeeded', 'failed', 'canceled')
+        ) ranked
+        WHERE n > 50
+    )
+    FOR UPDATE SKIP LOCKED
 );

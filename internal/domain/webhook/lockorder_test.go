@@ -21,6 +21,7 @@ import (
 // that moves the webhook to a project (a key share on the project row) and an
 // event write in that project wait for each other. Record locks the webhook row
 // before the delivery row, the order Delete uses, so the two cannot deadlock.
+// Cleanup locks delivery rows only and skips those another transaction holds.
 
 // writer is a transaction that behaves like a domain write: it holds a project
 // row lock and emits an event before it commits.
@@ -294,4 +295,113 @@ func TestRecordDoesNotWaitForKeyShare(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.wantEnabled(t, w.ID, true, "after a success and a later final failure")
+}
+
+// A webhook deletion holds the webhook row and then locks its deliveries in the
+// cascade's order, while Cleanup locks the deliveries it fails or trims in scan
+// order. Cleanup skips the rows the deletion holds, so the two cannot deadlock.
+func TestCleanupDoesNotDeadlockWithDelete(t *testing.T) {
+	t.Run("recovery", func(t *testing.T) {
+		e := newEmitEnv(t)
+		w := e.create(t, webhook.CreateInput{Enabled: true})
+		e.emitAt(t, atSec(0))
+		e.emitAt(t, atSec(1))
+		ids := e.deliveryIDs(t, w.ID)
+		for _, id := range ids {
+			e.setJob(t, id, "discarded")
+		}
+		cleanupWhileDeleting(t, e, w.ID, ids[1], func(r webhook.CleanupResult) {
+			if r != (webhook.CleanupResult{Interrupted: 1}) {
+				t.Errorf("cleanup result = %+v, want 1 interrupted", r)
+			}
+			if d := e.delivery(t, ids[0]); d.Status != "failed" || d.LastError == nil || *d.LastError != webhook.ErrorInterrupted {
+				t.Errorf("oldest delivery = %s, %s; want failed, %q", d.Status, strOrNil(d.LastError), webhook.ErrorInterrupted)
+			}
+			if d := e.delivery(t, ids[1]); d.Status != "pending" {
+				t.Errorf("held delivery status = %q, want pending", d.Status)
+			}
+		})
+	})
+	t.Run("trim", func(t *testing.T) {
+		e := newEmitEnv(t)
+		w := e.create(t, webhook.CreateInput{Enabled: true})
+		if _, err := e.pool.Exec(context.Background(), `
+			INSERT INTO webhook_deliveries (webhook_id, resource, action, payload, status, created_at, finished_at)
+			SELECT $1, 'issue', 'update', '{}', 'succeeded', $2::timestamptz + n * interval '1 minute',
+			       $2::timestamptz + n * interval '1 minute' + interval '1 second'
+			FROM generate_series(0, 51) AS n`, w.ID, atSec(0)); err != nil {
+			t.Fatal(err)
+		}
+		ids := e.deliveryIDs(t, w.ID)
+		cleanupWhileDeleting(t, e, w.ID, ids[1], func(r webhook.CleanupResult) {
+			if r != (webhook.CleanupResult{Removed: 1}) {
+				t.Errorf("cleanup result = %+v, want 1 removed", r)
+			}
+			if n := e.count(t, `SELECT count(*) FROM webhook_deliveries WHERE webhook_id = $1`, w.ID); n != 51 {
+				t.Errorf("deliveries left = %d, want 51", n)
+			}
+		})
+	})
+}
+
+// cleanupWhileDeleting runs Cleanup while a transaction deletes the webhook and
+// its cascade already holds the delivery held. Cleanup must finish without
+// waiting (check then sees its result before the delete goes on), and the
+// delete must commit.
+func cleanupWhileDeleting(t *testing.T, e emitEnv, hookID, held uuid.UUID, check func(webhook.CleanupResult)) {
+	t.Helper()
+	ctx := context.Background()
+	tx := beginTx(t, e)
+	if _, err := tx.Exec(ctx, `SELECT id FROM webhooks WHERE id = $1 FOR UPDATE`, hookID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT id FROM webhook_deliveries WHERE id = $1 FOR UPDATE`, held); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan error, 1)
+	var r webhook.CleanupResult
+	go func() {
+		var err error
+		r, err = e.svc.Cleanup(ctx)
+		done <- err
+	}()
+	cleanupErr := func(err error) {
+		t.Helper()
+		if isDeadlock(err) {
+			t.Fatalf("cleanup: deadlock: %v", err)
+		}
+		if err != nil {
+			t.Fatalf("cleanup: %v", err)
+		}
+	}
+	finished, err := finishedOrWaiting(t, e, done)
+	if finished {
+		cleanupErr(err)
+		check(r)
+	} else {
+		t.Errorf("Cleanup waits for a delivery the deletion holds")
+	}
+
+	if _, err := tx.Exec(ctx, `DELETE FROM webhooks WHERE id = $1`, hookID); err != nil {
+		if isDeadlock(err) {
+			t.Fatalf("delete: deadlock: %v", err)
+		}
+		t.Fatalf("delete: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		if isDeadlock(err) {
+			t.Fatalf("commit delete: deadlock: %v", err)
+		}
+		t.Fatalf("commit delete: %v", err)
+	}
+	if !finished {
+		cleanupErr(result(t, done, "cleanup"))
+	}
+	if n := e.count(t, `SELECT count(*) FROM webhooks WHERE id = $1`, hookID); n != 0 {
+		t.Errorf("webhook rows after the delete = %d, want 0", n)
+	}
+	if n := e.count(t, `SELECT count(*) FROM webhook_deliveries WHERE webhook_id = $1`, hookID); n != 0 {
+		t.Errorf("deliveries after the delete = %d, want 0", n)
+	}
 }

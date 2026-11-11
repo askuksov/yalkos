@@ -1085,8 +1085,8 @@ func equalPtr(a, b *int) bool { return (a == nil) == (b == nil) && (a == nil || 
 
 func equalTimePtr(a, b *time.Time) bool { return (a == nil) == (b == nil) && (a == nil || a.Equal(*b)) }
 
-// A Record committed while Cleanup waits for the delivery row wins: Cleanup
-// re-checks the status and leaves the recorded outcome alone.
+// Cleanup skips a delivery whose outcome another transaction is recording
+// instead of waiting for it, so the recorded outcome stands.
 func TestCleanupDoesNotOverwriteConcurrentRecord(t *testing.T) {
 	e := newEmitEnv(t)
 	w := e.create(t, webhook.CreateInput{Enabled: true})
@@ -1107,15 +1107,21 @@ func TestCleanupDoesNotOverwriteConcurrentRecord(t *testing.T) {
 		r, err = e.svc.Cleanup(context.Background())
 		done <- err
 	}()
-	waitForWaiters(t, e, 1)
-	if err := tx.Commit(context.Background()); err != nil {
-		t.Fatal(err)
+	finished, err := finishedOrWaiting(t, e, done)
+	if !finished {
+		t.Fatal("Cleanup waits for the delivery being recorded")
 	}
-	if err := result(t, done, "cleanup"); err != nil {
+	if err != nil {
 		t.Fatalf("Cleanup: %v", err)
 	}
-	if r.Interrupted != 0 {
-		t.Errorf("interrupted = %d, want 0", r.Interrupted)
+	if r != (webhook.CleanupResult{}) {
+		t.Errorf("cleanup result = %+v, want nothing done", r)
+	}
+	if d := e.delivery(t, id); d.Status != "pending" {
+		t.Errorf("delivery status before the record commits = %q, want pending", d.Status)
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 	if d := e.delivery(t, id); d.Status != "succeeded" || d.LastError != nil {
 		t.Errorf("delivery = %+v, want succeeded", d)
