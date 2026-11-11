@@ -505,36 +505,61 @@ func (s blockingSender) Send(ctx context.Context, _ webhook.Attempt) webhook.Res
 	return webhook.Result{At: time.Now(), Err: "connection failed: " + ctx.Err().Error()}
 }
 
+// lateSender signals when a send starts, waits for the attempt's context to
+// end and only then reports a 200 answer, as a receiver that answers just as
+// the job times out would.
+type lateSender struct{ started chan struct{} }
+
+func (s lateSender) Send(ctx context.Context, _ webhook.Attempt) webhook.Result {
+	select {
+	case s.started <- struct{}{}:
+	default:
+	}
+	<-ctx.Done()
+	return webhook.Result{At: time.Now(), Status: 200, Duration: time.Millisecond}
+}
+
+// failingSender fails the test if an attempt is sent.
+type failingSender struct{ t *testing.T }
+
+func (s failingSender) Send(context.Context, webhook.Attempt) webhook.Result {
+	s.t.Error("an attempt was sent")
+	return webhook.Result{At: time.Now(), Err: "unexpected send"}
+}
+
 type finalAttempt struct {
 	workerEnv
 	id, hookID uuid.UUID
-	sender     blockingSender
 	client     *river.Client[pgx.Tx]
 }
 
-// startFinalAttempt makes a delivery whose three attempts already failed and
-// starts a client whose sender hangs on the fourth.
-func startFinalAttempt(t *testing.T) finalAttempt {
+// retryingDelivery makes a delivery whose first attempts all failed with
+// HTTP 500; its job has run as many attempts.
+func retryingDelivery(t *testing.T, failed int) finalAttempt {
 	t.Helper()
 	ctx := context.Background()
 	e := newWorkerEnv(t)
 	hook := e.hook(t, "http://127.0.0.1:1/", true)
 	e.emit(t)
 	id := e.deliveries(t)[0].ID
-	// River raises attempt to 4 when it fetches the job.
-	if _, err := e.pool.Exec(ctx, `UPDATE webhook_deliveries SET status = 'retrying', attempts = 3, response_status = 500,
-		last_error = 'HTTP 500', last_attempt_at = now(), next_attempt_at = now() WHERE id = $1`, id); err != nil {
+	if _, err := e.pool.Exec(ctx, `UPDATE webhook_deliveries SET status = 'retrying', attempts = $2, response_status = 500,
+		last_error = 'HTTP 500', last_attempt_at = now(), next_attempt_at = now() WHERE id = $1`, id, failed); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.pool.Exec(ctx, `UPDATE river_job SET attempt = 3 WHERE args ->> 'deliveryId' = $1`, id.String()); err != nil {
+	if _, err := e.pool.Exec(ctx, `UPDATE river_job SET attempt = $2 WHERE args ->> 'deliveryId' = $1`, id.String(), failed); err != nil {
 		t.Fatal(err)
 	}
-	snd := blockingSender{started: make(chan struct{}, 1)}
-	c, err := delivery.NewClient(e.pool, &delivery.Worker{Service: e.svc, Sender: snd}, true)
+	return finalAttempt{workerEnv: e, id: id, hookID: hook.ID}
+}
+
+// start starts a client that sends with snd and stops it with the test.
+func (f *finalAttempt) start(t *testing.T, snd webhook.Sender, delays []time.Duration) {
+	t.Helper()
+	c, err := delivery.NewClient(f.pool, &delivery.Worker{Service: f.svc, Sender: snd, Delays: delays}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.Start(ctx); err != nil {
+	if err := c.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -544,12 +569,22 @@ func startFinalAttempt(t *testing.T) finalAttempt {
 			t.Errorf("stop client: %v", err)
 		}
 	})
+	f.client = c
+}
+
+// startFinalAttempt makes a delivery whose three attempts already failed and
+// starts a client whose sender signals on started when the fourth begins.
+func startFinalAttempt(t *testing.T, snd webhook.Sender, started <-chan struct{}) finalAttempt {
+	t.Helper()
+	// River raises attempt to 4 when it fetches the job.
+	f := retryingDelivery(t, 3)
+	f.start(t, snd, nil)
 	select {
-	case <-snd.started:
+	case <-started:
 	case <-time.After(30 * time.Second):
 		t.Fatal("the final attempt did not start")
 	}
-	return finalAttempt{workerEnv: e, id: id, hookID: hook.ID, sender: snd, client: c}
+	return f
 }
 
 func (f finalAttempt) job(t *testing.T) (state string, attempt int) {
@@ -561,40 +596,124 @@ func (f finalAttempt) job(t *testing.T) (state string, attempt int) {
 	return state, attempt
 }
 
-// TestInterruptedFinalAttemptIsRecovered: a last attempt cut off by the job
-// timeout cannot record its outcome, and River discards the job; the delivery
-// would stay retrying forever, so Cleanup fails it without turning the webhook
-// off.
-func TestInterruptedFinalAttemptIsRecovered(t *testing.T) {
-	ctx := context.Background()
-	f := startFinalAttempt(t)
-	waitFor(t, "the job to leave running", func() bool {
-		s, _ := f.job(t)
-		return s != "running"
-	})
-	if state, attempt := f.job(t); state != "discarded" || attempt != 4 {
-		t.Fatalf("job state = %s, attempt = %d, want discarded after attempt 4", state, attempt)
-	}
-	if d := f.deliveries(t)[0]; d.Status != "retrying" || d.Attempts != 3 {
-		t.Fatalf("delivery before cleanup = %+v, want retrying after 3 attempts", d)
-	}
-
-	if err := f.svc.Cleanup(ctx); err != nil {
-		t.Fatalf("Cleanup: %v", err)
-	}
-	d := f.deliveries(t)[0]
-	if d.Status != "failed" || d.LastError == nil || *d.LastError != webhook.ErrorInterrupted || d.Attempts != 3 ||
-		d.FinishedAt == nil || d.NextAttemptAt != nil {
-		t.Fatalf("delivery after cleanup = %+v, want failed with %q after 3 attempts", d, webhook.ErrorInterrupted)
-	}
-	var enabled bool
-	var reason *string
-	if err := f.pool.QueryRow(ctx, `SELECT enabled, disabled_reason FROM webhooks WHERE id = $1`, f.hookID).Scan(&enabled, &reason); err != nil {
+func (f finalAttempt) webhookState(t *testing.T) (enabled bool, reason *string) {
+	t.Helper()
+	if err := f.pool.QueryRow(context.Background(), `SELECT enabled, disabled_reason FROM webhooks WHERE id = $1`,
+		f.hookID).Scan(&enabled, &reason); err != nil {
 		t.Fatal(err)
 	}
-	if !enabled || reason != nil {
-		t.Fatalf("webhook enabled = %v, reason = %v, want still on", enabled, reason)
+	return enabled, reason
+}
+
+// TestLateOutcomeIsRecorded: a last attempt whose answer arrives only after the
+// job timeout still records its outcome, so the delivery ends as River counts
+// the attempt.
+func TestLateOutcomeIsRecorded(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		started := make(chan struct{}, 1)
+		f := startFinalAttempt(t, lateSender{started: started}, started)
+		waitFor(t, "the job to leave running", func() bool {
+			s, _ := f.job(t)
+			return s != "running"
+		})
+		if state, attempt := f.job(t); state != "completed" || attempt != 4 {
+			t.Fatalf("job state = %s, attempt = %d, want completed after attempt 4", state, attempt)
+		}
+		d := f.deliveries(t)[0]
+		if d.Status != "succeeded" || d.Attempts != 4 || d.ResponseStatus == nil || *d.ResponseStatus != 200 ||
+			d.LastError != nil || d.FinishedAt == nil || d.NextAttemptAt != nil {
+			t.Fatalf("delivery = %+v, want succeeded with 200 after 4 attempts", d)
+		}
+		if enabled, reason := f.webhookState(t); !enabled || reason != nil {
+			t.Fatalf("webhook enabled = %v, reason = %v, want still on", enabled, reason)
+		}
+	})
+	t.Run("failure", func(t *testing.T) {
+		started := make(chan struct{}, 1)
+		f := startFinalAttempt(t, blockingSender{started: started}, started)
+		waitFor(t, "the job to leave running", func() bool {
+			s, _ := f.job(t)
+			return s != "running"
+		})
+		if state, attempt := f.job(t); state != "discarded" || attempt != 4 {
+			t.Fatalf("job state = %s, attempt = %d, want discarded after attempt 4", state, attempt)
+		}
+		d := f.deliveries(t)[0]
+		const want = "connection failed: context deadline exceeded"
+		if d.Status != "failed" || d.Attempts != 4 || d.LastError == nil || *d.LastError != want || d.FinishedAt == nil {
+			t.Fatalf("delivery = %+v, want failed with %q after 4 attempts", d, want)
+		}
+		if enabled, reason := f.webhookState(t); enabled || reason == nil || *reason != webhook.ReasonFailures {
+			t.Fatalf("webhook enabled = %v, reason = %v, want disabled for failures", enabled, reason)
+		}
+	})
+}
+
+// crash marks the delivery's job as running attempt number attempt for a
+// client that died two hours ago, past River's rescue threshold.
+func (f finalAttempt) crash(t *testing.T, attempt int) {
+	t.Helper()
+	if _, err := f.pool.Exec(context.Background(), `UPDATE river_job SET state = 'running', attempt = $2,
+		attempted_at = now() - interval '2 hours', attempted_by = ARRAY['crashed-client'] WHERE args ->> 'deliveryId' = $1`,
+		f.id.String(), attempt); err != nil {
+		t.Fatal(err)
 	}
+}
+
+// TestInterruptedFinalAttemptIsRecovered: a process killed during the last
+// attempt records no outcome, and River's rescuer discards the job; the
+// delivery would stay retrying forever, so Cleanup fails it without turning
+// the webhook off.
+func TestInterruptedFinalAttemptIsRecovered(t *testing.T) {
+	ctx := context.Background()
+	t.Run("last attempt", func(t *testing.T) {
+		f := retryingDelivery(t, 3)
+		f.crash(t, 4)
+		f.start(t, failingSender{t}, nil)
+		waitFor(t, "the job to leave running", func() bool {
+			s, _ := f.job(t)
+			return s != "running"
+		})
+		if state, attempt := f.job(t); state != "discarded" || attempt != 4 {
+			t.Fatalf("job state = %s, attempt = %d, want discarded after attempt 4", state, attempt)
+		}
+		if d := f.deliveries(t)[0]; d.Status != "retrying" || d.Attempts != 3 {
+			t.Fatalf("delivery before cleanup = %+v, want retrying after 3 attempts", d)
+		}
+
+		if err := f.svc.Cleanup(ctx); err != nil {
+			t.Fatalf("Cleanup: %v", err)
+		}
+		d := f.deliveries(t)[0]
+		if d.Status != "failed" || d.LastError == nil || *d.LastError != webhook.ErrorInterrupted || d.Attempts != 3 ||
+			d.FinishedAt == nil || d.NextAttemptAt != nil {
+			t.Fatalf("delivery after cleanup = %+v, want failed with %q after 3 attempts", d, webhook.ErrorInterrupted)
+		}
+		if enabled, reason := f.webhookState(t); !enabled || reason != nil {
+			t.Fatalf("webhook enabled = %v, reason = %v, want still on", enabled, reason)
+		}
+	})
+	// Control: a crash before the last attempt is retried later, so Cleanup
+	// leaves the delivery to that retry.
+	t.Run("control: earlier attempt", func(t *testing.T) {
+		f := retryingDelivery(t, 2)
+		f.crash(t, 3)
+		// The retry is due about 22 hours ahead and is not worked here.
+		f.start(t, failingSender{t}, []time.Duration{24 * time.Hour})
+		waitFor(t, "the job to leave running", func() bool {
+			s, _ := f.job(t)
+			return s != "running"
+		})
+		if state, attempt := f.job(t); state != "retryable" || attempt != 3 {
+			t.Fatalf("job state = %s, attempt = %d, want retryable after attempt 3", state, attempt)
+		}
+		if err := f.svc.Cleanup(ctx); err != nil {
+			t.Fatalf("Cleanup: %v", err)
+		}
+		if d := f.deliveries(t)[0]; d.Status != "retrying" || d.Attempts != 2 {
+			t.Fatalf("delivery after cleanup = %+v, want retrying after 2 attempts", d)
+		}
+	})
 }
 
 // TestStoppedFinalAttemptIsRetried is a control: a client stop cancels the last
@@ -602,7 +721,8 @@ func TestInterruptedFinalAttemptIsRecovered(t *testing.T) {
 // delivery to that retry.
 func TestStoppedFinalAttemptIsRetried(t *testing.T) {
 	ctx := context.Background()
-	f := startFinalAttempt(t)
+	started := make(chan struct{}, 1)
+	f := startFinalAttempt(t, blockingSender{started: started}, started)
 	sctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if err := f.client.StopAndCancel(sctx); err != nil {

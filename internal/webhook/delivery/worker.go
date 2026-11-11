@@ -21,6 +21,9 @@ const (
 	workers = 10
 	// jobTimeout bounds one River attempt; the send itself stops sooner.
 	jobTimeout = 10 * time.Second
+	// recordTimeout bounds recording an outcome; it runs detached from the
+	// attempt's deadline.
+	recordTimeout = 3 * time.Second
 )
 
 // Worker works delivery jobs: one send per job run.
@@ -56,7 +59,8 @@ func (w *Worker) NextRetry(job *river.Job[webhook.DeliveryArgs]) time.Time { ret
 
 // Work makes one attempt. A deleted delivery ends the job quietly and a
 // disabled webhook cancels it. The outcome is recorded before the job
-// reports; a failed attempt returns an error so that River retries.
+// reports, even after the job timeout; a failed attempt returns an error so
+// that River retries.
 func (w *Worker) Work(ctx context.Context, job *river.Job[webhook.DeliveryArgs]) error {
 	id := job.Args.DeliveryID
 	a, err := w.Service.LoadAttempt(ctx, id)
@@ -74,8 +78,13 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[webhook.DeliveryArgs])
 	if cerr := ctx.Err(); cerr != nil && !errors.Is(cerr, context.DeadlineExceeded) {
 		return cerr
 	}
+	// The job's context may already be past its deadline; the outcome is still
+	// recorded so that the delivery matches what River counts. A stop returned
+	// above.
+	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), recordTimeout)
+	defer cancel()
 	next := w.retryAt(job)
-	if err := w.Service.Record(ctx, id, res, job.Attempt, &next); errors.Is(err, webhook.ErrGone) {
+	if err := w.Service.Record(rctx, id, res, job.Attempt, &next); errors.Is(err, webhook.ErrGone) {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("record attempt: %w", err)
