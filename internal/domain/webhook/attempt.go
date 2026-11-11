@@ -303,30 +303,58 @@ func (s *Service) recoverInterrupted(ctx context.Context) (int64, error) {
 	return tag.RowsAffected(), nil
 }
 
-// Cleanup fails deliveries whose job is gone (see recoverInterrupted), then
-// deletes finished deliveries beyond the newest 50 of every webhook.
-func (s *Service) Cleanup(ctx context.Context) error {
-	if _, err := s.recoverInterrupted(ctx); err != nil {
-		return fmt.Errorf("recover interrupted deliveries: %w", err)
-	}
-	if _, err := s.q.CleanupDeliveries(ctx); err != nil {
-		return fmt.Errorf("cleanup deliveries: %w", err)
-	}
-	return nil
+// CleanupResult counts what one Cleanup did.
+type CleanupResult struct {
+	// Interrupted is the number of deliveries failed as interrupted.
+	Interrupted int64
+	// Removed is the number of finished deliveries deleted.
+	Removed int64
 }
 
-// RunCleanup calls Cleanup every interval until ctx is done.
+// Cleanup fails deliveries whose job is gone (see recoverInterrupted), then
+// deletes finished deliveries beyond the newest 50 of every webhook, and
+// reports how many of each. On error the result holds what was already done:
+// the two steps commit separately.
+func (s *Service) Cleanup(ctx context.Context) (CleanupResult, error) {
+	var r CleanupResult
+	var err error
+	if r.Interrupted, err = s.recoverInterrupted(ctx); err != nil {
+		return r, fmt.Errorf("recover interrupted deliveries: %w", err)
+	}
+	if r.Removed, err = s.q.CleanupDeliveries(ctx); err != nil {
+		return r, fmt.Errorf("cleanup deliveries: %w", err)
+	}
+	return r, nil
+}
+
+// RunCleanup calls Cleanup at once and then every interval until ctx is
+// done; it logs the counts when something was done. Running at start fails
+// deliveries whose job already ended or vanished (e.g. rescued while an
+// earlier process ran) without waiting for the first interval.
 func (s *Service) RunCleanup(ctx context.Context, every time.Duration, logger *slog.Logger) {
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
+		if ctx.Err() != nil {
+			return
+		}
+		s.cleanupOnce(ctx, logger)
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := s.Cleanup(ctx); err != nil && ctx.Err() == nil {
-				logger.Error("webhook delivery cleanup failed", slog.String("error", err.Error()))
-			}
 		}
+	}
+}
+
+// cleanupOnce runs Cleanup and logs its outcome, including what was done
+// before an error.
+func (s *Service) cleanupOnce(ctx context.Context, logger *slog.Logger) {
+	r, err := s.Cleanup(ctx)
+	if err != nil && ctx.Err() == nil {
+		logger.Error("webhook delivery cleanup failed", slog.String("error", err.Error()))
+	}
+	if r.Interrupted > 0 || r.Removed > 0 {
+		logger.Info("webhook delivery cleanup", slog.Int64("interrupted", r.Interrupted), slog.Int64("removed", r.Removed))
 	}
 }

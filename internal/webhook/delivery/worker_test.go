@@ -681,8 +681,8 @@ func TestInterruptedFinalAttemptIsRecovered(t *testing.T) {
 			t.Fatalf("delivery before cleanup = %+v, want retrying after 3 attempts", d)
 		}
 
-		if err := f.svc.Cleanup(ctx); err != nil {
-			t.Fatalf("Cleanup: %v", err)
+		if r, err := f.svc.Cleanup(ctx); err != nil || r.Interrupted != 1 {
+			t.Fatalf("Cleanup = %+v, %v; want 1 interrupted", r, err)
 		}
 		d := f.deliveries(t)[0]
 		if d.Status != "failed" || d.LastError == nil || *d.LastError != webhook.ErrorInterrupted || d.Attempts != 3 ||
@@ -707,8 +707,8 @@ func TestInterruptedFinalAttemptIsRecovered(t *testing.T) {
 		if state, attempt := f.job(t); state != "retryable" || attempt != 3 {
 			t.Fatalf("job state = %s, attempt = %d, want retryable after attempt 3", state, attempt)
 		}
-		if err := f.svc.Cleanup(ctx); err != nil {
-			t.Fatalf("Cleanup: %v", err)
+		if r, err := f.svc.Cleanup(ctx); err != nil || r.Interrupted != 0 {
+			t.Fatalf("Cleanup = %+v, %v; want none interrupted", r, err)
 		}
 		if d := f.deliveries(t)[0]; d.Status != "retrying" || d.Attempts != 2 {
 			t.Fatalf("delivery after cleanup = %+v, want retrying after 2 attempts", d)
@@ -731,8 +731,8 @@ func TestStoppedFinalAttemptIsRetried(t *testing.T) {
 	if state, attempt := f.job(t); state != "available" || attempt != 3 {
 		t.Fatalf("job state = %s, attempt = %d, want available with attempt 3", state, attempt)
 	}
-	if err := f.svc.Cleanup(ctx); err != nil {
-		t.Fatalf("Cleanup: %v", err)
+	if r, err := f.svc.Cleanup(ctx); err != nil || r.Interrupted != 0 {
+		t.Fatalf("Cleanup = %+v, %v; want none interrupted", r, err)
 	}
 	if d := f.deliveries(t)[0]; d.Status != "retrying" || d.Attempts != 3 || d.LastError == nil || *d.LastError != "HTTP 500" {
 		t.Fatalf("delivery after cleanup = %+v, want retrying after 3 attempts", d)

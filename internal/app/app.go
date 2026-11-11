@@ -42,8 +42,10 @@ import (
 const (
 	shutdownTimeout = 10 * time.Second
 	// queueSoftStop is how long running deliveries get to finish at shutdown;
-	// a hard stop follows, which cancels them for up to queueHardStop. The sum
-	// stays inside the container's stop grace period.
+	// a hard stop follows, which cancels them for up to queueHardStop.
+	// Recording an attempt's outcome may take up to 3 s more, and the pool
+	// waits for it on close. The total stays inside the container's stop
+	// grace period.
 	queueSoftStop = 8 * time.Second
 	queueHardStop = 2 * time.Second
 )
@@ -122,8 +124,8 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	comments.SetEmitter(webhooks)
 	labels.SetEmitter(webhooks)
 	milestones.SetEmitter(webhooks)
-	// Hourly, deliveries whose job is gone are failed, and finished deliveries
-	// beyond the newest 50 per webhook are removed.
+	// At start and then hourly, deliveries whose job is gone are failed, and
+	// finished deliveries beyond the newest 50 per webhook are removed.
 	go webhooks.RunCleanup(ctx, time.Hour, logger)
 	var limiter *ratelimit.Limiter
 	if cfg.APIRateLimit > 0 {
