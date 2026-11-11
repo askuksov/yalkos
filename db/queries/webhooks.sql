@@ -40,11 +40,17 @@ DELETE FROM webhooks WHERE id = $1;
 -- name: MatchWebhooks :many
 -- Enabled webhooks subscribed to the resource whose scope covers the event:
 -- all projects, one of the given projects, or any scope (workspace-wide events).
+-- FOR KEY SHARE, the lock the delivery insert's foreign key takes anyway, makes
+-- the match wait for a deletion in progress and then skip the deleted webhook
+-- instead of failing the insert. It does not block edits or recording a
+-- delivery (no key change). It runs after any project row lock the caller
+-- holds, and locks the rows in created_at, id order.
 SELECT * FROM webhooks
 WHERE enabled
   AND @resource::text = ANY (resources)
   AND (project_id IS NULL OR @any_scope::boolean OR project_id = ANY (@project_ids::uuid[]))
-ORDER BY created_at, id;
+ORDER BY created_at, id
+FOR KEY SHARE;
 
 -- name: InsertDelivery :one
 INSERT INTO webhook_deliveries (webhook_id, resource, action, entity_id, payload, status, created_at)
