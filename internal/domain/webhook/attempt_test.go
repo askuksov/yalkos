@@ -1,6 +1,7 @@
 package webhook_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -573,8 +575,12 @@ func TestCleanupKeeps50Finished(t *testing.T) {
 		others = append(others, insert(b, i, "succeeded"))
 	}
 
-	if err := e.svc.Cleanup(ctx); err != nil {
+	r, err := e.svc.Cleanup(ctx)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if r != (webhook.CleanupResult{Removed: 5}) {
+		t.Fatalf("cleanup result = %+v, want 5 removed", r)
 	}
 	rows, err := e.pool.Query(ctx, `SELECT id FROM webhook_deliveries`)
 	if err != nil {
@@ -603,8 +609,8 @@ func TestCleanupKeeps50Finished(t *testing.T) {
 		}
 	}
 	// Idempotent.
-	if err := e.svc.Cleanup(ctx); err != nil {
-		t.Fatal(err)
+	if r, err := e.svc.Cleanup(ctx); err != nil || r != (webhook.CleanupResult{}) {
+		t.Fatalf("second cleanup = %+v, %v; want nothing done", r, err)
 	}
 	if n := e.count(t, `SELECT count(*) FROM webhook_deliveries`); n != 55 {
 		t.Fatalf("deliveries after a second cleanup = %d, want 55", n)
@@ -638,6 +644,161 @@ func TestRunCleanupStopsWithContext(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
+		t.Fatal("RunCleanup did not stop after its context ended")
+	}
+}
+
+// syncBuffer collects log output written from another goroutine.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// startCleanup runs RunCleanup with an hourly interval and a JSON logger in a
+// goroutine. stop cancels it and reports whether it returned in time.
+func startCleanup(ctx context.Context, t *testing.T, e emitEnv) (logs *syncBuffer, stop func() bool) {
+	t.Helper()
+	logs = &syncBuffer{}
+	logger := slog.New(slog.NewJSONHandler(logs, nil))
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		e.svc.RunCleanup(ctx, time.Hour, logger)
+		close(done)
+	}()
+	stop = func() bool {
+		cancel()
+		select {
+		case <-done:
+			return true
+		case <-time.After(5 * time.Second):
+			return false
+		}
+	}
+	t.Cleanup(func() { stop() })
+	return logs, stop
+}
+
+// waitForLog waits until the log holds n lines and the delivery is failed.
+func waitForLog(t *testing.T, e emitEnv, logs *syncBuffer, n int, id uuid.UUID) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for e.delivery(t, id).Status != "failed" || strings.Count(logs.String(), "\n") < n {
+		if time.Now().After(deadline) {
+			t.Fatalf("delivery status = %s, log = %q; want failed and %d log lines", e.delivery(t, id).Status, logs.String(), n)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// logRecords decodes the JSON log lines that have message msg.
+func logRecords(t *testing.T, logs *syncBuffer, msg string) []map[string]any {
+	t.Helper()
+	var records []map[string]any
+	for line := range strings.Lines(logs.String()) {
+		var rec map[string]any
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatalf("log line %q: %v", line, err)
+		}
+		if rec["msg"] == msg {
+			records = append(records, rec)
+		}
+	}
+	return records
+}
+
+// orphanAndLive creates a delivery whose job is gone and one with a live job.
+func orphanAndLive(t *testing.T, e emitEnv) (orphan, live uuid.UUID) {
+	t.Helper()
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	e.emitAt(t, atSec(0))
+	e.emitAt(t, atSec(1))
+	ids := e.deliveryIDs(t, w.ID)
+	e.setJob(t, ids[0], "discarded")
+	return ids[0], ids[1]
+}
+
+// RunCleanup cleans up once at start, so a delivery whose job already ended
+// (e.g. rescued while an earlier process ran) is failed without waiting for
+// the first interval, and it logs what it did.
+func TestRunCleanupRecoversAtStart(t *testing.T) {
+	e := newEmitEnv(t)
+	orphan, live := orphanAndLive(t, e)
+	logs, stop := startCleanup(context.Background(), t, e)
+
+	// The log line follows the trim, so wait for it too.
+	waitForLog(t, e, logs, 1, orphan)
+	records := logRecords(t, logs, "webhook delivery cleanup")
+	if len(records) != 1 {
+		t.Fatalf("cleanup log records = %d, want 1; log:\n%s", len(records), logs.String())
+	}
+	if rec := records[0]; rec["level"] != "INFO" || rec["interrupted"] != float64(1) || rec["removed"] != float64(0) {
+		t.Errorf("cleanup log record = %v, want INFO with interrupted 1, removed 0", rec)
+	}
+	if d := e.delivery(t, live); d.Status != "pending" {
+		t.Errorf("live delivery status = %s, want pending", d.Status)
+	}
+	if !stop() {
+		t.Fatal("RunCleanup did not stop after its context ended")
+	}
+}
+
+// RunCleanup with a context that is already done returns without cleaning up.
+func TestRunCleanupDoesNotRunWhenDone(t *testing.T) {
+	e := newEmitEnv(t)
+	orphan, _ := orphanAndLive(t, e)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	logs, stop := startCleanup(ctx, t, e)
+	if !stop() {
+		t.Fatal("RunCleanup did not return")
+	}
+	if d := e.delivery(t, orphan); d.Status != "pending" {
+		t.Errorf("orphan status = %s, want pending", d.Status)
+	}
+	if got := logs.String(); got != "" {
+		t.Errorf("log = %q, want nothing", got)
+	}
+}
+
+// When the trim fails after the recovery committed, both the error and the
+// recovered count are logged.
+func TestRunCleanupLogsWhatWasDoneBeforeAnError(t *testing.T) {
+	e := newEmitEnv(t)
+	orphan, _ := orphanAndLive(t, e)
+	// Every delete of a delivery fails in this test's own database.
+	if _, err := e.pool.Exec(context.Background(), `
+		CREATE FUNCTION refuse_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN RAISE EXCEPTION 'delete refused'; END $$;
+		CREATE TRIGGER refuse_delete BEFORE DELETE ON webhook_deliveries
+		FOR EACH STATEMENT EXECUTE FUNCTION refuse_delete();`); err != nil {
+		t.Fatal(err)
+	}
+	logs, stop := startCleanup(context.Background(), t, e)
+
+	waitForLog(t, e, logs, 2, orphan)
+	failed := logRecords(t, logs, "webhook delivery cleanup failed")
+	if len(failed) != 1 || failed[0]["level"] != "ERROR" ||
+		!strings.Contains(fmt.Sprint(failed[0]["error"]), "cleanup deliveries: ERROR: delete refused") {
+		t.Errorf("error log records = %v, want one ERROR from the trim", failed)
+	}
+	done := logRecords(t, logs, "webhook delivery cleanup")
+	if len(done) != 1 || done[0]["level"] != "INFO" || done[0]["interrupted"] != float64(1) || done[0]["removed"] != float64(0) {
+		t.Errorf("cleanup log records = %v, want one INFO with interrupted 1, removed 0", done)
+	}
+	if !stop() {
 		t.Fatal("RunCleanup did not stop after its context ended")
 	}
 }
@@ -872,8 +1033,12 @@ func TestCleanupFailsDeliveriesWithoutLiveJob(t *testing.T) {
 		states[c.id] = e.delivery(t, c.id)
 	}
 
-	if err := e.svc.Cleanup(ctx); err != nil {
+	r, err := e.svc.Cleanup(ctx)
+	if err != nil {
 		t.Fatalf("Cleanup: %v", err)
+	}
+	if want := (webhook.CleanupResult{Interrupted: int64(len(gone))}); r != want {
+		t.Errorf("cleanup result = %+v, want %+v", r, want)
 	}
 
 	for _, c := range append(append([]deliveryCase{}, live...), finished...) {
@@ -936,13 +1101,21 @@ func TestCleanupDoesNotOverwriteConcurrentRecord(t *testing.T) {
 		t.Fatalf("record success: %v", err)
 	}
 	done := make(chan error, 1)
-	go func() { done <- e.svc.Cleanup(context.Background()) }()
+	var r webhook.CleanupResult
+	go func() {
+		var err error
+		r, err = e.svc.Cleanup(context.Background())
+		done <- err
+	}()
 	waitForWaiters(t, e, 1)
 	if err := tx.Commit(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if err := result(t, done, "cleanup"); err != nil {
 		t.Fatalf("Cleanup: %v", err)
+	}
+	if r.Interrupted != 0 {
+		t.Errorf("interrupted = %d, want 0", r.Interrupted)
 	}
 	if d := e.delivery(t, id); d.Status != "succeeded" || d.LastError != nil {
 		t.Errorf("delivery = %+v, want succeeded", d)
