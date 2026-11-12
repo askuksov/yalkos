@@ -35,7 +35,10 @@ type Event struct {
 	At                 time.Time
 }
 
-// Record writes e using tx (the caller's transaction).
+// Record writes e using tx (the caller's transaction). The names of the labels
+// and milestones in e's labelIds/milestoneId changes are read in the same
+// transaction and stored next to the changes, so the entry keeps them after a
+// rename or delete; a caller that deletes one records its events first.
 func Record(ctx context.Context, tx *q.Queries, e Event) error {
 	changes := e.Changes
 	if changes == nil {
@@ -45,13 +48,86 @@ func Record(ctx context.Context, tx *q.Queries, e Event) error {
 	if err != nil {
 		return fmt.Errorf("audit: encode changes: %w", err)
 	}
+	names, err := resolveNames(ctx, tx, changes)
+	if err != nil {
+		return err
+	}
 	if err := tx.InsertAuditEvent(ctx, q.InsertAuditEventParams{
 		EntityType: e.EntityType, EntityID: e.EntityID, ProjectID: e.ProjectID, ActorID: e.ActorID,
-		Action: e.Action, Changes: b, CreatedAt: e.At,
+		Action: e.Action, Changes: b, Names: names, CreatedAt: e.At,
 	}); err != nil {
 		return fmt.Errorf("audit: record: %w", err)
 	}
 	return nil
+}
+
+// storedName is a value of the names column, keyed by id; type is written only
+// when true.
+type storedName struct {
+	Name string `json:"name"`
+	Type bool   `json:"type,omitempty"`
+}
+
+// resolveNames returns the encoded names of the labels and milestones that
+// changes refer to, or nil when it names none. Plain reads: no row locks.
+func resolveNames(ctx context.Context, tx *q.Queries, changes map[string]Change) ([]byte, error) {
+	var labels, milestones []uuid.UUID
+	if c, ok := changes["labelIds"]; ok {
+		for _, v := range []any{c.From, c.To} {
+			var ids []uuid.UUID
+			if err := recode(v, &ids); err != nil {
+				return nil, fmt.Errorf("audit: label ids: %w", err)
+			}
+			labels = append(labels, ids...)
+		}
+	}
+	if c, ok := changes["milestoneId"]; ok {
+		for _, v := range []any{c.From, c.To} {
+			var id *uuid.UUID
+			if err := recode(v, &id); err != nil {
+				return nil, fmt.Errorf("audit: milestone id: %w", err)
+			}
+			if id != nil {
+				milestones = append(milestones, *id)
+			}
+		}
+	}
+	out := map[uuid.UUID]storedName{}
+	if len(labels) > 0 {
+		rows, err := tx.AuditLabelNames(ctx, labels)
+		if err != nil {
+			return nil, fmt.Errorf("audit: label names: %w", err)
+		}
+		for _, r := range rows {
+			out[r.ID] = storedName{Name: r.Name, Type: r.IsType}
+		}
+	}
+	if len(milestones) > 0 {
+		rows, err := tx.AuditMilestoneNames(ctx, milestones)
+		if err != nil {
+			return nil, fmt.Errorf("audit: milestone names: %w", err)
+		}
+		for _, r := range rows {
+			out[r.ID] = storedName{Name: r.Name}
+		}
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return nil, fmt.Errorf("audit: encode names: %w", err)
+	}
+	return b, nil
+}
+
+// recode reads v (whatever type the caller recorded) through its JSON encoding.
+func recode(v, dst any) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, dst)
 }
 
 // Diff returns the fields whose JSON encodings differ between before and after.
@@ -87,12 +163,22 @@ type FieldChange struct {
 	From, To json.RawMessage
 }
 
-// Entry is one recorded event.
+// Name is a label or milestone named by an event, as it was when recorded.
+type Name struct {
+	ID   uuid.UUID
+	Name string
+	// Type: a label of the type group.
+	Type bool
+}
+
+// Entry is one recorded event. Names is empty for events recorded before
+// names were stored.
 type Entry struct {
 	ID      uuid.UUID
 	ActorID *uuid.UUID
 	Action  string
 	Changes []FieldChange
+	Names   []Name
 	At      time.Time
 }
 
@@ -171,7 +257,18 @@ func toEntry(r q.AuditEvent) (Entry, error) {
 		changes = append(changes, FieldChange{Field: f, From: c.From, To: c.To})
 	}
 	sort.Slice(changes, func(i, j int) bool { return changes[i].Field < changes[j].Field })
-	return Entry{ID: r.ID, ActorID: r.ActorID, Action: r.Action, Changes: changes, At: r.CreatedAt}, nil
+	var stored map[uuid.UUID]storedName
+	if r.Names != nil {
+		if err := json.Unmarshal(r.Names, &stored); err != nil {
+			return Entry{}, fmt.Errorf("audit: decode names: %w", err)
+		}
+	}
+	names := make([]Name, 0, len(stored))
+	for id, n := range stored {
+		names = append(names, Name{ID: id, Name: n.Name, Type: n.Type})
+	}
+	sort.Slice(names, func(i, j int) bool { return names[i].ID.String() < names[j].ID.String() })
+	return Entry{ID: r.ID, ActorID: r.ActorID, Action: r.Action, Changes: changes, Names: names, At: r.CreatedAt}, nil
 }
 
 // DeleteProject removes the events of a project, its states and the issues

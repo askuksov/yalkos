@@ -140,6 +140,13 @@ type HistoryEdge struct {
 	Cursor string        `json:"cursor"`
 }
 
+// A label or milestone named by a history entry; type is true for a label of the type group.
+type HistoryName struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Type bool   `json:"type"`
+}
+
 // in: [] matches nothing; neq and nin keep issues where the field is empty.
 type IDComparator struct {
 	Eq   graphql.Omittable[*string]  `json:"eq,omitempty"`

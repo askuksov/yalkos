@@ -61,14 +61,22 @@ func TestRollbackRevertsLatest(t *testing.T) {
 	if current != latest-1 || last != latest {
 		t.Errorf("status = current %d, latest %d; want %d, %d", current, last, latest-1, latest)
 	}
-	for table, wantExists := range map[string]bool{"webhooks": false, "webhook_deliveries": false, "river_job": true, "milestones": true} {
+	for table, wantExists := range map[string]bool{"webhooks": true, "river_job": true, "milestones": true} {
 		var exists bool
 		if err := pool.QueryRow(ctx, `SELECT to_regclass('public.' || $1) IS NOT NULL`, table).Scan(&exists); err != nil {
 			t.Fatal(err)
 		}
 		if exists != wantExists {
-			t.Errorf("table %s exists = %v after rolling back the webhooks migration, want %v", table, exists, wantExists)
+			t.Errorf("table %s exists = %v after rolling back the audit names migration, want %v", table, exists, wantExists)
 		}
+	}
+	var names bool
+	if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		WHERE table_name = 'audit_events' AND column_name = 'names')`).Scan(&names); err != nil {
+		t.Fatal(err)
+	}
+	if names {
+		t.Error("audit_events.names exists after rolling back the audit names migration")
 	}
 }
 
