@@ -108,6 +108,9 @@ func newEnv(t *testing.T) env {
 	issues.SetLinker(atts)
 	e := env{pool: pool, users: users, clock: c, dir: dir, store: store, projects: projects, issues: issues,
 		comments: comment.New(pool, issues, atts, c.now), attachments: atts}
+	// The workspace row gets the real time, the test clock starts earlier:
+	// date the workspace before any file time a test sets, so cleanup sweeps.
+	e.setWorkspaceCreated(t, c.t.AddDate(-1, 0, 0))
 	if e.ylk, err = projects.Create(ctx, users.Admin, project.CreateInput{Key: "YLK", Name: "Yalkos"}); err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +392,7 @@ func TestDeleteProjectRemovesAttachmentAudit(t *testing.T) {
 	}
 }
 
-// auditRows returns "action:project" for each attachment event of id, oldest first.
+// auditRows returns "action:project" for each audit event of entity id, oldest first.
 func (e env) auditRows(t *testing.T, id uuid.UUID) []string {
 	t.Helper()
 	rows, err := e.pool.Query(context.Background(), `SELECT action || ':' || coalesce(project_id::text, 'null')
@@ -682,6 +685,46 @@ func TestCleanupKeepsFilesWhenNoBlobRows(t *testing.T) {
 	}
 	if n := strings.Count(logs.String(), `"level":"WARN"`); n != 1 {
 		t.Errorf("warnings = %d, want 1; log %q", n, logs.String())
+	}
+}
+
+// setWorkspaceCreated sets the creation time of the workspace.
+func (e env) setWorkspaceCreated(t *testing.T, at time.Time) {
+	t.Helper()
+	if _, err := e.pool.Exec(context.Background(), `UPDATE workspaces SET created_at = $1`, at); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A database recreated next to an existing data directory has a new
+// workspace: stored files older than it are kept until the dump is restored.
+func TestCleanupKeepsFilesOlderThanWorkspace(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		created time.Duration // workspace creation, relative to now
+		kept    bool
+	}{
+		{"workspace created after the file", 0, true},
+		{"workspace created before the file", -96 * time.Hour, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newEnv(t)
+			now := e.clock.now()
+			e.keepBlobRow(t)
+			e.setWorkspaceCreated(t, now.Add(tc.created))
+			orphan := e.orphanPath("f")
+			touch(t, orphan, now.Add(-72*time.Hour))
+			r, err := e.attachments.Cleanup(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if exists(orphan) != tc.kept || (r.Files == 0) != tc.kept {
+				t.Errorf("file kept = %v, want %v; result %+v", exists(orphan), tc.kept, r)
+			}
+			if !exists(e.blobPath("keep")) {
+				t.Error("referenced file removed")
+			}
+		})
 	}
 }
 

@@ -186,11 +186,14 @@ func TestLocalFSStale(t *testing.T) {
 		}
 		age(t, p, now.Add(-48*time.Hour))
 	}
-	sums, err := s.Stale(context.Background(), now.Add(-24*time.Hour))
+	sums, err := s.Stale(context.Background(), time.Time{}, now.Add(-24*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(sums) != 1 || !bytes.Equal(sums[0], oldSt.Sum) {
 		t.Errorf("Stale = %x, want [%s]", sums, oldHex)
+	}
+	if sums, err := s.Stale(context.Background(), now.Add(-36*time.Hour), now.Add(-24*time.Hour)); err != nil || len(sums) != 0 {
+		t.Errorf("Stale from 36 h ago = %x, %v; want none", sums, err)
 	}
 }

@@ -136,10 +136,10 @@ func (s *LocalFS) SweepTemp(_ context.Context, before time.Time) (int, error) {
 	return n, errors.Join(errs...)
 }
 
-// Stale returns the sums of blobs under dir/blobs last modified before
-// before. Files whose name is not a lowercase hex SHA-256 under its own
+// Stale returns the sums of blobs under dir/blobs last modified at or after
+// from and before before. Files whose name is not a lowercase hex SHA-256 under its own
 // prefix directory are not blobs and are skipped.
-func (s *LocalFS) Stale(_ context.Context, before time.Time) ([][]byte, error) {
+func (s *LocalFS) Stale(_ context.Context, from, before time.Time) ([][]byte, error) {
 	root := filepath.Join(s.dir, "blobs")
 	dirs, err := os.ReadDir(root)
 	if err != nil {
@@ -170,7 +170,7 @@ func (s *LocalFS) Stale(_ context.Context, before time.Time) ([][]byte, error) {
 				errs = append(errs, fmt.Errorf("blob: stat blob: %w", err))
 				continue
 			}
-			if info.ModTime().Before(before) {
+			if mt := info.ModTime(); !mt.Before(from) && mt.Before(before) {
 				out = append(out, sum)
 			}
 		}

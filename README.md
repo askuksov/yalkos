@@ -48,7 +48,7 @@ docker compose exec -T db pg_dump -U yalkos yalkos > yalkos.sql
 docker run --rm -v yalkos_yalkos-data:/data -v "$PWD":/backup alpine tar czf /backup/yalkos-data.tgz -C /data .
 ```
 
-Files are stored under `/data/blobs/` by content hash; restore both the dump and the archive.
+Files are stored under `/data/blobs/` by content hash; restore both the dump and the archive. Stored files that no database row references are removed after 24 h, so restore the dump before starting the app on an existing data directory, and run one app process per `DATA_DIR` (the cleanup coordinates within one process only).
 
 ### API keys
 
