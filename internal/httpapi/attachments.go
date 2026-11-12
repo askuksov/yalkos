@@ -147,7 +147,8 @@ func malformed(svc *attachment.Service, err error) error {
 // app's origin (nosniff, sandbox for all but PDF, attachment for the rest).
 func download(svc *attachment.Service, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := authn.ActorFrom(r.Context()); !ok {
+		actor, ok := authn.ActorFrom(r.Context())
+		if !ok {
 			writeUnauthenticated(w)
 			return
 		}
@@ -156,7 +157,7 @@ func download(svc *attachment.Service, logger *slog.Logger) http.Handler {
 			writeFileError(w, logger, kit.ErrNotFound)
 			return
 		}
-		a, content, err := svc.Open(r.Context(), id)
+		a, content, err := svc.Open(r.Context(), actor.User, id)
 		if err != nil {
 			writeFileError(w, logger, err)
 			return

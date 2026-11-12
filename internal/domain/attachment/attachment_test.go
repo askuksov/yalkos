@@ -153,7 +153,7 @@ func TestUploadToIssue(t *testing.T) {
 	if attachment.URL(a) != "/api/attachments/"+a.ID.String()+"/shot.png" || !attachment.Inline(a.ContentType) {
 		t.Errorf("url %q inline %v", attachment.URL(a), attachment.Inline(a.ContentType))
 	}
-	got, r, err := e.attachments.Open(ctx, a.ID)
+	got, r, err := e.attachments.Open(ctx, e.users.Member, a.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestUploadToIssue(t *testing.T) {
 	if ch := e.issueChanges(t, i.ID, "attachmentAdded"); len(ch) != 1 || !strings.Contains(ch[0], `"name": "shot.png"`) {
 		t.Errorf("issue audit = %v", ch)
 	}
-	if _, _, err := e.attachments.Open(ctx, uuid.New()); !errors.Is(err, kit.ErrNotFound) {
+	if _, _, err := e.attachments.Open(ctx, e.users.Member, uuid.New()); !errors.Is(err, kit.ErrNotFound) {
 		t.Errorf("open missing = %v", err)
 	}
 	_, err = e.attachments.Upload(ctx, e.users.Member, "x", strings.NewReader("x"), ptr(uuid.New()))
@@ -282,11 +282,11 @@ func TestCleanup(t *testing.T) {
 	if removed != 1 {
 		t.Errorf("removed = %d, want 1 (the old pending upload)", removed)
 	}
-	if _, _, err := e.attachments.Open(ctx, old.ID); !errors.Is(err, kit.ErrNotFound) {
+	if _, _, err := e.attachments.Open(ctx, e.users.Member, old.ID); !errors.Is(err, kit.ErrNotFound) {
 		t.Errorf("old pending = %v", err)
 	}
 	for _, a := range []attachment.Attachment{shared, recent} {
-		if _, r, err := e.attachments.Open(ctx, a.ID); err != nil {
+		if _, r, err := e.attachments.Open(ctx, e.users.Member, a.ID); err != nil {
 			t.Errorf("%s: %v", a.Name, err)
 		} else {
 			_ = r.Close()

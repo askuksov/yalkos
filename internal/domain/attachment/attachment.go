@@ -249,14 +249,19 @@ func (s *Service) Link(ctx context.Context, tx *q.Queries, actorID, issueID uuid
 	return nil
 }
 
-// Open returns an attachment with its content.
-func (s *Service) Open(ctx context.Context, id uuid.UUID) (Attachment, io.ReadSeekCloser, error) {
+// Open returns an attachment with its content. A pending upload (no issue
+// yet) opens only for its uploader; anyone else, Owner and Admin included,
+// gets not found, so its existence does not leak.
+func (s *Service) Open(ctx context.Context, actor account.User, id uuid.UUID) (Attachment, io.ReadSeekCloser, error) {
 	row, err := s.q.GetAttachment(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Attachment{}, nil, errNotFound
 	}
 	if err != nil {
 		return Attachment{}, nil, fmt.Errorf("get attachment: %w", err)
+	}
+	if row.Attachment.IssueID == nil && row.Attachment.UploaderID != actor.ID {
+		return Attachment{}, nil, errNotFound
 	}
 	r, err := s.store.Open(ctx, row.Attachment.BlobSha256)
 	if err != nil {

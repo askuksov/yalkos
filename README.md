@@ -200,7 +200,7 @@ curl -s http://localhost:8080/api/attachments -H "Authorization: $KEY" -F issueI
 curl -s -o shot.png -H "Authorization: $KEY" http://localhost:8080/api/attachments/<id>/shot.png
 ```
 
-  The server detects the file type from its content. PNG, JPEG, GIF, WebP and PDF open in the browser; every other file (SVG and HTML included) downloads. Links in Markdown are stored relative (`/api/attachments/…`). `issue { attachments }` lists an issue's files, `deleteAttachment` removes one (uploader, Owner or Admin); `limits { maxUploadMb }` is the size limit.
+  The server detects the file type from its content. PNG, JPEG, GIF, WebP and PDF open in the browser; every other file (SVG and HTML included) downloads. Links in Markdown are stored relative (`/api/attachments/…`). Until a file is linked to an issue or comment, only its uploader can download it. `issue { attachments }` lists an issue's files, `deleteAttachment` removes one (uploader, Owner or Admin); `limits { maxUploadMb }` is the size limit.
 
 ### Webhooks
 
