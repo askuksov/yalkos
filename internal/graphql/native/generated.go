@@ -64,6 +64,7 @@ type ComplexityRoot struct {
 		Size        func(childComplexity int) int
 		URL         func(childComplexity int) int
 		Uploader    func(childComplexity int) int
+		UsedInText  func(childComplexity int) int
 	}
 
 	Comment struct {
@@ -384,6 +385,8 @@ type ComplexityRoot struct {
 
 type AttachmentResolver interface {
 	Uploader(ctx context.Context, obj *Attachment) (*User, error)
+
+	UsedInText(ctx context.Context, obj *Attachment) (bool, error)
 }
 type CommentResolver interface {
 	Author(ctx context.Context, obj *Comment) (*User, error)
@@ -610,6 +613,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Attachment.Uploader(childComplexity), true
+	case "Attachment.usedInText":
+		if e.ComplexityRoot.Attachment.UsedInText == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Attachment.UsedInText(childComplexity), true
 
 	case "Comment.author":
 		if e.ComplexityRoot.Comment.Author == nil {
@@ -2350,6 +2359,8 @@ type Attachment {
   inline: Boolean!
   uploader: User!
   createdAt: Time!
+  "True when the issue's description or one of its comments links to this file."
+  usedInText: Boolean!
 }
 
 type Limits {
@@ -3112,6 +3123,8 @@ func (ec *executionContext) childFields_Attachment(ctx context.Context, field gr
 		return ec.fieldContext_Attachment_uploader(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_Attachment_createdAt(ctx, field)
+	case "usedInText":
+		return ec.fieldContext_Attachment_usedInText(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Attachment", field.Name)
 }
@@ -5298,6 +5311,29 @@ func (ec *executionContext) _Attachment_createdAt(ctx context.Context, field gra
 }
 func (ec *executionContext) fieldContext_Attachment_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Attachment", field, false, false, "Time")
+}
+
+func (ec *executionContext) _Attachment_usedInText(ctx context.Context, field graphql.CollectedField, obj *Attachment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Attachment_usedInText(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Attachment().UsedInText(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Attachment_usedInText(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Attachment", field, true, true, "Boolean")
 }
 
 func (ec *executionContext) _Comment_id(ctx context.Context, field graphql.CollectedField, obj *Comment) (ret graphql.Marshaler) {
@@ -14992,6 +15028,12 @@ func (ec *executionContext) _Attachment(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "usedInText":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Attachment_usedInText(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

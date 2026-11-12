@@ -366,8 +366,9 @@ func tracedServer(t *testing.T) (server, *counter) {
 	if err := svc.RefreshSetupCode(ctx); err != nil {
 		t.Fatal(err)
 	}
-	h := native.NewHandler(testDeps(t, pool, svc))
-	return server{url: newHTTPServer(t, authn.Middleware(svc, base, quiet)(h)), svc: svc, pool: pool}, queries
+	deps := testDeps(t, pool, svc)
+	h := native.NewHandler(deps)
+	return server{url: newHTTPServer(t, authn.Middleware(svc, base, quiet)(h)), svc: svc, pool: pool, deps: deps}, queries
 }
 
 // seedIssues creates 50 issues in two projects: two parents and 48 sub-issues.

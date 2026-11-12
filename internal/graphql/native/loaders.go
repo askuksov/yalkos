@@ -40,6 +40,8 @@ type loaders struct {
 	// By issue id: number of comments and the attachments.
 	commentCounts    *dataloadgen.Loader[uuid.UUID, int]
 	issueAttachments *dataloadgen.Loader[uuid.UUID, []attachment.Attachment]
+	// By issue id: whether each attachment of the batch is used in its text.
+	attachmentsUsed *dataloadgen.Loader[uuid.UUID, map[uuid.UUID]bool]
 }
 
 type loadersKey struct{}
@@ -84,6 +86,7 @@ func newLoaders(d Deps) *loaders {
 		labels:            &lazyLabels{load: loadLabelIndex(d.Labels)},
 		commentCounts:     dataloadgen.NewLoader(mapped(d.Comments.Counts), opt),
 		issueAttachments:  dataloadgen.NewLoader(grouped(d.Attachments.ByIssues), opt),
+		attachmentsUsed:   dataloadgen.NewLoader(shared(d.Attachments.UsedInText), opt),
 	}
 }
 
@@ -117,6 +120,20 @@ func grouped[T any](fetch func(context.Context, []uuid.UUID) (map[uuid.UUID][]T,
 				continue
 			}
 			values[i] = byKey[k]
+		}
+		return values, errs
+	}
+}
+
+// shared adapts a fetch returning one value for the whole batch (a map keyed
+// by unique child ids): every key gets that value, read-only.
+func shared[T any](fetch func(context.Context, []uuid.UUID) (T, error)) func(context.Context, []uuid.UUID) ([]T, []error) {
+	return func(ctx context.Context, keys []uuid.UUID) ([]T, []error) {
+		values := make([]T, len(keys))
+		errs := make([]error, len(keys))
+		v, err := fetch(ctx, keys)
+		for i := range keys {
+			values[i], errs[i] = v, err
 		}
 		return values, errs
 	}

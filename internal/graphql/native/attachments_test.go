@@ -2,6 +2,8 @@ package native_test
 
 import (
 	"context"
+	"fmt"
+	"maps"
 	"strings"
 	"testing"
 
@@ -67,5 +69,79 @@ func TestLimitsAPI(t *testing.T) {
 	}
 	if r := s.browser(t).do(`{ limits { maxUploadMb } }`, nil); r.code() != "AUTHENTICATION_ERROR" {
 		t.Errorf("anonymous: %s", r.raw)
+	}
+}
+
+func TestAttachmentUsedInTextAPI(t *testing.T) {
+	s, queries := tracedServer(t)
+	owner := ownerBrowser(t, s)
+	p := createProject(t, owner, "YLK", "Yalkos")
+	i := createIssue(t, owner, map[string]any{"projectId": p.ID, "title": "t"})
+	ctx := context.Background()
+	users, err := s.svc.UsersByIDs(ctx, []uuid.UUID{uuid.MustParse(viewerID(t, owner))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	iid := uuid.MustParse(i.ID)
+	upload := func(name string) string {
+		a, err := s.deps.Attachments.Upload(ctx, users[0], name, strings.NewReader("\x89PNG\r\n\x1a\nxxxx"), &iid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a.ID.String()
+	}
+	inComment, inDescription, unused := upload("c.png"), upload("d.png"), upload("n.png")
+	owner.do(`mutation($id: ID!, $d: String!) { updateIssue(id: $id, input: { description: $d }) { id } }`,
+		map[string]any{"id": i.ID, "d": "see ![d](/api/attachments/" + inDescription + "/d.png)"}).decode(t, "updateIssue", &struct{}{})
+	// The only reference sits in the oldest of 60 comments: absolute, upper case.
+	for n := range 60 {
+		body := fmt.Sprintf("comment %d", n)
+		if n == 0 {
+			body = "![c](https://app.example.com/api/attachments/" + strings.ToUpper(inComment) + "/c.png)"
+		}
+		owner.do(`mutation($i: ID!, $b: String!) { createComment(issueId: $i, body: $b) { id } }`,
+			map[string]any{"i": i.ID, "b": body}).decode(t, "createComment", &struct{}{})
+	}
+
+	used := func() map[string]bool {
+		var got struct {
+			Attachments []struct {
+				ID         string `json:"id"`
+				UsedInText bool   `json:"usedInText"`
+			} `json:"attachments"`
+		}
+		owner.do(`query($i: String!) { issue(id: $i) { attachments { id usedInText } } }`,
+			map[string]any{"i": i.ID}).decode(t, "issue", &got)
+		out := map[string]bool{}
+		for _, a := range got.Attachments {
+			out[a.ID] = a.UsedInText
+		}
+		return out
+	}
+	want := map[string]bool{inComment: true, inDescription: true, unused: false}
+	if got := used(); !maps.Equal(got, want) {
+		t.Errorf("usedInText = %v, want %v", got, want)
+	}
+
+	// Fewest statements of three runs (see countList).
+	count := func() int64 {
+		var n int64
+		for run := range 3 {
+			queries.n.Store(0)
+			used()
+			if c := queries.n.Load(); run == 0 || c < n {
+				n = c
+			}
+		}
+		return n
+	}
+	few := count()
+	for n := range 10 {
+		upload(fmt.Sprintf("more-%d.png", n))
+	}
+	many := count()
+	t.Logf("usedInText: %d SQL statements for 3 attachments, %d for 13", few, many)
+	if many > few {
+		t.Errorf("usedInText of 13 attachments ran %d SQL statements, of 3: %d", many, few)
 	}
 }

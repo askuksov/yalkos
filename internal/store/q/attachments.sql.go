@@ -23,6 +23,42 @@ func (q *Queries) AnyBlob(ctx context.Context) (bool, error) {
 	return exists, err
 }
 
+const attachmentsUsedInText = `-- name: AttachmentsUsedInText :many
+SELECT a.id,
+  strpos(lower(i.description), '/api/attachments/' || a.id::text || '/') > 0
+  OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = a.issue_id
+             AND strpos(lower(c.body), '/api/attachments/' || a.id::text || '/') > 0) AS used
+FROM attachments a JOIN issues i ON i.id = a.issue_id
+WHERE a.issue_id = ANY($1::uuid[])
+`
+
+type AttachmentsUsedInTextRow struct {
+	ID   uuid.UUID
+	Used *bool
+}
+
+// Whether the issue's description or one of its comments holds the
+// attachment's download path (what IDsInMarkdown links), in any case.
+func (q *Queries) AttachmentsUsedInText(ctx context.Context, issueIds []uuid.UUID) ([]AttachmentsUsedInTextRow, error) {
+	rows, err := q.db.Query(ctx, attachmentsUsedInText, issueIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AttachmentsUsedInTextRow
+	for rows.Next() {
+		var i AttachmentsUsedInTextRow
+		if err := rows.Scan(&i.ID, &i.Used); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const blobExists = `-- name: BlobExists :one
 SELECT EXISTS (SELECT 1 FROM blobs WHERE sha256 = $1)
 `

@@ -307,6 +307,20 @@ func (s *Service) ByIssues(ctx context.Context, issueIDs []uuid.UUID) (map[uuid.
 	return out, nil
 }
 
+// UsedInText reports, by attachment id, whether the description or a comment
+// of its issue links to it; attachments of the given issues only.
+func (s *Service) UsedInText(ctx context.Context, issueIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	rows, err := s.q.AttachmentsUsedInText(ctx, issueIDs)
+	if err != nil {
+		return nil, fmt.Errorf("attachments used in text: %w", err)
+	}
+	out := make(map[uuid.UUID]bool, len(rows))
+	for _, r := range rows {
+		out[r.ID] = r.Used != nil && *r.Used // never NULL: both columns are NOT NULL
+	}
+	return out, nil
+}
+
 // Delete removes an attachment (uploader, Owner or Admin); its file goes when
 // nothing else references the same content.
 func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) error {
