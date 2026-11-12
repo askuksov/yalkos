@@ -103,6 +103,22 @@ func (q *Queries) DeleteOldPendingAttachments(ctx context.Context, before time.T
 	return items, nil
 }
 
+const deleteOrphanAttachmentAudit = `-- name: DeleteOrphanAttachmentAudit :execrows
+DELETE FROM audit_events e
+WHERE e.entity_type = 'attachment' AND e.project_id IS NULL
+  AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.id = e.entity_id)
+`
+
+// Events without a project of attachments that are gone: written for pending
+// uploads by earlier versions, nothing else reaches them.
+func (q *Queries) DeleteOrphanAttachmentAudit(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOrphanAttachmentAudit)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAttachment = `-- name: GetAttachment :one
 SELECT attachments.id, attachments.issue_id, attachments.uploader_id, attachments.blob_sha256, attachments.name, attachments.created_at, b.size, b.content_type
 FROM attachments JOIN blobs b ON b.sha256 = attachments.blob_sha256

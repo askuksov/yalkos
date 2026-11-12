@@ -182,14 +182,12 @@ func (s *Service) Upload(ctx context.Context, actor account.User, name string, r
 			return fmt.Errorf("get attachment: %w", err)
 		}
 		out = fromRow(row, b.Size, b.ContentType)
-		if err := audit.Record(ctx, tx, audit.Event{
-			EntityType: "attachment", Action: "create", EntityID: row.ID, ProjectID: projectID, ActorID: &actor.ID,
-			Changes: map[string]audit.Change{"name": {To: name}, "size": {To: out.Size}}, At: now,
-		}); err != nil {
-			return err
-		}
+		// A pending upload is recorded when it is linked: its events need a project.
 		if issueID == nil {
 			return nil
+		}
+		if err := audit.Record(ctx, tx, created(row.ID, *projectID, actor.ID, name, out.Size, now)); err != nil {
+			return err
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			EntityType: "issue", Action: "update", EntityID: *issueID, ProjectID: projectID, ActorID: &actor.ID,
@@ -205,6 +203,13 @@ func (s *Service) Upload(ctx context.Context, actor account.User, name string, r
 
 func added(id uuid.UUID, name string, size int64) map[string]any {
 	return map[string]any{"id": id, "name": name, "size": size}
+}
+
+func created(id, projectID, actorID uuid.UUID, name string, size int64, at time.Time) audit.Event {
+	return audit.Event{
+		EntityType: "attachment", Action: "create", EntityID: id, ProjectID: &projectID, ActorID: &actorID,
+		Changes: map[string]audit.Change{"name": {To: name}, "size": {To: size}}, At: at,
+	}
 }
 
 // dropIfUnused removes a committed file whose blob row was never written
@@ -239,6 +244,9 @@ func (s *Service) Link(ctx context.Context, tx *q.Queries, actorID, issueID uuid
 	}
 	now := s.now()
 	for _, l := range linked {
+		if err := audit.Record(ctx, tx, created(l.ID, row.Issue.ProjectID, actorID, l.Name, l.Size, now)); err != nil {
+			return err
+		}
 		if err := audit.Record(ctx, tx, audit.Event{
 			EntityType: "issue", Action: "update", EntityID: issueID, ProjectID: &row.Issue.ProjectID, ActorID: &actorID,
 			Changes: map[string]audit.Change{"attachmentAdded": {To: added(l.ID, l.Name, l.Size)}}, At: now,
@@ -336,15 +344,16 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) 
 			return fmt.Errorf("delete attachment: %w", err)
 		}
 		sum = a.BlobSha256
+		// A pending upload is not in the audit log.
+		if a.IssueID == nil {
+			return nil
+		}
 		now := s.now()
 		if err := audit.Record(ctx, tx, audit.Event{
 			EntityType: "attachment", Action: "delete", EntityID: id, ProjectID: projectID, ActorID: &actor.ID,
 			Changes: map[string]audit.Change{"name": {From: a.Name}}, At: now,
 		}); err != nil {
 			return err
-		}
-		if a.IssueID == nil {
-			return nil
 		}
 		return audit.Record(ctx, tx, audit.Event{
 			EntityType: "issue", Action: "update", EntityID: *a.IssueID, ProjectID: projectID, ActorID: &actor.ID,
@@ -379,13 +388,17 @@ func (s *Service) dropBlob(ctx context.Context, sum []byte) (bool, error) {
 	return true, s.store.Delete(ctx, sum)
 }
 
-// Cleanup removes pending uploads older than 24 h and unreferenced files
-// older than 1 h; it returns the number of removed uploads.
+// Cleanup removes pending uploads older than 24 h, events of pending uploads
+// that are gone (written before uploads were recorded on linking) and
+// unreferenced files older than 1 h; it returns the number of removed uploads.
 func (s *Service) Cleanup(ctx context.Context) (int, error) {
 	now := s.now()
 	removed, err := s.q.DeleteOldPendingAttachments(ctx, now.Add(-pendingTTL))
 	if err != nil {
 		return 0, fmt.Errorf("delete pending attachments: %w", err)
+	}
+	if _, err := s.q.DeleteOrphanAttachmentAudit(ctx); err != nil {
+		return len(removed), fmt.Errorf("delete orphan attachment events: %w", err)
 	}
 	sums, err := s.q.UnreferencedBlobs(ctx, now.Add(-orphanTTL))
 	if err != nil {

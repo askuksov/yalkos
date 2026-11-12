@@ -44,3 +44,10 @@ WHERE b.created_at < @before AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a
 -- name: DeleteBlobIfUnreferenced :execrows
 DELETE FROM blobs b WHERE b.sha256 = @sha256
   AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.blob_sha256 = b.sha256);
+
+-- name: DeleteOrphanAttachmentAudit :execrows
+-- Events without a project of attachments that are gone: written for pending
+-- uploads by earlier versions, nothing else reaches them.
+DELETE FROM audit_events e
+WHERE e.entity_type = 'attachment' AND e.project_id IS NULL
+  AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.id = e.entity_id);

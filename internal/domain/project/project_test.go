@@ -11,7 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/askuksov/yalkos/internal/blob"
+	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/comment"
+	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/page"
 	"github.com/askuksov/yalkos/internal/domain/project"
@@ -387,6 +391,52 @@ func TestKeyChangeRacesCreate(t *testing.T) {
 		}
 		if ok != 1 {
 			t.Fatalf("round %d: %d successes, want 1", round, ok)
+		}
+	}
+}
+
+// A comment or file created in one project, deleted after its issue moved on,
+// leaves no events once the second project is deleted.
+func TestDeleteProjectRemovesAuditOfMovedIssueChildren(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	store, err := blob.NewLocalFS(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	issues := issue.New(e.pool, e.svc, e.clock)
+	atts := attachment.New(e.pool, issues, store, &blob.Locks{}, 1<<20, e.clock)
+	issues.SetLinker(atts)
+	comments := comment.New(e.pool, issues, atts, e.clock)
+	from, to := e.create(t, "YLK"), e.create(t, "WEB")
+	i, err := issues.Create(ctx, e.users.Member, issue.CreateInput{ProjectID: &from.ID, Title: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := comments.Create(ctx, e.users.Member, i.ID, "hello", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := atts.Upload(ctx, e.users.Member, "a.txt", strings.NewReader("a"), &i.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := issues.Move(ctx, e.users.Member, i.ID, to.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := comments.Delete(ctx, e.users.Member, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := atts.Delete(ctx, e.users.Member, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.Delete(ctx, e.users.Owner, to.ID, "WEB"); err != nil {
+		t.Fatal(err)
+	}
+	for name, id := range map[string]uuid.UUID{"comment": c.ID, "attachment": a.ID} {
+		var n int
+		if err := e.pool.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE entity_id = $1`, id).Scan(&n); err != nil || n != 0 {
+			t.Errorf("%s audit rows after project delete = %d, %v", name, n, err)
 		}
 	}
 }
