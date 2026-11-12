@@ -14,6 +14,8 @@ type Attachment {
   inline: Boolean!
   uploader: User!
   createdAt: Time!
+  "True when the issue's description or one of its comments links to this file."
+  usedInText: Boolean!
 }
 
 type Limits {

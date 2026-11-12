@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -722,5 +723,34 @@ func TestRunCleanupRunsAtStart(t *testing.T) {
 		stopped = true
 	case <-time.After(5 * time.Second):
 		t.Fatal("RunCleanup did not stop after its context ended")
+	}
+}
+
+func TestUsedInText(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	i := e.issue(t, issue.CreateInput{})
+	j := e.issue(t, issue.CreateInput{})
+	inDescription := e.upload(t, e.users.Member, "a.png", png, &i.ID)
+	inComment := e.upload(t, e.users.Member, "b.png", png, &i.ID)
+	elsewhere := e.upload(t, e.users.Member, "c.png", png, &i.ID)
+	pending := e.upload(t, e.users.Member, "d.png", png, nil)
+	if _, err := e.issues.Update(ctx, e.users.Member, i.ID, issue.Patch{Description: ptr("see " + attachment.URL(inDescription))}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.comments.Create(ctx, e.users.Member, i.ID, "look "+attachment.URL(inComment), nil); err != nil {
+		t.Fatal(err)
+	}
+	// A link in another issue's text does not count for this issue.
+	if _, err := e.comments.Create(ctx, e.users.Member, j.ID, "also "+attachment.URL(elsewhere), nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err := e.attachments.UsedInText(ctx, []uuid.UUID{i.ID, j.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[uuid.UUID]bool{inDescription.ID: true, inComment.ID: true, elsewhere.ID: false}
+	if !maps.Equal(got, want) {
+		t.Errorf("UsedInText = %v, want %v (pending %s)", got, want, pending.ID)
 	}
 }

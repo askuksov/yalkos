@@ -27,6 +27,16 @@ FROM attachments JOIN blobs b ON b.sha256 = attachments.blob_sha256
 WHERE attachments.issue_id = ANY(@issue_ids::uuid[])
 ORDER BY attachments.created_at, attachments.id;
 
+-- name: AttachmentsUsedInText :many
+-- Whether the issue's description or one of its comments holds the
+-- attachment's download path (what IDsInMarkdown links), in any case.
+SELECT a.id,
+  strpos(lower(i.description), '/api/attachments/' || a.id::text || '/') > 0
+  OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = a.issue_id
+             AND strpos(lower(c.body), '/api/attachments/' || a.id::text || '/') > 0) AS used
+FROM attachments a JOIN issues i ON i.id = a.issue_id
+WHERE a.issue_id = ANY(@issue_ids::uuid[]);
+
 -- name: DeleteAttachment :exec
 DELETE FROM attachments WHERE id = $1;
 

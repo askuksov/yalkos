@@ -14,6 +14,18 @@ func (r *attachmentResolver) Uploader(ctx context.Context, obj *Attachment) (*Us
 	return r.user(ctx, &obj.uploaderID)
 }
 
+// UsedInText is the resolver for the usedInText field.
+func (r *attachmentResolver) UsedInText(ctx context.Context, obj *Attachment) (bool, error) {
+	if obj.issueID == nil {
+		return false, nil // pending: no issue text yet
+	}
+	used, err := loadersFrom(ctx).attachmentsUsed.Load(ctx, *obj.issueID)
+	if err != nil {
+		return false, err
+	}
+	return used[obj.uid], nil
+}
+
 // Attachments is the resolver for the attachments field.
 func (r *issueResolver) Attachments(ctx context.Context, obj *Issue) ([]Attachment, error) {
 	list, err := loadersFrom(ctx).issueAttachments.Load(ctx, obj.uid)

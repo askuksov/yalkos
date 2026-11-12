@@ -60,13 +60,16 @@ type Attachment struct {
 	Inline      bool
 	CreatedAt   time.Time
 
+	uid        uuid.UUID
 	uploaderID uuid.UUID
+	issueID    *uuid.UUID
 }
 
 func attachmentOut(a attachment.Attachment) Attachment {
 	return Attachment{
 		ID: a.ID.String(), Name: a.Name, Size: int(a.Size), ContentType: a.ContentType, URL: attachment.URL(a),
 		Inline: attachment.Inline(a.ContentType), CreatedAt: a.CreatedAt, uploaderID: a.UploaderID,
+		uid: a.ID, issueID: a.IssueID,
 	}
 }
 
