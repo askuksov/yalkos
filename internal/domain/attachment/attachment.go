@@ -322,7 +322,8 @@ func (s *Service) UsedInText(ctx context.Context, issueIDs []uuid.UUID) (map[uui
 }
 
 // Delete removes an attachment (uploader, Owner or Admin); its file goes when
-// nothing else references the same content.
+// nothing else references the same content. A pending upload (no issue yet)
+// is deleted only by its uploader; anyone else gets not found, as in Open.
 func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) error {
 	var sum []byte
 	err := s.inTx(ctx, func(tx *q.Queries) error {
@@ -350,6 +351,9 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) 
 		}
 		if err != nil {
 			return fmt.Errorf("lock attachment: %w", err)
+		}
+		if a.UploaderID != actor.ID && a.IssueID == nil {
+			return errNotFound
 		}
 		if a.UploaderID != actor.ID && !actor.IsAdmin() {
 			return kit.ErrForbidden
@@ -383,7 +387,7 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) 
 	// The attachment is gone once committed; a file left behind is removed
 	// by Cleanup, so the caller sees success.
 	if _, err := s.dropBlob(ctx, sum); err != nil {
-		slog.Default().Warn("attachment: drop file", slog.String("error", err.Error()))
+		slog.Default().Warn("attachment: drop file", slog.String("attachment", id.String()), slog.String("error", err.Error()))
 	}
 	return nil
 }

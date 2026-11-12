@@ -55,6 +55,18 @@ func TestAttachmentsAPI(t *testing.T) {
 	if r := owner.do(`mutation($id: ID!) { deleteAttachment(id: $id) }`, map[string]any{"id": at.ID}); len(r.Errors) > 0 {
 		t.Errorf("owner delete: %s", r.raw)
 	}
+	// A file not linked yet is its uploader's alone.
+	mu, err := s.svc.UsersByIDs(ctx, []uuid.UUID{uuid.MustParse(viewerID(t, member))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := s.deps.Attachments.Upload(ctx, mu[0], "draft.png", strings.NewReader("\x89PNG\r\n\x1a\nyyyy"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := owner.do(`mutation($id: ID!) { deleteAttachment(id: $id) }`, map[string]any{"id": pending.ID}); r.code() != "NOT_FOUND" {
+		t.Errorf("owner delete of a pending upload: %s", r.raw)
+	}
 }
 
 func TestLimitsAPI(t *testing.T) {
