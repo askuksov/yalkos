@@ -1,10 +1,14 @@
 package attachment_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -27,6 +31,31 @@ import (
 )
 
 func ptr[T any](v T) *T { return &v }
+
+var errDeleteFailed = errors.New("test: delete failed")
+
+// flakyStore is a LocalFS whose Delete fails while fail says so.
+type flakyStore struct {
+	*blob.LocalFS
+	mu   sync.Mutex
+	fail func(sum []byte) bool
+}
+
+func (s *flakyStore) failDeletes(f func(sum []byte) bool) {
+	s.mu.Lock()
+	s.fail = f
+	s.mu.Unlock()
+}
+
+func (s *flakyStore) Delete(ctx context.Context, sum []byte) error {
+	s.mu.Lock()
+	fail := s.fail != nil && s.fail(sum)
+	s.mu.Unlock()
+	if fail {
+		return errDeleteFailed
+	}
+	return s.LocalFS.Delete(ctx, sum)
+}
 
 // clock is a settable time source.
 type clock struct {
@@ -51,6 +80,7 @@ type env struct {
 	users       testfx.Users
 	clock       *clock
 	dir         string
+	store       *flakyStore
 	projects    *project.Service
 	issues      *issue.Service
 	comments    *comment.Service
@@ -66,15 +96,16 @@ func newEnv(t *testing.T) env {
 	pool, users, _ := testfx.New(t)
 	c := &clock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
 	dir := t.TempDir()
-	store, err := blob.NewLocalFS(dir)
+	local, err := blob.NewLocalFS(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	store := &flakyStore{LocalFS: local}
 	projects := project.New(pool, c.now)
 	issues := issue.New(pool, projects, c.now)
 	atts := attachment.New(pool, issues, store, &blob.Locks{}, 1<<20, c.now)
 	issues.SetLinker(atts)
-	e := env{pool: pool, users: users, clock: c, dir: dir, projects: projects, issues: issues,
+	e := env{pool: pool, users: users, clock: c, dir: dir, store: store, projects: projects, issues: issues,
 		comments: comment.New(pool, issues, atts, c.now), attachments: atts}
 	if e.ylk, err = projects.Create(ctx, users.Admin, project.CreateInput{Key: "YLK", Name: "Yalkos"}); err != nil {
 		t.Fatal(err)
@@ -275,12 +306,12 @@ func TestCleanup(t *testing.T) {
 	if n := e.blobFiles(t); n != 3 {
 		t.Fatalf("blob files = %d", n)
 	}
-	removed, err := e.attachments.Cleanup(ctx)
+	r, err := e.attachments.Cleanup(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if removed != 1 {
-		t.Errorf("removed = %d, want 1 (the old pending upload)", removed)
+	if r.Pending != 1 || r.Blobs != 1 {
+		t.Errorf("result = %+v, want 1 pending upload and its blob", r)
 	}
 	if _, _, err := e.attachments.Open(ctx, e.users.Member, old.ID); !errors.Is(err, kit.ErrNotFound) {
 		t.Errorf("old pending = %v", err)
@@ -455,5 +486,241 @@ func TestCleanupRemovesLegacyPendingAudit(t *testing.T) {
 	}
 	if got := e.auditRows(t, kept.ID); !slices.Equal(got, []string{"create:null"}) {
 		t.Errorf("audit of an existing upload = %v", got)
+	}
+}
+
+// blobPath is the stored file of content data.
+func (e env) blobPath(data string) string {
+	sum := sha256.Sum256([]byte(data))
+	h := hex.EncodeToString(sum[:])
+	return filepath.Join(e.dir, "blobs", h[:2], h)
+}
+
+// touch creates path (and its directory) unless it exists and sets its
+// modification time to at.
+func touch(t *testing.T, path string, at time.Time) {
+	t.Helper()
+	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chtimes(path, at, at); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// orphanPath is a blob file name under blobs/ab that no row references.
+func (e env) orphanPath(fill string) string {
+	h := "ab" + strings.Repeat(fill, 62)
+	return filepath.Join(e.dir, "blobs", "ab", h)
+}
+
+// keepBlobRow uploads a linked file, so the blobs table is not empty.
+func (e env) keepBlobRow(t *testing.T) string {
+	t.Helper()
+	i := e.issue(t, issue.CreateInput{})
+	e.upload(t, e.users.Member, "keep.bin", "keep", &i.ID)
+	return e.blobPath("keep")
+}
+
+// captureDefaultLog sends slog.Default to a buffer until the test ends.
+func captureDefaultLog(t *testing.T) *syncBuffer {
+	t.Helper()
+	logs := &syncBuffer{}
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	return logs
+}
+
+// syncBuffer collects log output written from another goroutine.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func TestCleanupRemovesFileLeftByFailedBlobDrop(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.keepBlobRow(t)
+	e.upload(t, e.users.Member, "a.bin", "lost", nil)
+	touch(t, e.blobPath("lost"), e.clock.now())
+	e.clock.add(25 * time.Hour)
+	e.store.failDeletes(func([]byte) bool { return true })
+	if _, err := e.attachments.Cleanup(ctx); !errors.Is(err, errDeleteFailed) {
+		t.Fatalf("cleanup with a failing delete = %v", err)
+	}
+	if !exists(e.blobPath("lost")) {
+		t.Fatal("file removed although its delete failed")
+	}
+	e.store.failDeletes(nil)
+	e.clock.add(25 * time.Hour)
+	r, err := e.attachments.Cleanup(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exists(e.blobPath("lost")) || r.Files != 1 {
+		t.Errorf("file left by a failed drop: exists %v, result %+v", exists(e.blobPath("lost")), r)
+	}
+	if !exists(e.blobPath("keep")) {
+		t.Error("referenced file removed")
+	}
+}
+
+func TestDeleteSucceedsWhenFileDeleteFails(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.keepBlobRow(t)
+	i := e.issue(t, issue.CreateInput{})
+	a := e.upload(t, e.users.Member, "a.bin", "linked", &i.ID)
+	touch(t, e.blobPath("linked"), e.clock.now())
+	e.store.failDeletes(func([]byte) bool { return true })
+	if err := e.attachments.Delete(ctx, e.users.Member, a.ID); err != nil {
+		t.Fatalf("delete after commit = %v, want nil", err)
+	}
+	if _, _, err := e.attachments.Open(ctx, e.users.Member, a.ID); !errors.Is(err, kit.ErrNotFound) {
+		t.Errorf("deleted attachment opens: %v", err)
+	}
+	e.store.failDeletes(nil)
+	e.clock.add(25 * time.Hour)
+	if _, err := e.attachments.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if exists(e.blobPath("linked")) {
+		t.Error("file of the deleted attachment kept")
+	}
+}
+
+func TestCleanupSweepsOrphanFiles(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	now := e.clock.now()
+	e.keepBlobRow(t)
+	crashed := filepath.Join(e.dir, "tmp", "upload-crashed")
+	running := filepath.Join(e.dir, "tmp", "upload-running")
+	orphan, fresh := e.orphanPath("c"), e.orphanPath("d")
+	touch(t, crashed, now.Add(-72*time.Hour))
+	touch(t, running, now.Add(-time.Hour))
+	touch(t, orphan, now.Add(-72*time.Hour))
+	touch(t, fresh, now.Add(-time.Hour))
+	touch(t, e.blobPath("keep"), now.Add(-72*time.Hour))
+	r, err := e.attachments.Cleanup(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r != (attachment.CleanupResult{Temp: 1, Files: 1}) {
+		t.Errorf("result = %+v", r)
+	}
+	for path, want := range map[string]bool{crashed: false, orphan: false, running: true, fresh: true, e.blobPath("keep"): true} {
+		if exists(path) != want {
+			t.Errorf("%s exists = %v, want %v", path, !want, want)
+		}
+	}
+}
+
+func TestCleanupContinuesPastErrors(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	e.upload(t, e.users.Member, "a.bin", "first", nil)
+	e.upload(t, e.users.Member, "b.bin", "second", nil)
+	e.clock.add(25 * time.Hour)
+	var failed []byte
+	e.store.failDeletes(func(sum []byte) bool {
+		if failed == nil {
+			failed = sum
+		}
+		return bytes.Equal(sum, failed)
+	})
+	r, err := e.attachments.Cleanup(ctx)
+	if !errors.Is(err, errDeleteFailed) {
+		t.Fatalf("cleanup = %v, want the delete error", err)
+	}
+	left := 0
+	for _, data := range []string{"first", "second"} {
+		if exists(e.blobPath(data)) {
+			left++
+		}
+	}
+	if left != 1 || r.Pending != 2 || r.Blobs != 2 {
+		t.Errorf("files left = %d (want the failed one only), result %+v", left, r)
+	}
+}
+
+func TestCleanupKeepsFilesWhenNoBlobRows(t *testing.T) {
+	e := newEnv(t)
+	logs := captureDefaultLog(t)
+	orphan := e.orphanPath("e")
+	touch(t, orphan, e.clock.now().Add(-72*time.Hour))
+	r, err := e.attachments.Cleanup(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exists(orphan) || r.Files != 0 {
+		t.Errorf("file removed with an empty blobs table: result %+v", r)
+	}
+	if n := strings.Count(logs.String(), `"level":"WARN"`); n != 1 {
+		t.Errorf("warnings = %d, want 1; log %q", n, logs.String())
+	}
+}
+
+func TestRunCleanupRunsAtStart(t *testing.T) {
+	e := newEnv(t)
+	a := e.upload(t, e.users.Member, "old.bin", "old", nil)
+	e.clock.add(25 * time.Hour)
+	logs := &syncBuffer{}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		e.attachments.RunCleanup(ctx, time.Hour, slog.New(slog.NewJSONHandler(logs, nil)))
+		close(done)
+	}()
+	stopped := false
+	defer func() {
+		if !stopped {
+			cancel()
+			<-done
+		}
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var n int
+		if err := e.pool.QueryRow(context.Background(), `SELECT count(*) FROM attachments WHERE id = $1`, a.ID).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 && strings.Contains(logs.String(), `"pending":1`) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("pending upload not removed at start: rows %d, log %q", n, logs.String())
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	cancel()
+	select {
+	case <-done:
+		stopped = true
+	case <-time.After(5 * time.Second):
+		t.Fatal("RunCleanup did not stop after its context ended")
 	}
 }

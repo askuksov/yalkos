@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/askuksov/yalkos/internal/blob"
 )
@@ -113,4 +114,83 @@ func TestLocksSameHash(t *testing.T) {
 	}
 	unlock()
 	<-done
+}
+
+// age sets the modification time of path to at.
+func age(t *testing.T, path string, at time.Time) {
+	t.Helper()
+	if err := os.Chtimes(path, at, at); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLocalFSSweepTemp(t *testing.T) {
+	dir := t.TempDir()
+	s, err := blob.NewLocalFS(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	old := put(t, s, "old")
+	fresh := put(t, s, "fresh")
+	var oldPath string
+	for _, f := range files(t, dir) {
+		p := filepath.Join(dir, f)
+		if b, _ := os.ReadFile(p); string(b) == "old" {
+			oldPath = p
+		}
+	}
+	if oldPath == "" {
+		t.Fatalf("no staged file in %v", files(t, dir))
+	}
+	age(t, oldPath, now.Add(-48*time.Hour))
+	n, err := s.SweepTemp(context.Background(), now.Add(-24*time.Hour))
+	if err != nil || n != 1 {
+		t.Fatalf("SweepTemp = %d, %v; want 1", n, err)
+	}
+	got := files(t, dir)
+	if len(got) != 1 || !strings.HasPrefix(got[0], filepath.Join("tmp", "upload-")) {
+		t.Fatalf("files after sweep = %v, want the fresh upload only", got)
+	}
+	if err := fresh.Commit(); err != nil {
+		t.Errorf("fresh upload commit: %v", err)
+	}
+	old.Discard()
+}
+
+func TestLocalFSStale(t *testing.T) {
+	dir := t.TempDir()
+	s, err := blob.NewLocalFS(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	oldSt, freshSt := put(t, s, "old"), put(t, s, "fresh")
+	for _, st := range []blob.Staged{oldSt, freshSt} {
+		if err := st.Commit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	oldHex := hex.EncodeToString(oldSt.Sum)
+	age(t, filepath.Join(dir, "blobs", oldHex[:2], oldHex), now.Add(-48*time.Hour))
+	// Names that are not a stored hash, or sit under another prefix, are
+	// never reported.
+	wrongDir := "00" + oldHex[2:]
+	if oldHex[:2] == "00" {
+		wrongDir = "11" + oldHex[2:]
+	}
+	for _, name := range []string{"notes.txt", strings.Repeat("z", 64), oldHex[:63], wrongDir} {
+		p := filepath.Join(dir, "blobs", oldHex[:2], name)
+		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		age(t, p, now.Add(-48*time.Hour))
+	}
+	sums, err := s.Stale(context.Background(), now.Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sums) != 1 || !bytes.Equal(sums[0], oldSt.Sum) {
+		t.Errorf("Stale = %x, want [%s]", sums, oldHex)
+	}
 }

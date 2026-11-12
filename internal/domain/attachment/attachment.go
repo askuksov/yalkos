@@ -35,6 +35,9 @@ const (
 	pendingTTL = 24 * time.Hour
 	// Blobs no attachment references are removed once older than this.
 	orphanTTL = time.Hour
+	// Staging files and stored files without a blob row are removed once
+	// older than this, well past the slowest upload.
+	fileTTL = 24 * time.Hour
 )
 
 // Attachment is an uploaded file; IssueID is nil while it is pending.
@@ -363,8 +366,12 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) 
 	if err != nil {
 		return err
 	}
-	_, err = s.dropBlob(ctx, sum)
-	return err
+	// The attachment is gone once committed; a file left behind is removed
+	// by Cleanup, so the caller sees success.
+	if _, err := s.dropBlob(ctx, sum); err != nil {
+		slog.Default().Warn("attachment: drop file", slog.String("error", err.Error()))
+	}
+	return nil
 }
 
 func sameIssue(a, b *uuid.UUID) bool {
@@ -374,7 +381,9 @@ func sameIssue(a, b *uuid.UUID) bool {
 	return *a == *b
 }
 
-// dropBlob deletes the blob row and file when no attachment references them.
+// dropBlob deletes the blob row and then the file when no attachment
+// references them; a file whose delete failed is left to Cleanup's sweep of
+// files without a row.
 func (s *Service) dropBlob(ctx context.Context, sum []byte) (bool, error) {
 	unlock := s.locks.Lock(sum)
 	defer unlock()
@@ -388,26 +397,113 @@ func (s *Service) dropBlob(ctx context.Context, sum []byte) (bool, error) {
 	return true, s.store.Delete(ctx, sum)
 }
 
+// CleanupResult counts what one Cleanup removed.
+type CleanupResult struct {
+	// Pending is the number of pending uploads removed after 24 h.
+	Pending int
+	// Blobs is the number of unreferenced blob rows removed.
+	Blobs int
+	// Temp is the number of staging files of interrupted uploads removed.
+	Temp int
+	// Files is the number of stored files without a blob row removed.
+	Files int
+}
+
 // Cleanup removes pending uploads older than 24 h, events of pending uploads
-// that are gone (written before uploads were recorded on linking) and
-// unreferenced files older than 1 h; it returns the number of removed uploads.
-func (s *Service) Cleanup(ctx context.Context) (int, error) {
+// that are gone (written before uploads were recorded on linking),
+// unreferenced blobs older than 1 h, staging files older than 24 h and stored
+// files older than 24 h without a blob row (left by a failed delete or a
+// crash). It keeps going past errors and returns the counts with all errors
+// joined.
+func (s *Service) Cleanup(ctx context.Context) (CleanupResult, error) {
+	var r CleanupResult
+	var errs []error
 	now := s.now()
 	removed, err := s.q.DeleteOldPendingAttachments(ctx, now.Add(-pendingTTL))
 	if err != nil {
-		return 0, fmt.Errorf("delete pending attachments: %w", err)
+		errs = append(errs, fmt.Errorf("delete pending attachments: %w", err))
 	}
+	r.Pending = len(removed)
 	if _, err := s.q.DeleteOrphanAttachmentAudit(ctx); err != nil {
-		return len(removed), fmt.Errorf("delete orphan attachment events: %w", err)
+		errs = append(errs, fmt.Errorf("delete orphan attachment events: %w", err))
 	}
 	sums, err := s.q.UnreferencedBlobs(ctx, now.Add(-orphanTTL))
 	if err != nil {
-		return len(removed), fmt.Errorf("unreferenced blobs: %w", err)
+		errs = append(errs, fmt.Errorf("unreferenced blobs: %w", err))
 	}
 	for _, sum := range sums {
-		if _, err := s.dropBlob(ctx, sum); err != nil {
-			return len(removed), err
+		if ctx.Err() != nil {
+			return r, errors.Join(append(errs, ctx.Err())...)
+		}
+		dropped, err := s.dropBlob(ctx, sum)
+		if dropped {
+			r.Blobs++
+		}
+		if err != nil {
+			errs = append(errs, err)
 		}
 	}
-	return len(removed), nil
+	if r.Temp, err = s.store.SweepTemp(ctx, now.Add(-fileTTL)); err != nil {
+		errs = append(errs, err)
+	}
+	// The sweep relies on one process per DATA_DIR: the hash lock is in-process.
+	if r.Files, err = s.dropOrphanFiles(ctx, now.Add(-fileTTL)); err != nil {
+		errs = append(errs, err)
+	}
+	return r, errors.Join(errs...)
+}
+
+// dropOrphanFiles removes stored files modified before before that have no
+// blob row and returns how many it removed.
+func (s *Service) dropOrphanFiles(ctx context.Context, before time.Time) (int, error) {
+	var errs []error
+	sums, err := s.store.Stale(ctx, before)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if len(sums) == 0 {
+		return 0, errors.Join(errs...)
+	}
+	// Files but no blob rows at all: most likely an empty or wrong database,
+	// so nothing is removed.
+	hasRows, err := s.q.AnyBlob(ctx)
+	if err != nil {
+		return 0, errors.Join(append(errs, fmt.Errorf("any blob: %w", err))...)
+	}
+	if !hasRows {
+		slog.Default().Warn("attachment: no blob rows, stored files kept", slog.Int("files", len(sums)))
+		return 0, errors.Join(errs...)
+	}
+	n := 0
+	for _, sum := range sums {
+		if ctx.Err() != nil {
+			return n, errors.Join(append(errs, ctx.Err())...)
+		}
+		dropped, err := s.dropFile(ctx, sum)
+		if dropped {
+			n++
+		}
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return n, errors.Join(errs...)
+}
+
+// dropFile removes the stored file of sum unless a blob row exists. The hash
+// lock keeps an upload of the same content from writing its row meanwhile.
+func (s *Service) dropFile(ctx context.Context, sum []byte) (bool, error) {
+	unlock := s.locks.Lock(sum)
+	defer unlock()
+	exists, err := s.q.BlobExists(ctx, sum)
+	if err != nil {
+		return false, fmt.Errorf("blob exists: %w", err)
+	}
+	if exists {
+		return false, nil
+	}
+	if err := s.store.Delete(ctx, sum); err != nil {
+		return false, err
+	}
+	return true, nil
 }
