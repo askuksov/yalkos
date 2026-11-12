@@ -228,6 +228,42 @@ func (q *Queries) ListMilestonesByIDs(ctx context.Context, ids []uuid.UUID) ([]M
 	return items, nil
 }
 
+const listMilestonesByProjects = `-- name: ListMilestonesByProjects :many
+SELECT id, project_id, name, description, target_date, lead_id, sort_order, status_manual, created_by, created_at, updated_at FROM milestones WHERE project_id = ANY($1::uuid[]) ORDER BY project_id, sort_order, id
+`
+
+func (q *Queries) ListMilestonesByProjects(ctx context.Context, projectIds []uuid.UUID) ([]Milestone, error) {
+	rows, err := q.db.Query(ctx, listMilestonesByProjects, projectIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Milestone
+	for rows.Next() {
+		var i Milestone
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.TargetDate,
+			&i.LeadID,
+			&i.SortOrder,
+			&i.StatusManual,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjectMilestones = `-- name: ListProjectMilestones :many
 SELECT id, project_id, name, description, target_date, lead_id, sort_order, status_manual, created_by, created_at, updated_at FROM milestones WHERE project_id = $1 ORDER BY sort_order, id
 `

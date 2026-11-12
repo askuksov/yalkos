@@ -193,8 +193,11 @@ func (r *mutationResolver) DeleteMilestone(ctx context.Context, id string) (bool
 
 // Milestones is the resolver for the milestones field.
 func (r *projectResolver) Milestones(ctx context.Context, obj *Project, includeDone *bool) ([]Milestone, error) {
-	all := includeDone == nil || *includeDone
-	list, err := r.Resolver.Milestones.List(ctx, obj.uid, all)
+	l := loadersFrom(ctx).projectOpenMilestones
+	if includeDone == nil || *includeDone {
+		l = loadersFrom(ctx).projectMilestones
+	}
+	list, err := l.Load(ctx, obj.uid)
 	if err != nil {
 		return nil, err
 	}
