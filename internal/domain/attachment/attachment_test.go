@@ -374,6 +374,32 @@ func TestDeleteAttachmentPermissions(t *testing.T) {
 	}
 }
 
+// A file not linked yet is the uploader's alone: anyone else, Owner and Admin
+// included, gets not found, as for a missing id.
+func TestDeletePendingUploadOnlyByUploader(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	pending := e.upload(t, e.users.Member, "p.bin", "pending", nil)
+	other := testfx.AddUser(t, e.pool, e.users.Owner, "member")
+	for name, actor := range map[string]account.User{"member": other, "admin": e.users.Admin, "owner": e.users.Owner} {
+		if err := e.attachments.Delete(ctx, actor, pending.ID); !errors.Is(err, kit.ErrNotFound) {
+			t.Errorf("%s deletes another's pending upload = %v, want not found", name, err)
+		}
+	}
+	var n int
+	if err := e.pool.QueryRow(ctx, `SELECT count(*) FROM attachments WHERE id = $1`, pending.ID).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("pending upload rows = %d, %v; want it kept", n, err)
+	}
+	if err := e.attachments.Delete(ctx, e.users.Member, pending.ID); err != nil {
+		t.Errorf("uploader deletes own pending upload = %v", err)
+	}
+	i := e.issue(t, issue.CreateInput{})
+	linked := e.upload(t, e.users.Member, "l.bin", "linked", &i.ID)
+	if err := e.attachments.Delete(ctx, e.users.Admin, linked.ID); err != nil {
+		t.Errorf("admin deletes another's linked attachment = %v", err)
+	}
+}
+
 func TestDeleteProjectRemovesAttachmentAudit(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

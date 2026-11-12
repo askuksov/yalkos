@@ -20,8 +20,9 @@ import (
 
 // Label structure changes and issue label writes run against each other
 // through the real services. The only expected refusals are not_allowed
-// conflicts of a structure change, named per call; a deadlock (40P01), a lock
-// timeout or any other error fails.
+// conflicts of a structure change: each call lists the input fields whose
+// refusal it accepts. A deadlock (40P01), a lock timeout or any other error
+// fails.
 //
 // The test wires its own services so that it does not depend on other test
 // files of this package.
