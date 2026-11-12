@@ -137,6 +137,7 @@ type HistoryEntry struct {
 	ID        string
 	Action    string
 	Changes   []FieldChange
+	Names     []HistoryName
 	CreatedAt time.Time
 
 	actorID *uuid.UUID
@@ -195,7 +196,11 @@ func historyEntryOut(e audit.Entry) *HistoryEntry {
 	for _, c := range e.Changes {
 		changes = append(changes, FieldChange{Field: c.Field, From: jsonText(c.From), To: jsonText(c.To)})
 	}
-	return &HistoryEntry{ID: e.ID.String(), Action: e.Action, Changes: changes, CreatedAt: e.At, actorID: e.ActorID}
+	names := make([]HistoryName, 0, len(e.Names))
+	for _, n := range e.Names {
+		names = append(names, HistoryName{ID: n.ID.String(), Name: n.Name, Type: n.Type})
+	}
+	return &HistoryEntry{ID: e.ID.String(), Action: e.Action, Changes: changes, Names: names, CreatedAt: e.At, actorID: e.ActorID}
 }
 
 func historyOut(res page.Result[audit.Entry]) *HistoryConnection {

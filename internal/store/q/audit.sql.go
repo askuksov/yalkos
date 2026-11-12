@@ -12,6 +12,69 @@ import (
 	"github.com/google/uuid"
 )
 
+const auditLabelNames = `-- name: AuditLabelNames :many
+SELECT l.id, l.name, coalesce(l.parent_id = w.type_group_id, false)::boolean AS is_type
+FROM labels l JOIN workspaces w ON w.id = l.workspace_id
+WHERE l.id = ANY($1::uuid[])
+`
+
+type AuditLabelNamesRow struct {
+	ID     uuid.UUID
+	Name   string
+	IsType bool
+}
+
+// Plain reads (no row locks): is_type is whether the label's group is the
+// workspace's type group.
+func (q *Queries) AuditLabelNames(ctx context.Context, ids []uuid.UUID) ([]AuditLabelNamesRow, error) {
+	rows, err := q.db.Query(ctx, auditLabelNames, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditLabelNamesRow
+	for rows.Next() {
+		var i AuditLabelNamesRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.IsType); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const auditMilestoneNames = `-- name: AuditMilestoneNames :many
+SELECT id, name FROM milestones WHERE id = ANY($1::uuid[])
+`
+
+type AuditMilestoneNamesRow struct {
+	ID   uuid.UUID
+	Name string
+}
+
+func (q *Queries) AuditMilestoneNames(ctx context.Context, ids []uuid.UUID) ([]AuditMilestoneNamesRow, error) {
+	rows, err := q.db.Query(ctx, auditMilestoneNames, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditMilestoneNamesRow
+	for rows.Next() {
+		var i AuditMilestoneNamesRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteProjectAudit = `-- name: DeleteProjectAudit :exec
 DELETE FROM audit_events
 WHERE entity_id IN (SELECT i.id FROM issues i WHERE i.project_id = $1::uuid)
@@ -36,8 +99,8 @@ func (q *Queries) DeleteProjectAudit(ctx context.Context, projectID uuid.UUID) e
 }
 
 const insertAuditEvent = `-- name: InsertAuditEvent :exec
-INSERT INTO audit_events (entity_type, entity_id, project_id, actor_id, action, changes, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO audit_events (entity_type, entity_id, project_id, actor_id, action, changes, names, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
 `
 
 type InsertAuditEventParams struct {
@@ -47,6 +110,7 @@ type InsertAuditEventParams struct {
 	ActorID    *uuid.UUID
 	Action     string
 	Changes    []byte
+	Names      []byte
 	CreatedAt  time.Time
 }
 
@@ -58,13 +122,14 @@ func (q *Queries) InsertAuditEvent(ctx context.Context, arg InsertAuditEventPara
 		arg.ActorID,
 		arg.Action,
 		arg.Changes,
+		arg.Names,
 		arg.CreatedAt,
 	)
 	return err
 }
 
 const listAuditEventsBackward = `-- name: ListAuditEventsBackward :many
-SELECT id, entity_type, entity_id, project_id, actor_id, action, changes, created_at FROM audit_events
+SELECT id, entity_type, entity_id, project_id, actor_id, action, changes, created_at, names FROM audit_events
 WHERE entity_id = $1
   AND ($2::timestamptz IS NULL OR (created_at, id) < ($2::timestamptz, $3::uuid))
 ORDER BY created_at DESC, id DESC
@@ -101,6 +166,7 @@ func (q *Queries) ListAuditEventsBackward(ctx context.Context, arg ListAuditEven
 			&i.Action,
 			&i.Changes,
 			&i.CreatedAt,
+			&i.Names,
 		); err != nil {
 			return nil, err
 		}
@@ -113,7 +179,7 @@ func (q *Queries) ListAuditEventsBackward(ctx context.Context, arg ListAuditEven
 }
 
 const listAuditEventsByIDs = `-- name: ListAuditEventsByIDs :many
-SELECT id, entity_type, entity_id, project_id, actor_id, action, changes, created_at FROM audit_events WHERE id = ANY($1::uuid[])
+SELECT id, entity_type, entity_id, project_id, actor_id, action, changes, created_at, names FROM audit_events WHERE id = ANY($1::uuid[])
 `
 
 func (q *Queries) ListAuditEventsByIDs(ctx context.Context, ids []uuid.UUID) ([]AuditEvent, error) {
@@ -134,6 +200,7 @@ func (q *Queries) ListAuditEventsByIDs(ctx context.Context, ids []uuid.UUID) ([]
 			&i.Action,
 			&i.Changes,
 			&i.CreatedAt,
+			&i.Names,
 		); err != nil {
 			return nil, err
 		}
@@ -146,7 +213,7 @@ func (q *Queries) ListAuditEventsByIDs(ctx context.Context, ids []uuid.UUID) ([]
 }
 
 const listAuditEventsForward = `-- name: ListAuditEventsForward :many
-SELECT id, entity_type, entity_id, project_id, actor_id, action, changes, created_at FROM audit_events
+SELECT id, entity_type, entity_id, project_id, actor_id, action, changes, created_at, names FROM audit_events
 WHERE entity_id = $1
   AND ($2::timestamptz IS NULL OR (created_at, id) > ($2::timestamptz, $3::uuid))
 ORDER BY created_at, id
@@ -184,6 +251,7 @@ func (q *Queries) ListAuditEventsForward(ctx context.Context, arg ListAuditEvent
 			&i.Action,
 			&i.Changes,
 			&i.CreatedAt,
+			&i.Names,
 		); err != nil {
 			return nil, err
 		}

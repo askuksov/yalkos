@@ -1,6 +1,16 @@
 -- name: InsertAuditEvent :exec
-INSERT INTO audit_events (entity_type, entity_id, project_id, actor_id, action, changes, created_at)
-VALUES (@entity_type, @entity_id, @project_id, @actor_id, @action, @changes, @created_at);
+INSERT INTO audit_events (entity_type, entity_id, project_id, actor_id, action, changes, names, created_at)
+VALUES (@entity_type, @entity_id, @project_id, @actor_id, @action, @changes, sqlc.narg(names)::jsonb, @created_at);
+
+-- name: AuditLabelNames :many
+-- Plain reads (no row locks): is_type is whether the label's group is the
+-- workspace's type group.
+SELECT l.id, l.name, coalesce(l.parent_id = w.type_group_id, false)::boolean AS is_type
+FROM labels l JOIN workspaces w ON w.id = l.workspace_id
+WHERE l.id = ANY(@ids::uuid[]);
+
+-- name: AuditMilestoneNames :many
+SELECT id, name FROM milestones WHERE id = ANY(@ids::uuid[]);
 
 -- name: ListAuditEventsForward :many
 -- Oldest first; after_at/after_id is the keyset cursor (both NULL on the first page).

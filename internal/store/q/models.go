@@ -39,6 +39,7 @@ type AuditEvent struct {
 	Action     string
 	Changes    []byte
 	CreatedAt  time.Time
+	Names      []byte
 }
 
 type Blob struct {

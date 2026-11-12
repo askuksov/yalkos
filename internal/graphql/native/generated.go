@@ -121,6 +121,13 @@ type ComplexityRoot struct {
 		Changes   func(childComplexity int) int
 		CreatedAt func(childComplexity int) int
 		ID        func(childComplexity int) int
+		Names     func(childComplexity int) int
+	}
+
+	HistoryName struct {
+		ID   func(childComplexity int) int
+		Name func(childComplexity int) int
+		Type func(childComplexity int) int
 	}
 
 	Invite struct {
@@ -802,6 +809,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.HistoryEntry.ID(childComplexity), true
+	case "HistoryEntry.names":
+		if e.ComplexityRoot.HistoryEntry.Names == nil {
+			break
+		}
+
+		return e.ComplexityRoot.HistoryEntry.Names(childComplexity), true
+
+	case "HistoryName.id":
+		if e.ComplexityRoot.HistoryName.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.HistoryName.ID(childComplexity), true
+	case "HistoryName.name":
+		if e.ComplexityRoot.HistoryName.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.HistoryName.Name(childComplexity), true
+	case "HistoryName.type":
+		if e.ComplexityRoot.HistoryName.Type == nil {
+			break
+		}
+
+		return e.ComplexityRoot.HistoryName.Type(childComplexity), true
 
 	case "Invite.createdAt":
 		if e.ComplexityRoot.Invite.CreatedAt == nil {
@@ -2505,7 +2537,16 @@ type HistoryEntry {
   action: String!
   actor: User
   changes: [FieldChange!]!
+  "Names of the labels and milestones in changes as they were when the change was made; empty for older entries."
+  names: [HistoryName!]!
   createdAt: Time!
+}
+
+"A label or milestone named by a history entry; type is true for a label of the type group."
+type HistoryName {
+  id: ID!
+  name: String!
+  type: Boolean!
 }
 
 type HistoryEdge {
@@ -3235,10 +3276,24 @@ func (ec *executionContext) childFields_HistoryEntry(ctx context.Context, field 
 		return ec.fieldContext_HistoryEntry_actor(ctx, field)
 	case "changes":
 		return ec.fieldContext_HistoryEntry_changes(ctx, field)
+	case "names":
+		return ec.fieldContext_HistoryEntry_names(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_HistoryEntry_createdAt(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type HistoryEntry", field.Name)
+}
+
+func (ec *executionContext) childFields_HistoryName(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_HistoryName_id(ctx, field)
+	case "name":
+		return ec.fieldContext_HistoryName_name(ctx, field)
+	case "type":
+		return ec.fieldContext_HistoryName_type(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type HistoryName", field.Name)
 }
 
 func (ec *executionContext) childFields_Invite(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -6106,6 +6161,38 @@ func (ec *executionContext) fieldContext_HistoryEntry_changes(_ context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _HistoryEntry_names(ctx context.Context, field graphql.CollectedField, obj *HistoryEntry) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_HistoryEntry_names(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Names, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []HistoryName) graphql.Marshaler {
+			return ec.marshalNHistoryName2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐHistoryNameᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_HistoryEntry_names(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "HistoryEntry",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_HistoryName(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _HistoryEntry_createdAt(ctx context.Context, field graphql.CollectedField, obj *HistoryEntry) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6127,6 +6214,75 @@ func (ec *executionContext) _HistoryEntry_createdAt(ctx context.Context, field g
 }
 func (ec *executionContext) fieldContext_HistoryEntry_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("HistoryEntry", field, false, false, "Time")
+}
+
+func (ec *executionContext) _HistoryName_id(ctx context.Context, field graphql.CollectedField, obj *HistoryName) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_HistoryName_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_HistoryName_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("HistoryName", field, false, false, "ID")
+}
+
+func (ec *executionContext) _HistoryName_name(ctx context.Context, field graphql.CollectedField, obj *HistoryName) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_HistoryName_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_HistoryName_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("HistoryName", field, false, false, "String")
+}
+
+func (ec *executionContext) _HistoryName_type(ctx context.Context, field graphql.CollectedField, obj *HistoryName) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_HistoryName_type(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_HistoryName_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("HistoryName", field, false, false, "Boolean")
 }
 
 func (ec *executionContext) _Invite_id(ctx context.Context, field graphql.CollectedField, obj *Invite) (ret graphql.Marshaler) {
@@ -15429,10 +15585,58 @@ func (ec *executionContext) _HistoryEntry(ctx context.Context, sel ast.Selection
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "names":
+			out.Values[i] = ec._HistoryEntry_names(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "createdAt":
 			out.Values[i] = ec._HistoryEntry_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var historyNameImplementors = []string{"HistoryName"}
+
+func (ec *executionContext) _HistoryName(ctx context.Context, sel ast.SelectionSet, obj *HistoryName) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, historyNameImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("HistoryName")
+		case "id":
+			out.Values[i] = ec._HistoryName_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._HistoryName_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "type":
+			out.Values[i] = ec._HistoryName_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -17797,6 +18001,26 @@ func (ec *executionContext) marshalNHistoryEntry2ᚖgithubᚗcomᚋaskuksovᚋya
 		return graphql.Null
 	}
 	return ec._HistoryEntry(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNHistoryName2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐHistoryName(ctx context.Context, sel ast.SelectionSet, v HistoryName) graphql.Marshaler {
+	return ec._HistoryName(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNHistoryName2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐHistoryNameᚄ(ctx context.Context, sel ast.SelectionSet, v []HistoryName) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNHistoryName2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋnativeᚐHistoryName(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (string, error) {
