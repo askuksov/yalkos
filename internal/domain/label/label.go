@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -307,18 +308,23 @@ func (s *Service) SetDefaultType(ctx context.Context, actor account.User, labelI
 	}
 	return s.inTx(ctx, func(tx *q.Queries) error {
 		if labelID != nil {
+			// Share-lock the label (and its group, as issue writes do) before
+			// reading its group: a move out of Type in progress is waited for
+			// and its result checked; a plain read would see the old group.
+			// Labels before the workspace row, the order label delete uses.
+			rows, err := tx.LockLabelsForShare(ctx, []uuid.UUID{*labelID})
+			if err != nil {
+				return fmt.Errorf("lock label: %w", err)
+			}
+			i := slices.IndexFunc(rows, func(r q.Label) bool { return r.ID == *labelID })
+			if i < 0 {
+				return kit.Input("labelId", kit.ReasonNotFound, "no such label")
+			}
 			st, err := settings(ctx, tx)
 			if err != nil {
 				return err
 			}
-			l, err := tx.GetLabel(ctx, *labelID)
-			if errors.Is(err, pgx.ErrNoRows) {
-				return kit.Input("labelId", kit.ReasonNotFound, "no such label")
-			}
-			if err != nil {
-				return fmt.Errorf("get label: %w", err)
-			}
-			if l.ParentID == nil || *l.ParentID != *st.TypeGroupID {
+			if l := rows[i]; l.ParentID == nil || *l.ParentID != *st.TypeGroupID {
 				return kit.Input("labelId", kit.ReasonNotAllowed, "the default must be a type")
 			}
 		}

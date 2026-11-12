@@ -122,6 +122,36 @@ func TestCreateGetsDefaultType(t *testing.T) {
 	}
 }
 
+// A default that is no longer a type (older data) is not added and never
+// replaces a label the user chose.
+func TestCreateSkipsDefaultOutsideTypeGroup(t *testing.T) {
+	e := newLabelEnv(t)
+	ctx := context.Background()
+	prio, err := e.labels.Create(ctx, e.users.Admin, label.CreateInput{Name: "Prio", Color: "#000000", IsGroup: true, Exclusive: ptr(true)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	high, err := e.labels.Create(ctx, e.users.Admin, label.CreateInput{Name: "High", Color: "#000000", ParentID: &prio.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	low, err := e.labels.Create(ctx, e.users.Admin, label.CreateInput{Name: "Low", Color: "#000000", ParentID: &prio.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.pool.Exec(ctx, `UPDATE workspaces SET default_type_label_id = $1`, low.ID); err != nil {
+		t.Fatal(err)
+	}
+	i := e.createWith(t, issue.CreateInput{LabelIDs: []uuid.UUID{high.ID}})
+	if !slices.Equal(i.LabelIDs, []uuid.UUID{high.ID}) || !slices.Equal(e.labelsOf(t, i.ID), []uuid.UUID{high.ID}) {
+		t.Errorf("labels = %v / %v, want [High]", i.LabelIDs, e.labelsOf(t, i.ID))
+	}
+	bare := e.createWith(t, issue.CreateInput{})
+	if len(bare.LabelIDs) != 0 {
+		t.Errorf("without labels = %v, want none", bare.LabelIDs)
+	}
+}
+
 func TestSubIssueGetsDefaultNotParentType(t *testing.T) {
 	e := newLabelEnv(t)
 	parent := e.createWith(t, issue.CreateInput{LabelIDs: []uuid.UUID{e.bug}})

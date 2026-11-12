@@ -104,6 +104,11 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 			if cur.IsGroup {
 				return kit.Input("parentId", kit.ReasonNotAllowed, "groups cannot be nested")
 			}
+			// The label lock is held, and SetDefaultType locks the label before
+			// it checks the group, so the default read here is current.
+			if st.DefaultTypeLabelID != nil && *st.DefaultTypeLabelID == id && !sameID(p.ParentID.Value, st.TypeGroupID) {
+				return kit.Input("parentId", kit.ReasonNotAllowed, "the default type must stay in the Type group")
+			}
 			if p.ParentID.Value != nil {
 				if *p.ParentID.Value == id {
 					return kit.Input("parentId", kit.ReasonNotAllowed, "a label cannot contain itself")
