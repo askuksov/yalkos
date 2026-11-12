@@ -70,7 +70,7 @@ func TestDefaultTypeStaysInTypeGroup(t *testing.T) {
 		wantDefault(t, e, task.ID)
 	}
 
-	// Moving the default within Type or renaming it is fine.
+	// Renaming the default with a parentId that repeats its group is fine.
 	if _, err := e.labels.Update(ctx, e.users.Admin, task.ID, label.Patch{
 		Name: ptr("Chore"), ParentID: kit.Opt[uuid.UUID]{Set: true, Value: &e.types.GroupID},
 	}); err != nil {
