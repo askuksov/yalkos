@@ -12,6 +12,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const anyBlob = `-- name: AnyBlob :one
+SELECT EXISTS (SELECT 1 FROM blobs)
+`
+
+func (q *Queries) AnyBlob(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, anyBlob)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const blobExists = `-- name: BlobExists :one
 SELECT EXISTS (SELECT 1 FROM blobs WHERE sha256 = $1)
 `
@@ -110,7 +121,8 @@ WHERE e.entity_type = 'attachment' AND e.project_id IS NULL
 `
 
 // Events without a project of attachments that are gone: written for pending
-// uploads by earlier versions, nothing else reaches them.
+// uploads by earlier versions; a project delete misses those of uploads that
+// were never linked.
 func (q *Queries) DeleteOrphanAttachmentAudit(ctx context.Context) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteOrphanAttachmentAudit)
 	if err != nil {

@@ -5,6 +5,9 @@ ON CONFLICT (sha256) DO NOTHING;
 -- name: BlobExists :one
 SELECT EXISTS (SELECT 1 FROM blobs WHERE sha256 = $1);
 
+-- name: AnyBlob :one
+SELECT EXISTS (SELECT 1 FROM blobs);
+
 -- name: CreateAttachment :one
 INSERT INTO attachments (issue_id, uploader_id, blob_sha256, name, created_at)
 VALUES (@issue_id, @uploader_id, @blob_sha256, @name, @now)
@@ -47,7 +50,8 @@ DELETE FROM blobs b WHERE b.sha256 = @sha256
 
 -- name: DeleteOrphanAttachmentAudit :execrows
 -- Events without a project of attachments that are gone: written for pending
--- uploads by earlier versions, nothing else reaches them.
+-- uploads by earlier versions; a project delete misses those of uploads that
+-- were never linked.
 DELETE FROM audit_events e
 WHERE e.entity_type = 'attachment' AND e.project_id IS NULL
   AND NOT EXISTS (SELECT 1 FROM attachments a WHERE a.id = e.entity_id);

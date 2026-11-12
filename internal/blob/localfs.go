@@ -10,6 +10,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 // LocalFS keeps blobs under dir/blobs/<hex[0:2]>/<hex>; uploads are written
@@ -97,6 +99,83 @@ func (s *LocalFS) Delete(_ context.Context, sum []byte) error {
 		return fmt.Errorf("blob: delete: %w", err)
 	}
 	return nil
+}
+
+// SweepTemp removes dir/tmp/upload-* files last modified before before; it
+// keeps going past a file it cannot remove.
+func (s *LocalFS) SweepTemp(_ context.Context, before time.Time) (int, error) {
+	entries, err := os.ReadDir(filepath.Join(s.dir, "tmp"))
+	if err != nil {
+		return 0, fmt.Errorf("blob: read tmp: %w", err)
+	}
+	n := 0
+	var errs []error
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), "upload-") {
+			continue
+		}
+		info, err := e.Info()
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			errs = append(errs, fmt.Errorf("blob: stat temp file: %w", err))
+			continue
+		}
+		if !info.ModTime().Before(before) {
+			continue
+		}
+		if err := os.Remove(filepath.Join(s.dir, "tmp", e.Name())); err != nil {
+			if !errors.Is(err, fs.ErrNotExist) {
+				errs = append(errs, fmt.Errorf("blob: remove temp file: %w", err))
+			}
+			continue
+		}
+		n++
+	}
+	return n, errors.Join(errs...)
+}
+
+// Stale returns the sums of blobs under dir/blobs last modified before
+// before. Files whose name is not a lowercase hex SHA-256 under its own
+// prefix directory are not blobs and are skipped.
+func (s *LocalFS) Stale(_ context.Context, before time.Time) ([][]byte, error) {
+	root := filepath.Join(s.dir, "blobs")
+	dirs, err := os.ReadDir(root)
+	if err != nil {
+		return nil, fmt.Errorf("blob: read blobs: %w", err)
+	}
+	var out [][]byte
+	var errs []error
+	for _, d := range dirs {
+		if !d.IsDir() {
+			continue
+		}
+		entries, err := os.ReadDir(filepath.Join(root, d.Name()))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("blob: read blobs dir: %w", err))
+			continue
+		}
+		for _, e := range entries {
+			name := e.Name()
+			sum, err := hex.DecodeString(name)
+			if err != nil || len(sum) != sha256.Size || hex.EncodeToString(sum) != name || name[:2] != d.Name() || !e.Type().IsRegular() {
+				continue
+			}
+			info, err := e.Info()
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("blob: stat blob: %w", err))
+				continue
+			}
+			if info.ModTime().Before(before) {
+				out = append(out, sum)
+			}
+		}
+	}
+	return out, errors.Join(errs...)
 }
 
 // headWriter keeps the first max bytes written to it.

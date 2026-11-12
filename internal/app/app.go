@@ -98,7 +98,8 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	}
 	attachments := attachment.New(pool, issues, files, &blob.Locks{}, int64(maxUploadMB)<<20, time.Now)
 	issues.SetLinker(attachments)
-	// Pending uploads and unreferenced files are removed hourly until shutdown.
+	// At start and then hourly until shutdown, expired pending uploads,
+	// unreferenced blobs and leftover files are removed.
 	go attachments.RunCleanup(ctx, time.Hour, logger)
 
 	milestones := milestone.New(pool, projects, time.Now)

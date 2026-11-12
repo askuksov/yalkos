@@ -8,6 +8,7 @@ import (
 	"hash/fnv"
 	"io"
 	"sync"
+	"time"
 )
 
 // ErrTooLarge is returned by Put when the content exceeds the limit.
@@ -31,6 +32,11 @@ type Store interface {
 	Open(ctx context.Context, sum []byte) (io.ReadSeekCloser, error)
 	// Delete removes the content; a missing one is not an error.
 	Delete(ctx context.Context, sum []byte) error
+	// SweepTemp removes staging files last modified before before (left by
+	// a crash between Put and Commit) and returns how many it removed.
+	SweepTemp(ctx context.Context, before time.Time) (int, error)
+	// Stale returns the sums of stored contents last modified before before.
+	Stale(ctx context.Context, before time.Time) ([][]byte, error)
 }
 
 // Locks serializes work on one hash (upload vs cleanup) inside this process.
