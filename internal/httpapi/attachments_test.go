@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/internal/authn"
@@ -30,11 +31,14 @@ import (
 const testBase = "http://yalkos.test"
 
 type fileEnv struct {
-	h      http.Handler
-	pool   *pgxpool.Pool
-	dir    string
-	cookie string
-	issue  issue.Issue
+	h        http.Handler
+	pool     *pgxpool.Pool
+	dir      string
+	cookie   string
+	issue    issue.Issue
+	users    testfx.Users
+	accounts *account.Service
+	issues   *issue.Service
 }
 
 func newFileEnv(t *testing.T, maxBytes int64) fileEnv {
@@ -51,6 +55,7 @@ func newFileEnv(t *testing.T, maxBytes int64) fileEnv {
 		t.Fatal(err)
 	}
 	atts := attachment.New(pool, issues, store, &blob.Locks{}, maxBytes, time.Now)
+	issues.SetLinker(atts)
 	base, _ := url.Parse(testBase)
 	h := newTestRouter(t, func(d *Deps) {
 		d.Attachments = atts
@@ -68,7 +73,10 @@ func newFileEnv(t *testing.T, maxBytes int64) fileEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fileEnv{h: h, pool: pool, dir: dir, cookie: authn.CookieName + "=" + token, issue: i}
+	return fileEnv{
+		h: h, pool: pool, dir: dir, cookie: authn.CookieName + "=" + token, issue: i,
+		users: users, accounts: accounts, issues: issues,
+	}
 }
 
 // uploadReq builds a multipart upload; issueID "" leaves the field out.
@@ -234,6 +242,69 @@ func TestDownloadRequiresAuth(t *testing.T) {
 	r.Header.Set("Cookie", authn.CookieName+"=bogus")
 	if rec := e.send(r, false); rec.Code != http.StatusUnauthorized {
 		t.Errorf("bad session = %d", rec.Code)
+	}
+}
+
+// sessionOf signs u in and returns its session cookie.
+func (e fileEnv) sessionOf(t *testing.T, u account.User, password string) string {
+	t.Helper()
+	_, token, err := e.accounts.Login(context.Background(), u.Email, password, "203.0.113.9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return authn.CookieName + "=" + token
+}
+
+// sendAs sends r with the given header (Cookie or Authorization) only.
+func (e fileEnv) sendAs(r *http.Request, header, value string) *httptest.ResponseRecorder {
+	r.Header.Set(header, value)
+	return e.send(r, false)
+}
+
+func TestPendingDownloadOnlyByUploader(t *testing.T) {
+	e := newFileEnv(t, 1<<20)
+	ctx := context.Background()
+	uploader := e.sessionOf(t, e.users.Member, "user-password")
+	other := testfx.AddUser(t, e.pool, e.users.Owner, account.RoleMember)
+	otherSession := e.sessionOf(t, other, "user-password")
+	_, otherKey, err := e.accounts.CreateAPIKey(ctx, other, "script")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminSession := e.sessionOf(t, e.users.Admin, "user-password")
+
+	rec := e.sendAs(uploadReq(t, "shot.png", pngData, ""), "Cookie", uploader)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("upload = %d %s", rec.Code, rec.Body)
+	}
+	var u uploaded
+	if err := json.Unmarshal(rec.Body.Bytes(), &u); err != nil {
+		t.Fatal(err)
+	}
+	get := func() *http.Request { return httptest.NewRequest(http.MethodGet, u.URL, nil) }
+
+	if rec := e.sendAs(get(), "Cookie", uploader); rec.Code != http.StatusOK || !bytes.Equal(rec.Body.Bytes(), pngData) {
+		t.Fatalf("uploader = %d", rec.Code)
+	}
+	for _, c := range []struct{ who, header, value string }{
+		{"other member session", "Cookie", otherSession},
+		{"other member API key", "Authorization", otherKey},
+		{"owner session", "Cookie", e.cookie},
+		{"admin session", "Cookie", adminSession},
+	} {
+		if rec := e.sendAs(get(), c.header, c.value); rec.Code != http.StatusNotFound {
+			t.Errorf("%s on a pending upload = %d, want 404", c.who, rec.Code)
+		}
+	}
+
+	pid := e.issue.ProjectID
+	if _, err := e.issues.Create(ctx, e.users.Member, issue.CreateInput{
+		ProjectID: &pid, Title: "with file", AttachmentIDs: []uuid.UUID{uuid.MustParse(u.ID)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if rec := e.sendAs(get(), "Cookie", otherSession); rec.Code != http.StatusOK || !bytes.Equal(rec.Body.Bytes(), pngData) {
+		t.Errorf("other member on a linked file = %d, want 200", rec.Code)
 	}
 }
 
