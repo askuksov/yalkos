@@ -459,15 +459,45 @@ func (s *Service) List(ctx context.Context, projectID uuid.UUID, includeDone boo
 	if includeDone {
 		return out, nil
 	}
-	ids := make([]uuid.UUID, len(out))
-	for i, m := range out {
+	return s.openOnly(ctx, out)
+}
+
+// ByProjects returns List of each project, keyed by project id, in one
+// query plus one progress query without includeDone; a project without
+// milestones has no key.
+func (s *Service) ByProjects(ctx context.Context, projectIDs []uuid.UUID, includeDone bool) (map[uuid.UUID][]Milestone, error) {
+	rows, err := s.q.ListMilestonesByProjects(ctx, projectIDs)
+	if err != nil {
+		return nil, fmt.Errorf("milestones by projects: %w", err)
+	}
+	list := make([]Milestone, 0, len(rows))
+	for _, r := range rows {
+		list = append(list, toMilestone(r))
+	}
+	if !includeDone {
+		if list, err = s.openOnly(ctx, list); err != nil {
+			return nil, err
+		}
+	}
+	out := make(map[uuid.UUID][]Milestone, len(projectIDs))
+	for _, m := range list {
+		out[m.ProjectID] = append(out[m.ProjectID], m)
+	}
+	return out, nil
+}
+
+// openOnly drops the milestones whose status is done or canceled, keeping
+// the order; it reads the progress of all of them in one query.
+func (s *Service) openOnly(ctx context.Context, list []Milestone) ([]Milestone, error) {
+	ids := make([]uuid.UUID, len(list))
+	for i, m := range list {
 		ids[i] = m.ID
 	}
 	prog, err := s.Progress(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	return slices.DeleteFunc(out, func(m Milestone) bool {
+	return slices.DeleteFunc(list, func(m Milestone) bool {
 		st := m.Status(prog[m.ID])
 		return st == Done || st == Canceled
 	}), nil

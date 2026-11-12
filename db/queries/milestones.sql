@@ -17,6 +17,9 @@ SELECT * FROM milestones WHERE id = ANY(@ids::uuid[]);
 -- name: ListProjectMilestones :many
 SELECT * FROM milestones WHERE project_id = $1 ORDER BY sort_order, id;
 
+-- name: ListMilestonesByProjects :many
+SELECT * FROM milestones WHERE project_id = ANY(@project_ids::uuid[]) ORDER BY project_id, sort_order, id;
+
 -- name: ListAllMilestones :many
 SELECT m.* FROM milestones m JOIN projects p ON p.id = m.project_id
 WHERE @include_archived::boolean OR p.archived_at IS NULL

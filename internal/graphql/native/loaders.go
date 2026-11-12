@@ -32,6 +32,9 @@ type loaders struct {
 	subIssueProgress *dataloadgen.Loader[uuid.UUID, issue.Progress]
 
 	milestones *dataloadgen.Loader[uuid.UUID, milestone.Milestone]
+	// By project id: its milestones in manual order, all or open only.
+	projectMilestones     *dataloadgen.Loader[uuid.UUID, []milestone.Milestone]
+	projectOpenMilestones *dataloadgen.Loader[uuid.UUID, []milestone.Milestone]
 	// By milestone id: counts of its live issues.
 	milestoneProgress *dataloadgen.Loader[uuid.UUID, milestone.Progress]
 	// By issue id: its sorted label ids.
@@ -81,6 +84,12 @@ func newLoaders(d Deps) *loaders {
 		milestones: dataloadgen.NewLoader(byID("Milestone", func(ctx context.Context, ids []uuid.UUID) ([]milestone.Milestone, error) {
 			return d.Milestones.ByIDs(ctx, ids)
 		}, func(m milestone.Milestone) uuid.UUID { return m.ID }), opt),
+		projectMilestones: dataloadgen.NewLoader(grouped(func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]milestone.Milestone, error) {
+			return d.Milestones.ByProjects(ctx, ids, true)
+		}), opt),
+		projectOpenMilestones: dataloadgen.NewLoader(grouped(func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]milestone.Milestone, error) {
+			return d.Milestones.ByProjects(ctx, ids, false)
+		}), opt),
 		milestoneProgress: dataloadgen.NewLoader(mapped(d.Milestones.Progress), opt),
 		issueLabels:       dataloadgen.NewLoader(grouped(d.Issues.LabelIDs), opt),
 		labels:            &lazyLabels{load: loadLabelIndex(d.Labels)},

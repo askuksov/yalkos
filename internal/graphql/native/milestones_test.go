@@ -1,7 +1,12 @@
 package native_test
 
 import (
+	"context"
+	"fmt"
+	"slices"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 type gqlMilestone struct {
@@ -145,5 +150,99 @@ func TestMilestoneIssuesConnection(t *testing.T) {
 		map[string]any{"id": m.ID}).decode(t, "milestone", &got)
 	if got.Issues.TotalCount != 0 {
 		t.Fatalf("widened = %+v", got.Issues)
+	}
+}
+
+// addMilestoneProjects creates projects P<from>..P<to-1>, each with a closed
+// milestone (done or canceled) and an open one after it.
+func addMilestoneProjects(t *testing.T, owner *client, from, to int) {
+	t.Helper()
+	for n := from; n < to; n++ {
+		p := createProject(t, owner, fmt.Sprintf("P%d", n), fmt.Sprintf("Project %d", n))
+		closed := createMilestone(t, owner, p.ID, map[string]any{"name": "Shipped"})
+		createMilestone(t, owner, p.ID, map[string]any{"name": "Next"})
+		status := "DONE"
+		if n%2 == 1 {
+			status = "CANCELED"
+		}
+		updateMilestone(t, owner, closed.ID, map[string]any{"status": status})
+	}
+}
+
+type projectMilestones struct {
+	ID         string `json:"id"`
+	Milestones []struct {
+		ID string `json:"id"`
+	} `json:"milestones"`
+}
+
+// countProjectMilestones runs a project list with selection and returns the
+// fewest SQL statements of three runs, with the projects of the last run.
+func countProjectMilestones(t *testing.T, owner *client, queries *counter, selection string, projects int) (int64, []projectMilestones) {
+	t.Helper()
+	var fewest int64
+	var nodes []projectMilestones
+	for run := range 3 {
+		queries.n.Store(0)
+		var conn struct {
+			Nodes []projectMilestones `json:"nodes"`
+		}
+		owner.do(`{ projects(first: 100) { nodes { id key isMember `+selection+` } } }`, nil).decode(t, "projects", &conn)
+		if len(conn.Nodes) != projects {
+			t.Fatalf("projects = %d, want %d", len(conn.Nodes), projects)
+		}
+		if n := queries.n.Load(); run == 0 || n < fewest {
+			fewest = n
+		}
+		nodes = conn.Nodes
+	}
+	t.Logf("%d projects, %s: %d SQL statements", projects, selection, fewest)
+	return fewest, nodes
+}
+
+// checkProjectMilestones compares each project's milestones with what the
+// per-project List returns, order included.
+func checkProjectMilestones(t *testing.T, s server, nodes []projectMilestones, includeDone bool, want int) {
+	t.Helper()
+	for _, p := range nodes {
+		list, err := s.deps.Milestones.List(context.Background(), uuid.MustParse(p.ID), includeDone)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := make([]string, len(p.Milestones))
+		for i, m := range p.Milestones {
+			got[i] = m.ID
+		}
+		ids := make([]string, len(list))
+		for i, m := range list {
+			ids[i] = m.ID.String()
+		}
+		if len(got) != want || !slices.Equal(got, ids) {
+			t.Fatalf("project %s includeDone=%v: milestones %v, List %v, want %d", p.ID, includeDone, got, ids, want)
+		}
+	}
+}
+
+// The command palette loads every project with its open milestones: more
+// projects must not mean more SQL statements.
+func TestProjectMilestonesQueryCount(t *testing.T) {
+	s, queries := tracedServer(t)
+	owner := ownerBrowser(t, s)
+	const open, all = `milestones(includeDone: false) { id name }`, `milestones { id name }`
+
+	addMilestoneProjects(t, owner, 0, 2)
+	openFew, _ := countProjectMilestones(t, owner, queries, open, 2)
+	allFew, _ := countProjectMilestones(t, owner, queries, all, 2)
+
+	addMilestoneProjects(t, owner, 2, 10)
+	openMany, nodes := countProjectMilestones(t, owner, queries, open, 10)
+	checkProjectMilestones(t, s, nodes, false, 1)
+	if openMany-openFew > 1 {
+		t.Fatalf("open milestones: %d SQL statements for 2 projects, %d for 10", openFew, openMany)
+	}
+	allMany, nodes := countProjectMilestones(t, owner, queries, all, 10)
+	checkProjectMilestones(t, s, nodes, true, 2)
+	if allMany-allFew > 1 {
+		t.Fatalf("all milestones: %d SQL statements for 2 projects, %d for 10", allFew, allMany)
 	}
 }
