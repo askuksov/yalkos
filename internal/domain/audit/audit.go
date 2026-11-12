@@ -24,8 +24,9 @@ type Change struct {
 	To   any `json:"to"`
 }
 
-// Event is a change to record. EntityType is project|state|issue,
-// Action is create|update|delete.
+// Event is a change to record. EntityType is
+// project|state|issue|milestone|label|comment|attachment, Action is
+// create|update|delete.
 type Event struct {
 	EntityType, Action string
 	EntityID           uuid.UUID

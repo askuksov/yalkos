@@ -356,3 +356,104 @@ func TestDeleteProjectRemovesAttachmentAudit(t *testing.T) {
 		t.Errorf("attachment audit rows after project delete = %d, %v", n, err)
 	}
 }
+
+// auditRows returns "action:project" for each attachment event of id, oldest first.
+func (e env) auditRows(t *testing.T, id uuid.UUID) []string {
+	t.Helper()
+	rows, err := e.pool.Query(context.Background(), `SELECT action || ':' || coalesce(project_id::text, 'null')
+		FROM audit_events WHERE entity_id = $1 ORDER BY created_at, id`, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+func TestPendingUploadAuditedWhenLinked(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	a := e.upload(t, e.users.Member, "a.png", png, nil)
+	if got := e.auditRows(t, a.ID); len(got) != 0 {
+		t.Fatalf("pending upload audit = %v, want none", got)
+	}
+	e.issue(t, issue.CreateInput{AttachmentIDs: []uuid.UUID{a.ID}})
+	if got := e.auditRows(t, a.ID); !slices.Equal(got, []string{"create:" + e.ylk.ID.String()}) {
+		t.Fatalf("audit after link = %v", got)
+	}
+	var name string
+	var size int64
+	var actor uuid.UUID
+	if err := e.pool.QueryRow(ctx, `SELECT changes->'name'->>'to', (changes->'size'->>'to')::bigint, actor_id
+		FROM audit_events WHERE entity_type = 'attachment' AND entity_id = $1`, a.ID).Scan(&name, &size, &actor); err != nil {
+		t.Fatal(err)
+	}
+	if name != "a.png" || size != int64(len(png)) || actor != e.users.Member.ID {
+		t.Errorf("create event name %q size %d actor %s", name, size, actor)
+	}
+}
+
+func TestDeleteProjectRemovesAuditOfLinkedUpload(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	a := e.upload(t, e.users.Member, "a.png", png, nil)
+	e.issue(t, issue.CreateInput{AttachmentIDs: []uuid.UUID{a.ID}})
+	if err := e.attachments.Delete(ctx, e.users.Member, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.projects.Delete(ctx, e.users.Owner, e.ylk.ID, "YLK"); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.auditRows(t, a.ID); len(got) != 0 {
+		t.Errorf("audit after project delete = %v", got)
+	}
+}
+
+func TestPendingUploadLeavesNoAudit(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	expired := e.upload(t, e.users.Member, "old.png", png, nil)
+	e.clock.add(25 * time.Hour)
+	if _, err := e.attachments.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.auditRows(t, expired.ID); len(got) != 0 {
+		t.Errorf("expired upload audit = %v", got)
+	}
+	deleted := e.upload(t, e.users.Member, "gone.png", png, nil)
+	if err := e.attachments.Delete(ctx, e.users.Member, deleted.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.auditRows(t, deleted.ID); len(got) != 0 {
+		t.Errorf("deleted upload audit = %v", got)
+	}
+}
+
+func TestCleanupRemovesLegacyPendingAudit(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	gone := uuid.New()
+	kept := e.upload(t, e.users.Member, "kept.png", png, nil)
+	for _, id := range []uuid.UUID{gone, kept.ID} {
+		if _, err := e.pool.Exec(ctx, `INSERT INTO audit_events (entity_type, entity_id, project_id, actor_id, action, changes, created_at)
+			VALUES ('attachment', $1, NULL, $2, 'create', '{}', now())`, id, e.users.Member.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := e.attachments.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.auditRows(t, gone); len(got) != 0 {
+		t.Errorf("audit of a missing upload = %v", got)
+	}
+	if got := e.auditRows(t, kept.ID); !slices.Equal(got, []string{"create:null"}) {
+		t.Errorf("audit of an existing upload = %v", got)
+	}
+}
