@@ -170,9 +170,9 @@ func createLabels(ctx context.Context, tx *q.Queries, in []uuid.UUID) ([]uuid.UU
 	if ti.DefaultID == nil || slices.ContainsFunc(out, func(id uuid.UUID) bool { return slices.Contains(ti.LabelIDs, id) }) {
 		return out, nil
 	}
-	// The default type may have been deleted after ReadTypeInfo; then it is
-	// not in labels and stays off.
-	if _, ok := labels[*ti.DefaultID]; !ok {
+	// The default type may have been deleted after ReadTypeInfo (then it is
+	// not in labels) or be outside the Type group (older data); it stays off.
+	if d, ok := labels[*ti.DefaultID]; !ok || d.ParentID == nil || *d.ParentID != ti.GroupID {
 		return out, nil
 	}
 	return resolveLabels(out, nil, []uuid.UUID{*ti.DefaultID}, nil, labels, false)
