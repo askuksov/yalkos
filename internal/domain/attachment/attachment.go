@@ -470,8 +470,17 @@ func (s *Service) Cleanup(ctx context.Context) (CleanupResult, error) {
 // dropOrphanFiles removes stored files modified before before that have no
 // blob row and returns how many it removed.
 func (s *Service) dropOrphanFiles(ctx context.Context, before time.Time) (int, error) {
+	// Files older than the workspace predate this database (recreated next to
+	// an existing data directory, dump not restored yet), so they are kept.
+	ws, err := s.q.GetWorkspace(ctx)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("get workspace: %w", err)
+	}
 	var errs []error
-	sums, err := s.store.Stale(ctx, before)
+	sums, err := s.store.Stale(ctx, ws.CreatedAt, before)
 	if err != nil {
 		errs = append(errs, err)
 	}

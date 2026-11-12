@@ -35,8 +35,9 @@ type Store interface {
 	// SweepTemp removes staging files last modified before before (left by
 	// a crash between Put and Commit) and returns how many it removed.
 	SweepTemp(ctx context.Context, before time.Time) (int, error)
-	// Stale returns the sums of stored contents last modified before before.
-	Stale(ctx context.Context, before time.Time) ([][]byte, error)
+	// Stale returns the sums of stored contents last modified at or after
+	// from and before before.
+	Stale(ctx context.Context, from, before time.Time) ([][]byte, error)
 }
 
 // Locks serializes work on one hash (upload vs cleanup) inside this process.
