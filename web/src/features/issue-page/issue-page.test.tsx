@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GraphQLRequestError } from '../../api/client'
-import { owner, pageIssue, project, signedInAs, states } from '../../test/fixtures'
+import { owner, pageIssue, project, signedInAs, states, timeline } from '../../test/fixtures'
 import { renderAt } from '../../test/render'
 import { callsOf, deferred, mocked, serve } from '../../test/serve'
 import { Markdown } from './Markdown'
@@ -15,6 +15,10 @@ vi.mock('../../api/client', async (orig) => {
 
 beforeEach(() => {
   mocked.mockReset()
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 type Vars = Record<string, unknown> | undefined
@@ -215,5 +219,62 @@ describe('issue page', () => {
     expect(items[0]).toContain('Older')
     expect(items[1]).toContain('Newer')
     expect(older).toBeInTheDocument()
+  })
+
+  describe('upload size limit', () => {
+    const sizeMb = (name: string, mb: number) => {
+      const f = new File(['x'], name, { type: 'text/plain' })
+      Object.defineProperty(f, 'size', { value: mb * 1024 * 1024 })
+      return f
+    }
+    const stored = (name: string) => ({ id: `id-${name}`, url: `/api/attachments/id-${name}/${name}`, name, size: 1, contentType: 'text/plain', inline: false })
+
+    async function openWithLimit() {
+      const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+        const name = ((init.body as FormData).get('file') as File).name
+        return { ok: true, status: 200, json: async () => stored(name) }
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      serve(
+        withIssue(pageIssue(1), {
+          Limits: () => ({ limits: { maxUploadMb: 25 } }),
+          IssueChildren: () => ({ issue: { id: 'i1', children: { nodes: [] } } }),
+          IssueTimeline: () => timeline([]),
+          IssueAttachments: () => ({ issue: { id: 'i1', attachments: [] } }),
+        }),
+      )
+      const view = renderAt('/issue/YLK-1')
+      const files = await screen.findByRole('region', { name: 'Attachments' })
+      await waitFor(() => expect(view.client.getQueryData(['limits'])).toBeDefined())
+      return { fetchMock, files }
+    }
+
+    const attachInput = (files: HTMLElement) => files.querySelector('input[type=file]') as HTMLInputElement
+    const uploadedNames = (fetchMock: ReturnType<typeof vi.fn>) => fetchMock.mock.calls.map(([, init]) => ((init as RequestInit).body as FormData).get('file')).map((f) => (f as File).name)
+
+    it('skips an oversized file chosen with Attach file and shows the limit', async () => {
+      const { fetchMock, files } = await openWithLimit()
+      fireEvent.change(attachInput(files), { target: { files: [sizeMb('huge.bin', 26)] } })
+      expect(await screen.findByRole('alert')).toHaveTextContent('File is larger than 25 MB')
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('skips an oversized file dropped on the page and shows the limit', async () => {
+      const { fetchMock, files } = await openWithLimit()
+      const page = files.closest('[data-drop-zone]') as HTMLElement
+      const dataTransfer = { files: [sizeMb('huge.bin', 26)], types: ['Files'] }
+      fireEvent.dragOver(page, { dataTransfer })
+      fireEvent.drop(page, { dataTransfer })
+      expect(await screen.findByRole('alert')).toHaveTextContent('File is larger than 25 MB')
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('uploads the small files of a mixed batch and shows the limit once', async () => {
+      const { fetchMock, files } = await openWithLimit()
+      fireEvent.change(attachInput(files), { target: { files: [sizeMb('big1.bin', 30), sizeMb('small.txt', 1), sizeMb('big2.bin', 40)] } })
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      expect(uploadedNames(fetchMock)).toEqual(['small.txt'])
+      expect(await screen.findAllByText('File is larger than 25 MB')).toHaveLength(1)
+    })
   })
 })
