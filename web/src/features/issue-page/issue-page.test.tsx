@@ -94,6 +94,15 @@ describe('issue page', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/p\/YLK$/))
   })
 
+  it('opens the description editor with the caret at the end', async () => {
+    serve(withIssue(pageIssue(1, { description: 'First' })))
+    renderAt('/issue/YLK-1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    const area = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Description' })
+    expect(area.selectionStart).toBe('First'.length)
+    expect(area.selectionEnd).toBe('First'.length)
+  })
+
   it('saves the description with Cmd+Enter', async () => {
     serve(withIssue(pageIssue(1, { description: 'First' }), { UpdateIssue: () => ({ updateIssue: pageIssue(1) }) }))
     renderAt('/issue/YLK-1')
