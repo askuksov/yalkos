@@ -31,7 +31,7 @@ let lastValue = ''
 let reported: string[] = []
 let busy: boolean[] = []
 
-function Harness({ issueId, initial = '' }: { issueId?: string; initial?: string }) {
+function Harness({ issueId, initial = '', autoFocus }: { issueId?: string; initial?: string; autoFocus?: boolean }) {
   const [value, setValue] = useState(initial)
   return (
     <MarkdownEditor
@@ -49,11 +49,12 @@ function Harness({ issueId, initial = '' }: { issueId?: string; initial?: string
         busy.push(b)
       }}
       placeholder="Write something"
+      autoFocus={autoFocus}
     />
   )
 }
 
-function mount(props: { issueId?: string; initial?: string } = {}) {
+function mount(props: { issueId?: string; initial?: string; autoFocus?: boolean } = {}) {
   lastValue = props.initial ?? ''
   reported = []
   busy = []
@@ -193,5 +194,28 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(busy).toEqual([true]))
     view.unmount()
     expect(busy).toEqual([true, false])
+  })
+
+  it('opens with the caret at the end of the text when it autofocuses', async () => {
+    mount({ initial: 'first line\nsecond line', autoFocus: true })
+    const area = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Description' })
+    expect(area.selectionStart).toBe('first line\nsecond line'.length)
+    expect(area.selectionEnd).toBe('first line\nsecond line'.length)
+  })
+
+  it('leaves the caret where the user put it on later renders', async () => {
+    mount({ initial: 'hello world', autoFocus: true })
+    const area = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Description' })
+    area.setSelectionRange(5, 5)
+    await userEvent.keyboard('!')
+    expect(area).toHaveValue('hello! world')
+    expect(area.selectionStart).toBe(6)
+    expect(area.selectionEnd).toBe(6)
+  })
+
+  it('does not move the caret when it does not autofocus', async () => {
+    mount({ initial: 'hello world' })
+    const area = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Description' })
+    expect(area.selectionStart).toBe(0)
   })
 })

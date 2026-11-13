@@ -85,6 +85,15 @@ export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsC
     }
   }, [value])
 
+  // Once per textarea mount, so typing and inserts never move the caret.
+  useLayoutEffect(() => {
+    const el = area.current
+    if (!autoFocus || !areaEl || !el) return
+    const end = el.value.length
+    el.setSelectionRange(end, end)
+    el.scrollTop = el.scrollHeight
+  }, [autoFocus, areaEl])
+
   const change = (next: string, cursor?: number) => {
     latest.current = next
     if (cursor !== undefined) caret.current = cursor

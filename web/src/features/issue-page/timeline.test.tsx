@@ -141,6 +141,16 @@ describe('issue timeline', () => {
     expect(within(activity).getByText('Fixed')).toBeInTheDocument()
   })
 
+  it('opens the comment editor with the caret at the end', async () => {
+    serve(handlers({ IssueTimeline: () => timeline([comment('c1', 'Typo here')]) }))
+    const activity = await openIssue()
+    const mine = (await within(activity).findByText('Typo here')).closest('li') as HTMLElement
+    await userEvent.click(within(mine).getByRole('button', { name: 'Edit comment' }))
+    const box = within(mine).getByRole<HTMLTextAreaElement>('textbox', { name: 'Edit comment' })
+    expect(box.selectionStart).toBe('Typo here'.length)
+    expect(box.selectionEnd).toBe('Typo here'.length)
+  })
+
   it('describes label, type, milestone and attachment changes', () => {
     const ctx: DescribeContext = {
       t: i18n.getFixedT(null, ['issue', 'common']),
