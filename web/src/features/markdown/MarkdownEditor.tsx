@@ -11,6 +11,7 @@ import { Popover } from '../../ui/Popover'
 import { Markdown } from '../issue-page/Markdown'
 import { tooLarge, useMaxUploadMb } from './limits'
 import s from './markdown.module.css'
+import { escapeText } from './placeholders'
 import { type UploadResult, uploadFile } from './upload'
 
 type Props = {
@@ -29,11 +30,6 @@ type Props = {
   rows?: number
   id?: string
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void
-}
-
-/** Markdown link text with brackets and backslashes escaped. */
-function escapeText(s: string): string {
-  return s.replace(/[\\[\]]/g, (c) => `\\${c}`)
 }
 
 function linkFor(r: UploadResult): string {
