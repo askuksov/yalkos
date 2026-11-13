@@ -207,6 +207,37 @@ describe('issue timeline', () => {
     expect(within(dialog).queryByText('This file is used in the description or comments.')).not.toBeInTheDocument()
   })
 
+  it('shows the used-in-text warning when a refetch flips it while the delete dialog is open', async () => {
+    let used = false
+    serve(handlers(
+      { IssueAttachments: () => ({ issue: { id: 'i1', attachments: [{ ...shot, usedInText: used }] } }) },
+      pageIssue(1, { description: 'No link here' }),
+    ))
+    const { client } = renderAt('/issue/YLK-1')
+    const files = await screen.findByRole('region', { name: 'Attachments' })
+    await userEvent.click(await within(files).findByRole('button', { name: 'Delete shot.png' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Delete shot.png?' })
+    expect(within(dialog).queryByText('This file is used in the description or comments.')).not.toBeInTheDocument()
+    used = true
+    await client.invalidateQueries({ queryKey: ['attachments', 'i1'] })
+    expect(await within(dialog).findByText('This file is used in the description or comments.')).toBeInTheDocument()
+  })
+
+  it('closes the delete dialog when the refreshed list no longer has the file', async () => {
+    let gone = false
+    serve(handlers(
+      { IssueAttachments: () => ({ issue: { id: 'i1', attachments: gone ? [] : [shot] } }) },
+      pageIssue(1, { description: 'No link here' }),
+    ))
+    const { client } = renderAt('/issue/YLK-1')
+    const files = await screen.findByRole('region', { name: 'Attachments' })
+    await userEvent.click(await within(files).findByRole('button', { name: 'Delete shot.png' }))
+    await screen.findByRole('dialog', { name: 'Delete shot.png?' })
+    gone = true
+    await client.invalidateQueries({ queryKey: ['attachments', 'i1'] })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
   it('drops a file on the page to attach it', async () => {
     vi.mocked(uploadFile).mockResolvedValue({ id: 'a2', url: '/api/attachments/a2/notes.txt', name: 'notes.txt', size: 5, contentType: 'text/plain', inline: false })
     serve(handlers())

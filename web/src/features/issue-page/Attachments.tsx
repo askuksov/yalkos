@@ -14,8 +14,6 @@ import { useAttach } from './useAttach'
 import s from './issue-page.module.css'
 import { DeleteAttachmentMutation, IssueAttachmentsQuery } from './operations'
 
-type Att = { id: string; name: string; size: number; contentType: string; url: string; inline: boolean; usedInText: boolean; createdAt: string; uploader: { id: string; name: string } }
-
 /** "2 KB" style size in the UI locale. */
 function useSize() {
   const { t } = useTranslation('issue')
@@ -37,14 +35,16 @@ export function Attachments({ issueId, readOnly }: { issueId: string; readOnly: 
   const attach = useAttach(issueId)
   const input = useRef<HTMLInputElement>(null)
   const list = useQuery({ queryKey: ['attachments', issueId], queryFn: () => request(IssueAttachmentsQuery, { id: issueId }), select: (d) => d.issue.attachments })
-  const [deleting, setDeleting] = useState<Att | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const remove = useMutation({
     mutationFn: (id: string) => request(DeleteAttachmentMutation, { id }),
-    onSuccess: () => setDeleting(null),
+    onSuccess: () => setDeletingId(null),
     onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
     onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: ['attachments', issueId] }), qc.invalidateQueries({ queryKey: ['history', issueId] })]),
   })
   const files = list.data ?? []
+  // Read from the live list so a refetch updates the open dialog; a file deleted elsewhere closes it.
+  const deleting = files.find((a) => a.id === deletingId) ?? null
   return (
     <section className={s.attachments} aria-labelledby="attachments-title">
       <div className={s.sectionHead}>
@@ -94,7 +94,7 @@ export function Attachments({ issueId, readOnly }: { issueId: string; readOnly: 
                 <Download size={14} aria-hidden />
               </a>
               {!readOnly && (admin || a.uploader.id === viewer?.id) && (
-                <button type="button" className={s.iconButton} aria-label={t('attachments.delete', { name: a.name })} onClick={() => setDeleting(a)}>
+                <button type="button" className={s.iconButton} aria-label={t('attachments.delete', { name: a.name })} onClick={() => setDeletingId(a.id)}>
                   <Trash2 size={14} aria-hidden />
                 </button>
               )}
@@ -102,11 +102,11 @@ export function Attachments({ issueId, readOnly }: { issueId: string; readOnly: 
           ))}
         </ul>
       )}
-      <Dialog open={!!deleting} onClose={() => setDeleting(null)} title={t('attachments.deleteTitle', { name: deleting?.name ?? '' })}>
+      <Dialog open={!!deleting} onClose={() => setDeletingId(null)} title={t('attachments.deleteTitle', { name: deleting?.name ?? '' })}>
         <p>{t('attachments.deleteBody')}</p>
         {deleting?.usedInText && <p role="alert">{t('attachments.used')}</p>}
         <div className={s.dialogActions}>
-          <Button onClick={() => setDeleting(null)}>{t('comments.cancel')}</Button>
+          <Button onClick={() => setDeletingId(null)}>{t('comments.cancel')}</Button>
           <Button variant="danger" disabled={remove.isPending} onClick={() => deleting && remove.mutate(deleting.id)}>
             {t('attachments.deleteSubmit')}
           </Button>
