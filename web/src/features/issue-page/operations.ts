@@ -38,7 +38,7 @@ export const IssueAttachmentsQuery = graphql(`
   query IssueAttachments($id: String!) {
     issue(id: $id) {
       id
-      attachments { id name size contentType url inline createdAt uploader { id name } }
+      attachments { id name size contentType url inline usedInText createdAt uploader { id name } }
     }
   }
 `)

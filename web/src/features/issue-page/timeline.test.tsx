@@ -26,7 +26,7 @@ beforeEach(() => {
 type Vars = Record<string, unknown> | undefined
 
 const shot = {
-  id: 'a1', name: 'shot.png', size: 2048, contentType: 'image/png', url: '/api/attachments/a1/shot.png', inline: true,
+  id: 'a1', name: 'shot.png', size: 2048, contentType: 'image/png', url: '/api/attachments/a1/shot.png', inline: true, usedInText: false,
   createdAt: '2026-10-30T12:10:00Z', uploader: { id: owner.id, name: owner.name },
 }
 
@@ -175,10 +175,10 @@ describe('issue timeline', () => {
     expect(lines([['commentDeleted', 'c1', null]])).toEqual(['Olga deleted a comment'])
   })
 
-  it('warns before deleting a file used in the description', async () => {
+  it('warns before deleting a file the server reports as used in text', async () => {
     serve(handlers(
-      { IssueAttachments: () => ({ issue: { id: 'i1', attachments: [shot] } }), DeleteAttachment: () => ({ deleteAttachment: true }) },
-      pageIssue(1, { description: 'Look: ![shot](/api/attachments/a1/shot.png)' }),
+      { IssueAttachments: () => ({ issue: { id: 'i1', attachments: [{ ...shot, usedInText: true }] } }), DeleteAttachment: () => ({ deleteAttachment: true }) },
+      pageIssue(1, { description: 'No link here' }),
     ))
     renderAt('/issue/YLK-1')
     const files = await screen.findByRole('region', { name: 'Attachments' })
@@ -189,6 +189,22 @@ describe('issue timeline', () => {
     expect(within(dialog).getByText('This file is used in the description or comments.')).toBeInTheDocument()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(callsOf('DeleteAttachment')).toEqual([{ id: 'a1' }]))
+  })
+
+  it('does not warn when the server says the file is unused, even if a loaded comment links it', async () => {
+    serve(handlers(
+      {
+        IssueAttachments: () => ({ issue: { id: 'i1', attachments: [{ ...shot, usedInText: false }] } }),
+        IssueTimeline: () => timeline([comment('c1', 'see ![shot](/api/attachments/a1/shot.png)', { author: member })]),
+      },
+      pageIssue(1, { description: 'Look: ![shot](/api/attachments/a1/shot.png)' }),
+    ))
+    renderAt('/issue/YLK-1')
+    const files = await screen.findByRole('region', { name: 'Attachments' })
+    await userEvent.click(await within(files).findByRole('button', { name: 'Delete shot.png' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Delete shot.png?' })
+    expect(within(dialog).getByText('The file is removed from the issue.')).toBeInTheDocument()
+    expect(within(dialog).queryByText('This file is used in the description or comments.')).not.toBeInTheDocument()
   })
 
   it('drops a file on the page to attach it', async () => {
