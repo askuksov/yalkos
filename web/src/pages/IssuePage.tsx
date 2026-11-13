@@ -142,7 +142,7 @@ function IssueView({ issue }: { issue: PageIssue }) {
         <div className={s.main}>
           <IssueTitle issue={issue} readOnly={readOnly} />
           <IssueDescription issue={issue} readOnly={readOnly} editing={editing} setEditing={setEditing} />
-          <Attachments issueId={issue.id} description={issue.description} readOnly={readOnly} />
+          <Attachments issueId={issue.id} readOnly={readOnly} />
           <SubIssues issue={issue} readOnly={readOnly} />
           <Timeline issue={issue} readOnly={readOnly} />
         </div>

@@ -1,11 +1,10 @@
-import { type InfiniteData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, File, FileText, Paperclip, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { errorMessage, request } from '../../api/client'
 import { useIsAdmin, useViewer } from '../../api/hooks'
-import type { IssueTimelineQuery as TimelineData } from '../../gql/graphql'
 import { formatNumber } from '../../i18n'
 import { formatDateTime } from '../../lib/date'
 import { Button } from '../../ui/Button'
@@ -15,7 +14,7 @@ import { useAttach } from './useAttach'
 import s from './issue-page.module.css'
 import { DeleteAttachmentMutation, IssueAttachmentsQuery } from './operations'
 
-type Att = { id: string; name: string; size: number; contentType: string; url: string; inline: boolean; createdAt: string; uploader: { id: string; name: string } }
+type Att = { id: string; name: string; size: number; contentType: string; url: string; inline: boolean; usedInText: boolean; createdAt: string; uploader: { id: string; name: string } }
 
 /** "2 KB" style size in the UI locale. */
 function useSize() {
@@ -28,7 +27,7 @@ function useSize() {
 }
 
 /** The issue's files: preview or icon, name, size, uploader, time; download; delete with a warning when used in text. */
-export function Attachments({ issueId, description, readOnly }: { issueId: string; description: string; readOnly: boolean }) {
+export function Attachments({ issueId, readOnly }: { issueId: string; readOnly: boolean }) {
   const { t } = useTranslation('issue')
   const qc = useQueryClient()
   const toast = useToast()
@@ -45,13 +44,6 @@ export function Attachments({ issueId, description, readOnly }: { issueId: strin
     onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
     onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: ['attachments', issueId] }), qc.invalidateQueries({ queryKey: ['history', issueId] })]),
   })
-  // Is the file linked from the description or a loaded comment?
-  const used = (a: Att) => {
-    const pages = qc.getQueryData<InfiniteData<TimelineData>>(['history', issueId])?.pages ?? []
-    const comments = pages.flatMap((p) => p.issue.timeline.nodes).flatMap((n) => (n.__typename === 'Comment' ? [n.body] : []))
-    const path = `/api/attachments/${a.id}/`
-    return [description, ...comments].some((text) => text.includes(path))
-  }
   const files = list.data ?? []
   return (
     <section className={s.attachments} aria-labelledby="attachments-title">
@@ -112,7 +104,7 @@ export function Attachments({ issueId, description, readOnly }: { issueId: strin
       )}
       <Dialog open={!!deleting} onClose={() => setDeleting(null)} title={t('attachments.deleteTitle', { name: deleting?.name ?? '' })}>
         <p>{t('attachments.deleteBody')}</p>
-        {deleting && used(deleting) && <p role="alert">{t('attachments.used')}</p>}
+        {deleting?.usedInText && <p role="alert">{t('attachments.used')}</p>}
         <div className={s.dialogActions}>
           <Button onClick={() => setDeleting(null)}>{t('comments.cancel')}</Button>
           <Button variant="danger" disabled={remove.isPending} onClick={() => deleting && remove.mutate(deleting.id)}>
