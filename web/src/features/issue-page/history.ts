@@ -140,8 +140,8 @@ function labelLines(actor: string, from: unknown, to: unknown, stored: Map<strin
   if (typeIn && typeOut) lines.push(t('activity.typeChanged', { actor, from: name(typeOut), to: name(typeIn) }))
   else if (typeIn) lines.push(t('activity.typeSet', { actor, name: name(typeIn) }))
   else if (typeOut) lines.push(t('activity.typeRemoved', { actor, name: name(typeOut) }))
-  for (const id of added) if (!isType(id)) lines.push(t('activity.labelAdded', { actor, name: name(id) }))
-  for (const id of removed) if (!isType(id)) lines.push(t('activity.labelRemoved', { actor, name: name(id) }))
+  for (const id of added) if (id !== typeIn) lines.push(t('activity.labelAdded', { actor, name: name(id) }))
+  for (const id of removed) if (id !== typeOut) lines.push(t('activity.labelRemoved', { actor, name: name(id) }))
   return lines
 }
 

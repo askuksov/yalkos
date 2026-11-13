@@ -80,6 +80,12 @@ group('history', () => {
       expect(named([['labelIds', ['bug'], ['feat']]], [bug, { id: 'feat', name: 'Feat', type: true }])).toEqual(['Olga changed type from Bug to Feature'])
     })
 
+    it('shows an extra type id as an ordinary label line', () => {
+      const bug = { id: 'bug', name: 'Bug', type: true }
+      expect(named([['labelIds', [], ['bug', 'feat']]], [bug])).toEqual(['Olga set type to Bug', 'Olga added label Feature'])
+      expect(named([['labelIds', ['bug', 'feat'], []]], [bug])).toEqual(['Olga removed type Bug', 'Olga removed label Feature'])
+    })
+
     it('names a deleted ordinary label by its stored name', () => {
       const old = { id: 'old', name: 'Legacy', type: false }
       expect(named([['labelIds', [], ['old']]], [old])).toEqual(['Olga added label Legacy'])
