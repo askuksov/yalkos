@@ -23,9 +23,10 @@ type commentNode struct {
 	Reactions    []any
 	ReactionData any
 	Parent       *struct{ ID string }
+	OnBehalfOf   *struct{ ID string }
 }
 
-const commentFields = `id body issueId issue { id identifier } user { id } url editedAt createdAt updatedAt reactions { id } reactionData parent { id }`
+const commentFields = `id body issueId issue { id identifier } user { id } url editedAt createdAt updatedAt reactions { id } reactionData parent { id } onBehalfOf { id }`
 
 func (f issueFix) comment(t *testing.T, ref, body string) comment.Comment {
 	t.Helper()
@@ -72,7 +73,7 @@ func TestIssueComments(t *testing.T) {
 	c := cs[0]
 	y1 := f.i["YLK-1"].ID.String()
 	if c.ID != first.ID.String() || c.IssueID == nil || *c.IssueID != y1 || c.Issue.Identifier != "YLK-1" || c.User.ID != f.owner.ID.String() ||
-		c.URL != base+"/issue/YLK-1" || c.EditedAt == nil || c.Reactions == nil || len(c.Reactions) != 0 || c.Parent != nil {
+		c.URL != base+"/issue/YLK-1" || c.EditedAt == nil || c.Reactions == nil || len(c.Reactions) != 0 || c.Parent != nil || c.OnBehalfOf != nil {
 		t.Fatalf("comment = %+v", c)
 	}
 	if cs[1].EditedAt != nil {

@@ -131,10 +131,12 @@ type Comment struct {
 	ArchivedAt       *time.Time            `json:"archivedAt,omitempty"`
 	CreatedAt        time.Time             `json:"createdAt"`
 	// When the body was last changed.
-	EditedAt      *time.Time      `json:"editedAt,omitempty"`
-	ResolvedAt    *time.Time      `json:"resolvedAt,omitempty"`
-	ResolvingUser *User           `json:"resolvingUser,omitempty"`
-	Src           comment.Comment `json:"-"`
+	EditedAt      *time.Time `json:"editedAt,omitempty"`
+	ResolvedAt    *time.Time `json:"resolvedAt,omitempty"`
+	ResolvingUser *User      `json:"resolvingUser,omitempty"`
+	// Always null: Yalkos does not post comments on behalf of another user.
+	OnBehalfOf *User           `json:"onBehalfOf,omitempty"`
+	Src        comment.Comment `json:"-"`
 }
 
 type CommentConnection struct {
