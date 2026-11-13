@@ -2,7 +2,7 @@ import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { GripVertical, Plus } from 'lucide-react'
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 
@@ -32,13 +32,18 @@ export function MilestonesPage() {
   const list = useMilestones(project.key).data ?? []
   const { onDragEnd } = useMilestoneReorder(project.id, project.key, list.map((m) => m.id))
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
-  // "Create milestone" in the palette opens this page with ?new=1.
+  // "Create milestone" in the palette opens this page with ?new=1, also when it is already mounted.
   const [sp, setSp] = useSearchParams()
-  const [creating, setCreatingState] = useState(() => sp.get('new') === '1' && !archived)
-  const setCreating = (v: boolean) => {
-    setCreatingState(v)
-    if (!v && sp.has('new')) setSp({}, { replace: true })
-  }
+  const [creating, setCreating] = useState(false)
+  const wantsNew = sp.has('new')
+  if (wantsNew && sp.get('new') === '1' && !archived && !creating) setCreating(true)
+  useEffect(() => {
+    if (!wantsNew) return
+    // Drop the parameter so Back and reload do not reopen the dialog.
+    const rest = new URLSearchParams(sp)
+    rest.delete('new')
+    setSp(rest, { replace: true })
+  }, [sp, setSp, wantsNew])
   return (
     <>
       <PageHeader title={t('milestones.title', { name: project.name })}>
