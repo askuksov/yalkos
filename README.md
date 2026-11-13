@@ -326,6 +326,7 @@ Bumping the pin, when a new version appears:
 - Filters and display options live in the URL, so a filtered view can be bookmarked or shared.
 - The issue page edits the title and the Markdown description in place; properties (state, type, labels, milestone, priority, assignee, due date, parent, project) open a picker. Moving an issue to another project gives it a new identifier and removes its milestone; old identifiers and old project keys keep working as links.
 - Paste or drop a screenshot into a description or comment to upload it; drop files anywhere on an issue page or use **Attach file** to add them to its **Attachments**. `YLK-12` in any text links to that issue; `@` in an editor mentions a member.
+- Images in Markdown load only from Yalkos itself; an image from another site is shown as a link instead, so that site does not learn the viewers' IP addresses, browsers or read times (tracking pixels). Open such an image through its link.
 - Comments and changes share one timeline under the issue. `Cmd/Ctrl+Enter` posts a comment; an unsent comment is kept as a draft in the browser.
 - Each project has **Milestones** (drag to reorder) with progress, target date and lead; a milestone's page lists its issues. Labels, groups and the default type are under **Settings → Labels**.
 - `Cmd+K` (`Ctrl+K` on Windows and Linux) opens the command palette: search issues by text, type an identifier such as `YLK-12` to open it, jump to a project, or change the open issue.

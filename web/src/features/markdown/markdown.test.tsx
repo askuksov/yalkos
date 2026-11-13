@@ -84,7 +84,64 @@ describe('markdown', () => {
     const { container } = render(<Markdown source={'[x](javascript:alert(1)) ![img](/api/attachments/a1/s.png) ![bad](data:image/png;base64,AA)'} />)
     expect(container.querySelector('a')?.getAttribute('href') ?? '').toBe('')
     const imgs = container.querySelectorAll('img')
+    expect(imgs).toHaveLength(1)
     expect(imgs[0]).toHaveAttribute('src', '/api/attachments/a1/s.png')
-    expect(imgs[1].getAttribute('src') ?? '').toBe('')
+  })
+
+  it('loads same-origin images, attachment or not (control)', () => {
+    const same = `${window.location.origin}/api/attachments/a2/b.png`
+    const { container } = render(<Markdown source={`![shot](/api/attachments/a1/s.png) ![rel](docs/pic.png) ![abs](${same})`} />)
+    // The rule is the origin, not the path: any same-origin image loads.
+    const imgs = container.querySelectorAll('img')
+    expect([...imgs].map((i) => i.getAttribute('src'))).toEqual(['/api/attachments/a1/s.png', 'docs/pic.png', same])
+    expect([...imgs].map((i) => i.getAttribute('alt'))).toEqual(['shot', 'rel', 'abs'])
+    expect(container.querySelector('a')).toBeNull()
+  })
+
+  it.each([
+    ['https://evil.example/p.png', 'pixel'],
+    ['http://evil.example/p.png', 'pixel'],
+    ['HTTP://EVIL.EXAMPLE/p.png', 'pixel'],
+    ['//evil.example/p.png', 'pixel'],
+    ['https://evil.example/p.png', ''],
+  ])('shows an image from %s (alt %j) as a link', (src, alt) => {
+    const { container } = render(<Markdown source={`![${alt}](${src})`} />)
+    expect(container.querySelector('img')).toBeNull()
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', src)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(link).toHaveTextContent(alt || src)
+  })
+
+  it('keeps a backslash path on the same origin (control)', () => {
+    // The Markdown parser percent-encodes the backslash, so the browser does
+    // not read it as a slash and the path stays on this origin.
+    const { container } = render(<Markdown source={'![pixel](/\\evil.example/p.png)'} />)
+    expect(container.querySelector('img')).toHaveAttribute('src', '/%5Cevil.example/p.png')
+    expect(container.querySelector('a')).toBeNull()
+  })
+
+  it('shows an image with a blocked url as plain alt text', () => {
+    const { container } = render(<Markdown source={'![bad](data:image/png;base64,AA) ![](javascript:alert(1)) end'} />)
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('a')).toBeNull()
+    expect(container).toHaveTextContent(/^bad end$/)
+  })
+
+  it('does not nest a link for an outside image inside a link', () => {
+    const { container } = render(<Markdown source={'[![pixel](https://evil.example/p.png)](https://example.com) [![](https://evil.example/q.png)](https://example.com/2)'} />)
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.querySelector('a a')).toBeNull()
+    const links = screen.getAllByRole('link')
+    expect(links.map((l) => [l.getAttribute('href'), l.textContent])).toEqual([
+      ['https://example.com', 'pixel'],
+      ['https://example.com/2', 'https://evil.example/q.png'],
+    ])
+  })
+
+  it('keeps an attachment image inside a link (control)', () => {
+    const { container } = render(<Markdown source={'[![shot](/api/attachments/a1/s.png)](https://example.com)'} />)
+    expect(container.querySelector('a[href="https://example.com"] > img')).toHaveAttribute('src', '/api/attachments/a1/s.png')
   })
 })
