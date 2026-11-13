@@ -58,6 +58,62 @@ describe('milestones', () => {
     expect(within(other).getByText('Planned')).toBeInTheDocument()
   })
 
+  it('opens the new milestone dialog when ?new=1 arrives on the mounted page', async () => {
+    serve(handlers())
+    const { router } = renderAt('/p/YLK/milestones')
+    await screen.findByRole('link', { name: 'Bank APIs' })
+    expect(screen.queryByRole('dialog', { name: 'New milestone' })).not.toBeInTheDocument()
+    await act(() => router.navigate('/p/YLK/milestones?new=1'))
+    expect(await screen.findByRole('dialog', { name: 'New milestone' })).toBeInTheDocument()
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+  })
+
+  it('opens the dialog on initial ?new=1 (control)', async () => {
+    serve(handlers())
+    renderAt('/p/YLK/milestones?new=1')
+    expect(await screen.findByRole('dialog', { name: 'New milestone' })).toBeInTheDocument()
+  })
+
+  it('drops ?new=1 after an initial open', async () => {
+    serve(handlers())
+    const { router } = renderAt('/p/YLK/milestones?new=1')
+    await screen.findByRole('dialog', { name: 'New milestone' })
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+  })
+
+  it('does not reopen the dialog after it was closed', async () => {
+    serve(handlers())
+    const { router } = renderAt('/p/YLK/milestones')
+    await screen.findByRole('link', { name: 'Bank APIs' })
+    await act(() => router.navigate('/p/YLK/milestones?new=1'))
+    const dialog = await screen.findByRole('dialog', { name: 'New milestone' })
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New milestone' })).not.toBeInTheDocument())
+    expect(router.state.location.search).toBe('')
+  })
+
+  it('keeps other search params when dropping new', async () => {
+    serve(handlers())
+    const { router } = renderAt('/p/YLK/milestones')
+    await screen.findByRole('link', { name: 'Bank APIs' })
+    await act(() => router.navigate('/p/YLK/milestones?new=1&x=2'))
+    await screen.findByRole('dialog', { name: 'New milestone' })
+    await waitFor(() => expect(router.state.location.search).toBe('?x=2'))
+  })
+
+  it('does not open the dialog on an archived project', async () => {
+    serve({
+      ...handlers(),
+      ...signedInAs(owner, [project({ archivedAt: '2026-01-01T00:00:00Z' })]),
+    })
+    const { router } = renderAt('/p/YLK/milestones')
+    await screen.findByRole('link', { name: 'Bank APIs' })
+    await act(() => router.navigate('/p/YLK/milestones?new=1'))
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+    expect(screen.queryByRole('dialog', { name: 'New milestone' })).not.toBeInTheDocument()
+  })
+
   it('sets a manual status and returns to automatic', async () => {
     serve(handlers({ UpdateMilestone: () => ({ updateMilestone: { ...bank, description: '' } }) }))
     renderAt('/p/YLK/milestones/m1')
