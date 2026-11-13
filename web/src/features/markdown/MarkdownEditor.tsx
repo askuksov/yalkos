@@ -1,16 +1,16 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { type ClipboardEvent, type DragEvent, type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { errorMessage, GraphQLRequestError, request } from '../../api/client'
+import { errorMessage, GraphQLRequestError } from '../../api/client'
 import { useMembers } from '../../api/hooks'
 import { compareNames, i18n } from '../../i18n'
 import { Avatar } from '../../ui/Avatar'
 import { Picker } from '../../ui/Picker'
 import { Popover } from '../../ui/Popover'
 import { Markdown } from '../issue-page/Markdown'
+import { tooLarge, useMaxUploadMb } from './limits'
 import s from './markdown.module.css'
-import { LimitsQuery } from './operations'
 import { type UploadResult, uploadFile } from './upload'
 
 type Props = {
@@ -60,7 +60,7 @@ export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsC
   const latest = useRef(value)
   const uploaded = useRef<string[]>([])
   const users = useMembers().data ?? []
-  const maxMb = useQuery({ queryKey: ['limits'], queryFn: () => request(LimitsQuery), select: (d) => d.limits.maxUploadMb, staleTime: Infinity }).data
+  const maxMb = useMaxUploadMb()
   const upload = useMutation({ mutationFn: (file: File) => uploadFile(file, issueId) })
   // Uploads outlive a save or a remount: their results must not reach a later editor.
   const alive = useRef(true)
@@ -100,7 +100,7 @@ export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsC
     setError(null)
     const ok: File[] = []
     for (const f of files) {
-      if (maxMb !== undefined && f.size > maxMb * 1024 * 1024) {
+      if (tooLarge(f, maxMb)) {
         setError(i18n.t('errors:reasons.too_large', { maxMb }))
       } else {
         ok.push(f)
