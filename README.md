@@ -286,7 +286,7 @@ Yalkos serves a Linear-compatible API at `/graphql` and sends webhooks in the Li
 
 | Checked | When | Blocks pull requests |
 | :--- | :--- | :--- |
-| `@linear/sdk` 101.1.0 (pinned in `compat/package.json`) | every pull request and push to `main` (job `compat`) | yes |
+| `@linear/sdk` 102.0.0 (pinned in `compat/package.json`) | every pull request and push to `main` (job `compat`) | yes |
 | the newest `@linear/sdk` on npm | every day (workflow *Compat (latest SDK)*) | no; opens an issue |
 
 Older SDK versions are not tested: the pinned and the newest version are the whole policy.
