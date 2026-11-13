@@ -100,6 +100,14 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(lastValue).toBe('[notes.txt](/api/attachments/a2/notes.txt)'))
   })
 
+  it.each(['a$&b.png', '$1.png', '$$.png', '$`x.png', "$'y.png"])('inserts the file name %s literally', async (name) => {
+    upload.mockResolvedValue(result({ name, url: '/api/attachments/a1/f.png' }))
+    mount({ issueId: 'i1' })
+    const area = await screen.findByRole('textbox', { name: 'Description' })
+    paste(area, [png(name)])
+    await waitFor(() => expect(lastValue).toBe(`![${name}](/api/attachments/a1/f.png)`))
+  })
+
   it('too large file shows the limit and no placeholder', async () => {
     mount({ issueId: 'i1' })
     const area = await screen.findByRole('textbox', { name: 'Description' })
