@@ -122,6 +122,7 @@ type ComplexityRoot struct {
 		InitiativeUpdateID func(childComplexity int) int
 		Issue              func(childComplexity int) int
 		IssueID            func(childComplexity int) int
+		OnBehalfOf         func(childComplexity int) int
 		Parent             func(childComplexity int) int
 		ParentID           func(childComplexity int) int
 		Project            func(childComplexity int) int
@@ -1441,6 +1442,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Comment.IssueID(childComplexity), true
+	case "Comment.onBehalfOf":
+		if e.ComplexityRoot.Comment.OnBehalfOf == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Comment.OnBehalfOf(childComplexity), true
 	case "Comment.parent":
 		if e.ComplexityRoot.Comment.Parent == nil {
 			break
@@ -6164,6 +6171,8 @@ type Comment {
   editedAt: DateTime
   resolvedAt: DateTime
   resolvingUser: User
+  "Always null: Yalkos does not post comments on behalf of another user."
+  onBehalfOf: User
   "The author."
   user: User
 }
@@ -7503,6 +7512,8 @@ func (ec *executionContext) childFields_Comment(ctx context.Context, field graph
 		return ec.fieldContext_Comment_resolvedAt(ctx, field)
 	case "resolvingUser":
 		return ec.fieldContext_Comment_resolvingUser(ctx, field)
+	case "onBehalfOf":
+		return ec.fieldContext_Comment_onBehalfOf(ctx, field)
 	case "user":
 		return ec.fieldContext_Comment_user(ctx, field)
 	}
@@ -13047,6 +13058,38 @@ func (ec *executionContext) _Comment_resolvingUser(ctx context.Context, field gr
 	)
 }
 func (ec *executionContext) fieldContext_Comment_resolvingUser(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Comment",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Comment_onBehalfOf(ctx context.Context, field graphql.CollectedField, obj *Comment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Comment_onBehalfOf(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OnBehalfOf, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Comment_onBehalfOf(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Comment",
 		Field:      field,
@@ -34914,6 +34957,11 @@ func (ec *executionContext) _Comment(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "resolvingUser":
 			out.Values[i] = ec._Comment_resolvingUser(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "onBehalfOf":
+			out.Values[i] = ec._Comment_onBehalfOf(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}

@@ -37,6 +37,8 @@ type Comment {
   editedAt: DateTime
   resolvedAt: DateTime
   resolvingUser: User
+  "Always null: Yalkos does not post comments on behalf of another user."
+  onBehalfOf: User
   "The author."
   user: User
 }
