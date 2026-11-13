@@ -209,7 +209,7 @@ describe('issue page', () => {
   it('loads older activity', async () => {
     const entry = (id: string, title: string) => ({
       __typename: 'HistoryEntry', id, action: 'update', actor: { id: 'u1', name: 'Olga' }, createdAt: '2026-10-30T14:02:00Z',
-      changes: [{ field: 'title', from: '"x"', to: JSON.stringify(title) }],
+      changes: [{ field: 'title', from: '"x"', to: JSON.stringify(title) }], names: [],
     })
     serve(
       withIssue(pageIssue(1), {

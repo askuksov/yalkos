@@ -26,7 +26,7 @@ export const IssueTimelineQuery = graphql(`
         nodes {
           __typename
           ... on Comment { id body createdAt editedAt author { id name } }
-          ... on HistoryEntry { id action actor { id name } changes { field from to } createdAt }
+          ... on HistoryEntry { id action actor { id name } changes { field from to } names { id name type } createdAt }
         }
         pageInfo { hasPreviousPage startCursor }
       }

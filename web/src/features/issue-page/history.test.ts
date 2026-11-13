@@ -13,8 +13,8 @@ const ctx: DescribeContext = {
   projects: new Map([['p1', 'YLK'], ['p2', 'WEB']]),
 }
 const j = (v: unknown) => (v === null ? null : JSON.stringify(v))
-const entry = (changes: [string, unknown, unknown][], action = 'update', actor: HistoryEntry['actor'] = olga): HistoryEntry => ({
-  id: 'h', action, actor, createdAt: '2026-10-30T14:02:00Z',
+const entry = (changes: [string, unknown, unknown][], action = 'update', actor: HistoryEntry['actor'] = olga, names: HistoryEntry['names'] = []): HistoryEntry => ({
+  id: 'h', action, actor, createdAt: '2026-10-30T14:02:00Z', names,
   changes: changes.map(([field, from, to]) => ({ field, from: j(from), to: j(to) })),
 })
 
@@ -63,5 +63,43 @@ group('history', () => {
     expect(describe(entry([['sortOrder', 1, 2]]), ctx)).toEqual([])
     expect(describe(entry([['number', 1, 2]]), ctx)).toEqual([])
     expect(describe(entry([['completedAt', null, 'x'], ['canceledAt', 'y', null]]), ctx)).toEqual([])
+  })
+
+  group('stored names', () => {
+    const live: DescribeContext = {
+      ...ctx,
+      labels: new Map([['perf', { name: 'Performance', type: false }], ['feat', { name: 'Feature', type: true }]]),
+      milestones: new Map([['m1', 'Bank APIs']]),
+    }
+    const named = (changes: [string, unknown, unknown][], names: HistoryEntry['names']) => describe(entry(changes, 'update', olga, names), live)
+
+    it('describes a deleted type label with its stored name as a type', () => {
+      const bug = { id: 'bug', name: 'Bug', type: true }
+      expect(named([['labelIds', [], ['bug']]], [bug])).toEqual(['Olga set type to Bug'])
+      expect(named([['labelIds', ['bug'], []]], [bug])).toEqual(['Olga removed type Bug'])
+      expect(named([['labelIds', ['bug'], ['feat']]], [bug, { id: 'feat', name: 'Feat', type: true }])).toEqual(['Olga changed type from Bug to Feature'])
+    })
+
+    it('names a deleted ordinary label by its stored name', () => {
+      const old = { id: 'old', name: 'Legacy', type: false }
+      expect(named([['labelIds', [], ['old']]], [old])).toEqual(['Olga added label Legacy'])
+      expect(named([['labelIds', ['old'], []]], [old])).toEqual(['Olga removed label Legacy'])
+    })
+
+    it('names a milestone of the previous project by its stored name', () => {
+      const q3 = { id: 'm-old', name: 'Q3 release', type: false }
+      expect(named([['milestoneId', null, 'm-old']], [q3])).toEqual(['Olga added the issue to milestone Q3 release'])
+      expect(named([['milestoneId', 'm-old', null]], [q3])).toEqual(['Olga removed it from milestone Q3 release'])
+    })
+
+    it('control: a renamed live label shows its live name and live type flag', () => {
+      expect(named([['labelIds', [], ['perf']]], [{ id: 'perf', name: 'Perf', type: true }])).toEqual(['Olga added label Performance'])
+      expect(named([['milestoneId', null, 'm1']], [{ id: 'm1', name: 'Banks', type: false }])).toEqual(['Olga added the issue to milestone Bank APIs'])
+    })
+
+    it('control: an entry without stored names keeps the generic text', () => {
+      expect(named([['labelIds', ['gone'], []]], [])).toEqual(['Olga removed label a deleted label'])
+      expect(named([['milestoneId', 'm-old', null]], [])).toEqual(['Olga removed it from milestone a deleted milestone'])
+    })
   })
 })
