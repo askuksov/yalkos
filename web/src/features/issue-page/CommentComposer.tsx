@@ -6,14 +6,19 @@ import { errorMessage, request } from '../../api/client'
 import { Button } from '../../ui/Button'
 import { useToast } from '../../ui/useToast'
 import { MarkdownEditor } from '../markdown/MarkdownEditor'
+import { dropUploadPlaceholders } from '../markdown/placeholders'
 import s from './issue-page.module.css'
 import { CreateCommentMutation } from './operations'
 
 const draftKey = (issueId: string) => `yalkos.draft.comment.${issueId}`
 
+// Uploads do not survive a reload, so their placeholders are dropped on restore.
 function readDraft(issueId: string): string {
   try {
-    return localStorage.getItem(draftKey(issueId)) ?? ''
+    const saved = localStorage.getItem(draftKey(issueId)) ?? ''
+    const clean = dropUploadPlaceholders(saved)
+    if (clean !== saved) writeDraft(issueId, clean)
+    return clean
   } catch {
     return ''
   }

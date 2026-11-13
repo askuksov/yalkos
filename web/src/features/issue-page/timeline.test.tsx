@@ -90,6 +90,31 @@ describe('issue timeline', () => {
     expect(within(activity).getByRole('textbox', { name: 'Comment' })).toHaveValue('Half-written thought')
   })
 
+  it('drops unfinished upload placeholders from a restored draft and saves the cleaned text', async () => {
+    const draft = 'before\n![Uploading a.png…]()\n![Uploading b\\[1\\].png…]()after'
+    localStorage.setItem('yalkos.draft.comment.i1', draft)
+    serve(handlers())
+    const activity = await openIssue()
+    expect(within(activity).getByRole('textbox', { name: 'Comment' })).toHaveValue('before\nafter')
+    expect(localStorage.getItem('yalkos.draft.comment.i1')).toBe('before\nafter')
+  })
+
+  it('removes a lone placeholder and keeps the line breaks typed around it', async () => {
+    localStorage.setItem('yalkos.draft.comment.i1', 'a\n![Uploading c\\\\d.png…]()\nb')
+    serve(handlers())
+    const activity = await openIssue()
+    expect(within(activity).getByRole('textbox', { name: 'Comment' })).toHaveValue('a\n\nb')
+  })
+
+  it('keeps finished links and a draft without placeholders as they are (control)', async () => {
+    const draft = 'see ![a.png](/api/attachments/a1/a.png) and [b.txt](/api/attachments/a2/b.txt)\n'
+    localStorage.setItem('yalkos.draft.comment.i1', draft)
+    serve(handlers())
+    const activity = await openIssue()
+    expect(within(activity).getByRole('textbox', { name: 'Comment' })).toHaveValue(draft)
+    expect(localStorage.getItem('yalkos.draft.comment.i1')).toBe(draft)
+  })
+
   it('edits own comment and shows (edited)', async () => {
     let edited: string | null = null
     let body = 'Typo here'
