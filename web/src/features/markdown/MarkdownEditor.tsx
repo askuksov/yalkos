@@ -124,7 +124,8 @@ export function MarkdownEditor({ value, onChange, label, issueId, onAttachmentsC
         (res) => {
           if (!alive.current) return
           settle()
-          change(latest.current.replace(ph, linkFor(res)))
+          // A function replacer keeps `$` sequences in file names literal.
+          change(latest.current.replace(ph, () => linkFor(res)))
           if (!issueId) {
             uploaded.current = [...uploaded.current, res.id]
             onAttachmentsChange?.(uploaded.current)
