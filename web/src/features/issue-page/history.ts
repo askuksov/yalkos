@@ -7,6 +7,8 @@ export type HistoryEntry = {
   action: string
   actor: { id: string; name: string } | null
   changes: { field: string; from: string | null; to: string | null }[]
+  /** Label and milestone names as they were at the change; empty for older entries. */
+  names: { id: string; name: string; type: boolean }[]
   createdAt: string
 }
 
@@ -51,6 +53,9 @@ export function describe(entry: HistoryEntry, ctx: DescribeContext): string[] {
   const user = (id: unknown) => (typeof id === 'string' && ctx.users.get(id)) || t('activity.someone')
   const state = (id: unknown) => (typeof id === 'string' && ctx.states.get(id)) || t('activity.deletedState')
   const project = (id: unknown) => (typeof id === 'string' && ctx.projects.get(id)) || t('activity.unknownProject')
+  const stored = new Map(entry.names.map((n) => [n.id, n]))
+  // A milestone of the current project by its live name, else as stored (deleted, or of a former project).
+  const milestone = (id: unknown) => (typeof id === 'string' && (ctx.milestones?.get(id) ?? stored.get(id)?.name)) || t('activity.unknownMilestone')
   const lines: string[] = []
   const moved = byField.get('projectId')
 
@@ -85,11 +90,11 @@ export function describe(entry: HistoryEntry, ctx: DescribeContext): string[] {
         lines.push(to ? t('activity.due', { actor, date: String(to) }) : t('activity.dueRemoved', { actor }))
         break
       case 'labelIds':
-        lines.push(...labelLines(actor, from, to, ctx))
+        lines.push(...labelLines(actor, from, to, stored, ctx))
         break
       case 'milestoneId':
-        if (to) lines.push(t('activity.milestone', { actor, name: (typeof to === 'string' && ctx.milestones?.get(to)) || t('activity.unknownMilestone') }))
-        else lines.push(t('activity.milestoneRemoved', { actor, name: (typeof from === 'string' && ctx.milestones?.get(from)) || t('activity.unknownMilestone') }))
+        if (to) lines.push(t('activity.milestone', { actor, name: milestone(to) }))
+        else lines.push(t('activity.milestoneRemoved', { actor, name: milestone(from) }))
         break
       case 'attachmentAdded':
         lines.push(t('activity.attached', { actor, name: fileName(to) }))
@@ -117,14 +122,18 @@ function fileName(v: unknown): string {
 const ids = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
 
 /** Lines for a label set change: the type first (set/changed/removed), then added and removed labels. */
-function labelLines(actor: string, from: unknown, to: unknown, ctx: DescribeContext): string[] {
+function labelLines(actor: string, from: unknown, to: unknown, stored: Map<string, HistoryEntry['names'][number]>, ctx: DescribeContext): string[] {
   const { t } = ctx
   const before = ids(from)
   const after = ids(to)
   const added = after.filter((x) => !before.includes(x))
   const removed = before.filter((x) => !after.includes(x))
-  const name = (id: string) => ctx.labels?.get(id)?.name ?? t('activity.unknownLabel')
-  const isType = (id: string) => !!ctx.labels?.get(id)?.type
+  // A live label decides its name and type; a deleted one falls back to the entry's stored name.
+  const name = (id: string) => ctx.labels?.get(id)?.name ?? stored.get(id)?.name ?? t('activity.unknownLabel')
+  const isType = (id: string) => {
+    const live = ctx.labels?.get(id)
+    return live ? live.type : !!stored.get(id)?.type
+  }
   const typeIn = added.find(isType)
   const typeOut = removed.find(isType)
   const lines: string[] = []

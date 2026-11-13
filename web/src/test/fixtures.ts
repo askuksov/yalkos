@@ -143,7 +143,7 @@ export function timeline(nodes: unknown[], { older = '' }: { older?: string } = 
 
 export function event(id: string, changes: [string, unknown, unknown][], { action = 'update', at = '2026-10-30T12:00:00Z', actor = owner as { id: string; name: string } | null } = {}) {
   const j = (v: unknown) => (v === null ? null : JSON.stringify(v))
-  return { __typename: 'HistoryEntry', id, action, actor: actor && { id: actor.id, name: actor.name }, createdAt: at, changes: changes.map(([field, from, to]) => ({ field, from: j(from), to: j(to) })) }
+  return { __typename: 'HistoryEntry', id, action, actor: actor && { id: actor.id, name: actor.name }, createdAt: at, changes: changes.map(([field, from, to]) => ({ field, from: j(from), to: j(to) })), names: [] }
 }
 
 export function comment(id: string, body: string, { at = '2026-10-30T12:05:00Z', author = owner as { id: string; name: string }, editedAt = null as string | null } = {}) {
