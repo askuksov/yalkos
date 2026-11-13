@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@linear/sdk':
-        specifier: 101.1.0
-        version: 101.1.0(graphql@17.1.0)
+        specifier: 102.0.0
+        version: 102.0.0(graphql@17.1.0)
       graphql:
         specifier: 17.1.0
         version: 17.1.0
@@ -22,8 +22,8 @@ packages:
     peerDependencies:
       graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0
 
-  '@linear/sdk@101.1.0':
-    resolution: {integrity: sha512-sDlYKMoTiOQU1C6+B2451qMbrR6zdKbBZfqIGp/dpZdVeOzYQSmp8e4uUHlCdMuFM7sRhQFMIl82AtwoaKYW5g==}
+  '@linear/sdk@102.0.0':
+    resolution: {integrity: sha512-tdw/7ujH2/83HI8LUJHAfqHjq1OUnljEQcC0djS54qM6cPE3fbIg9s784W/djdCovj2ZPClWtMJLlf08C0BQkQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
 
   graphql@17.1.0:
@@ -36,7 +36,7 @@ snapshots:
     dependencies:
       graphql: 17.1.0
 
-  '@linear/sdk@101.1.0(graphql@17.1.0)':
+  '@linear/sdk@102.0.0(graphql@17.1.0)':
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@17.1.0)
     transitivePeerDependencies:
