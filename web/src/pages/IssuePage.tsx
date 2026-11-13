@@ -107,12 +107,16 @@ function IssueView({ issue }: { issue: PageIssue }) {
       // Files dropped anywhere on the page attach to the issue (the editors take their own drops).
       data-drop-zone
       onDragOver={(e) => {
-        if (readOnly || e.defaultPrevented || !hasFiles(e)) return
+        // An editor that took the drag shows its own highlight.
+        if (e.defaultPrevented) return setDragOver(false)
+        if (readOnly || !hasFiles(e)) return
         e.preventDefault()
         setDragOver(true)
       }}
       onDragLeave={(e) => {
-        if (e.currentTarget === e.target) setDragOver(false)
+        // relatedTarget is null when the drag leaves the window or is cancelled.
+        const to = e.relatedTarget
+        if (!(to instanceof Node) || !e.currentTarget.contains(to)) setDragOver(false)
       }}
       onDrop={(e) => {
         setDragOver(false)

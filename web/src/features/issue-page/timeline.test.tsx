@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { createEvent, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -166,6 +166,61 @@ describe('issue timeline', () => {
     fireEvent.dragOver(page, { dataTransfer: { files: [file], types: ['Files'] } })
     fireEvent.drop(page, { dataTransfer: { files: [file], types: ['Files'] } })
     await waitFor(() => expect(uploadFile).toHaveBeenCalledWith(file, 'i1'))
+  })
+
+  describe('page drop highlight', () => {
+    const dt = { files: [new File(['x'], 'a.txt', { type: 'text/plain' })], types: ['Files'] }
+    // jsdom has no DragEvent, so relatedTarget is set on the event by hand.
+    function dragLeave(el: HTMLElement, relatedTarget: EventTarget | null) {
+      const ev = createEvent.dragLeave(el)
+      Object.defineProperty(ev, 'relatedTarget', { value: relatedTarget })
+      fireEvent(el, ev)
+    }
+    async function openZone() {
+      serve(handlers())
+      renderAt('/issue/YLK-1')
+      const files = await screen.findByRole('region', { name: 'Attachments' })
+      const page = files.closest('[data-drop-zone]') as HTMLElement
+      const highlighted = () => /dragOver/.test(page.className)
+      return { files, page, highlighted }
+    }
+
+    it('clears when a drag leaves the page from a child', async () => {
+      const { files, page, highlighted } = await openZone()
+      fireEvent.dragOver(files, { dataTransfer: dt })
+      expect(highlighted()).toBe(true)
+      dragLeave(files, document.body)
+      expect(highlighted()).toBe(false)
+      fireEvent.dragOver(page, { dataTransfer: dt })
+      dragLeave(files, null)
+      expect(highlighted()).toBe(false)
+    })
+
+    it('stays on while the drag moves between children', async () => {
+      const { files, page, highlighted } = await openZone()
+      const sibling = page.querySelector('header, h1') as HTMLElement
+      expect(page.contains(sibling)).toBe(true)
+      fireEvent.dragOver(files, { dataTransfer: dt })
+      dragLeave(files, sibling)
+      expect(highlighted()).toBe(true)
+    })
+
+    it('clears on drop', async () => {
+      const { page, highlighted } = await openZone()
+      fireEvent.dragOver(page, { dataTransfer: dt })
+      expect(highlighted()).toBe(true)
+      fireEvent.drop(page, { dataTransfer: dt })
+      expect(highlighted()).toBe(false)
+    })
+
+    it('clears when the drag moves over an editor', async () => {
+      const { page, highlighted } = await openZone()
+      fireEvent.dragOver(page, { dataTransfer: dt })
+      expect(highlighted()).toBe(true)
+      const box = await screen.findByRole('textbox', { name: 'Comment' })
+      fireEvent.dragOver(box, { dataTransfer: dt })
+      expect(highlighted()).toBe(false)
+    })
   })
 
   it('has a single main landmark', async () => {
