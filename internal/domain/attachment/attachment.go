@@ -13,6 +13,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -66,6 +67,10 @@ type Service struct {
 	locks    *blob.Locks
 	maxBytes int64
 	now      func() time.Time
+	// keptWarned is the number of kept files the last cleanup warned about for
+	// lack of blob rows; zero when it has not warned since the guard last did
+	// not apply.
+	keptWarned atomic.Int64
 }
 
 // New builds the service; maxBytes caps one file; now is the clock.
@@ -482,6 +487,7 @@ func (s *Service) dropOrphanFiles(ctx context.Context, before time.Time) (int, e
 	// an existing data directory, dump not restored yet), so they are kept.
 	ws, err := s.q.GetWorkspace(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
+		s.keptWarned.Store(0)
 		return 0, nil
 	}
 	if err != nil {
@@ -493,18 +499,23 @@ func (s *Service) dropOrphanFiles(ctx context.Context, before time.Time) (int, e
 		errs = append(errs, err)
 	}
 	if len(sums) == 0 {
+		s.keptWarned.Store(0)
 		return 0, errors.Join(errs...)
 	}
 	// Files but no blob rows at all: most likely an empty or wrong database,
-	// so nothing is removed.
+	// so nothing is removed. The same number of kept files is warned about
+	// once, not on every run.
 	hasRows, err := s.q.AnyBlob(ctx)
 	if err != nil {
 		return 0, errors.Join(append(errs, fmt.Errorf("any blob: %w", err))...)
 	}
 	if !hasRows {
-		slog.Default().Warn("attachment: no blob rows, stored files kept", slog.Int("files", len(sums)))
+		if s.keptWarned.Swap(int64(len(sums))) != int64(len(sums)) {
+			slog.Default().Warn("attachment: no blob rows, stored files kept", slog.Int("files", len(sums)))
+		}
 		return 0, errors.Join(errs...)
 	}
+	s.keptWarned.Store(0)
 	n := 0
 	for chunk := range slices.Chunk(sums, fileBatch) {
 		if ctx.Err() != nil {
