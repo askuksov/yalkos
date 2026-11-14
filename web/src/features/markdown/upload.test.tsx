@@ -59,4 +59,9 @@ describe('uploadFile', () => {
     fetchMock.mockResolvedValue(reply(403, { error: 'forbidden' }))
     await expect(uploadFile(new File(['x'], 'x.bin'))).rejects.toMatchObject({ code: 'FORBIDDEN' })
   })
+
+  it('turns 409 into a conflict', async () => {
+    fetchMock.mockResolvedValue(reply(409, { error: 'changed concurrently, try again', code: 'CONFLICT' }))
+    await expect(uploadFile(new File(['x'], 'x.bin'), 'i1')).rejects.toMatchObject({ code: 'CONFLICT' })
+  })
 })

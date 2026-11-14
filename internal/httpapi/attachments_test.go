@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -24,6 +25,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/testfx"
 )
@@ -422,5 +424,18 @@ func TestSlowUploadOutlastsReadTimeout(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("slow upload = %d %s", resp.StatusCode, body)
+	}
+}
+
+func TestFileErrorStartOver(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	rec := httptest.NewRecorder()
+	writeFileError(rec, logger, fmt.Errorf("upload: %w", kit.ErrStartOver))
+	if rec.Code != http.StatusConflict || strings.TrimSpace(rec.Body.String()) != `{"code":"CONFLICT","error":"changed concurrently, try again"}` {
+		t.Fatalf("start over = %d %s", rec.Code, rec.Body)
+	}
+	if logs.Len() != 0 {
+		t.Fatalf("start over logged: %s", logs.String())
 	}
 }

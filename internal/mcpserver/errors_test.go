@@ -33,6 +33,7 @@ func TestUserText(t *testing.T) {
 		{kit.NotFoundError{Entity: "Milestone"}, "Milestone not found."},
 		{fmt.Errorf("x: %w", kit.ErrForbidden), "You do not have permission to do this."},
 		{errf("Issue %s not found.", "YLK-9"), "Issue YLK-9 not found."},
+		{fmt.Errorf("issue: %w", kit.ErrStartOver), "The data changed while saving; try again."},
 	}
 	for _, c := range cases {
 		if got := userText(c.err, "test_tool", logger); got != c.want {

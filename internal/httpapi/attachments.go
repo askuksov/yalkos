@@ -47,6 +47,8 @@ func writeFileError(w http.ResponseWriter, logger *slog.Logger, err error) {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
 	case errors.Is(err, kit.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+	case errors.Is(err, kit.ErrStartOver):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "changed concurrently, try again", "code": "CONFLICT"})
 	default:
 		logger.Error("attachment request failed", slog.String("error", err.Error()))
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})

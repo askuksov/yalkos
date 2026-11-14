@@ -10,7 +10,8 @@
     "INTERNAL_ERROR": "Something went wrong on the server. Try again.",
     "SETUP_REQUIRED": "This instance needs to be set up first.",
     "ALREADY_SET_UP": "This instance is already set up.",
-    "COMPLEXITY_LIMIT_EXCEEDED": "The request is too large."
+    "COMPLEXITY_LIMIT_EXCEEDED": "The request is too large.",
+    "CONFLICT": "Someone changed this at the same time. Try again."
   },
   "reasons": {
     "required": "Required",

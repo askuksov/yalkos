@@ -14,7 +14,7 @@ export type UploadResult = {
 
 type ErrorBody = { error?: string; field?: string; reason?: string; params?: Record<string, unknown> }
 
-const codeByStatus: Record<number, string> = { 401: 'AUTHENTICATION_ERROR', 403: 'FORBIDDEN', 404: 'NOT_FOUND' }
+const codeByStatus: Record<number, string> = { 401: 'AUTHENTICATION_ERROR', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT' }
 
 /**
  * Uploads a file over plain HTTP with the session cookie. Without issueId it
