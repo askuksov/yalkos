@@ -176,7 +176,10 @@ func TestCleanupKeepsFileWhoseRowAppearsBeforeTheLock(t *testing.T) {
 	case <-read:
 	case <-time.After(10 * time.Second):
 		unlock()
-		<-done
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+		}
 		t.Fatal("Cleanup did not read the blob rows of the stored files")
 	}
 	// The upload's row lands after the batch read, before the lock is free.

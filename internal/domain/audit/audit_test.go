@@ -329,3 +329,53 @@ func TestRecordManyMatchesRecord(t *testing.T) {
 		t.Errorf("RecordMany of nothing: %v", err)
 	}
 }
+
+// Events without a project or an actor store NULL in both columns, whether
+// they are recorded alone or in a batch next to events that have both.
+func TestRecordManyStoresNullProjectAndActor(t *testing.T) {
+	pool, users, clock := testfx.New(t)
+	ctx := context.Background()
+	projects := project.New(pool, clock)
+	p, err := projects.Create(ctx, users.Admin, project.CreateInput{Key: "ONE", Name: "One"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := clock()
+	event := func(project, actor *uuid.UUID) audit.Event {
+		return audit.Event{
+			EntityType: "issue", Action: "update", EntityID: uuid.New(), ProjectID: project, ActorID: actor,
+			Changes: map[string]audit.Change{"title": {From: "a", To: "b"}}, At: at,
+		}
+	}
+	control := event(nil, nil)
+	bare, onlyProject, onlyActor, full := event(nil, nil), event(&p.ID, nil), event(nil, &users.Member.ID), event(&p.ID, &users.Member.ID)
+	if err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		if err := audit.Record(ctx, q.New(pool).WithTx(tx), control); err != nil {
+			return err
+		}
+		return audit.RecordMany(ctx, q.New(pool).WithTx(tx), []audit.Event{bare, onlyProject, onlyActor, full})
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, tc := range map[string]struct {
+		e                      audit.Event
+		nullProject, nullActor bool
+	}{
+		"Record without both":   {control, true, true},
+		"batch without both":    {bare, true, true},
+		"batch without actor":   {onlyProject, false, true},
+		"batch without project": {onlyActor, true, false},
+		"batch with both":       {full, false, false},
+	} {
+		var nullProject, nullActor bool
+		if err := pool.QueryRow(ctx, `SELECT project_id IS NULL, actor_id IS NULL FROM audit_events WHERE entity_id = $1`,
+			tc.e.EntityID).Scan(&nullProject, &nullActor); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if nullProject != tc.nullProject || nullActor != tc.nullActor {
+			t.Errorf("%s: project_id NULL %v, actor_id NULL %v, want %v, %v",
+				name, nullProject, nullActor, tc.nullProject, tc.nullActor)
+		}
+	}
+}
