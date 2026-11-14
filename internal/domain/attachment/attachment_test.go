@@ -714,6 +714,103 @@ func TestCleanupKeepsFilesWhenNoBlobRows(t *testing.T) {
 	}
 }
 
+// keptWarnings counts the warnings about stored files kept for lack of blob rows.
+func keptWarnings(logs *syncBuffer) int {
+	return strings.Count(logs.String(), "attachment: no blob rows, stored files kept")
+}
+
+// The same kept files are warned about once, not on every run.
+func TestCleanupWarnsAboutKeptFilesOnlyWhenTheirNumberChanges(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	logs := captureDefaultLog(t)
+	old := e.clock.now().Add(-72 * time.Hour)
+	touch(t, e.orphanPath("e"), old)
+	for run := range 3 {
+		if _, err := e.attachments.Cleanup(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if n := keptWarnings(logs); n != 1 {
+			t.Fatalf("run %d: warnings = %d, want 1; log %q", run, n, logs.String())
+		}
+	}
+	touch(t, e.orphanPath("f"), old)
+	for run := range 2 {
+		if _, err := e.attachments.Cleanup(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if n := keptWarnings(logs); n != 2 {
+			t.Fatalf("second file, run %d: warnings = %d, want 2; log %q", run, n, logs.String())
+		}
+	}
+	if !strings.Contains(logs.String(), `"files":2`) {
+		t.Errorf("last warning does not report 2 files; log %q", logs.String())
+	}
+}
+
+// A run that finds no stale files forgets the last warned number too.
+func TestCleanupWarnsAgainAfterKeptFilesWentAway(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	logs := captureDefaultLog(t)
+	orphan := e.orphanPath("e")
+	old := e.clock.now().Add(-72 * time.Hour)
+	touch(t, orphan, old)
+	if _, err := e.attachments.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(orphan); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.attachments.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	touch(t, orphan, old)
+	if _, err := e.attachments.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := keptWarnings(logs); n != 2 {
+		t.Errorf("warnings = %d, want 2; log %q", n, logs.String())
+	}
+}
+
+// A run with blob rows forgets the last warned number, so the same state
+// warns again when it comes back.
+func TestCleanupWarnsAgainAfterBlobRowsCameAndWent(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	logs := captureDefaultLog(t)
+	touch(t, e.orphanPath("e"), e.clock.now().Add(-72*time.Hour))
+	if _, err := e.attachments.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := keptWarnings(logs); n != 1 {
+		t.Fatalf("warnings = %d, want 1; log %q", n, logs.String())
+	}
+	// An upload brings a blob row: the guard does not apply and removes the orphan.
+	i := e.issue(t, issue.CreateInput{})
+	a := e.upload(t, e.users.Member, "a.bin", "linked", &i.ID)
+	if r, err := e.attachments.Cleanup(ctx); err != nil || r.Files != 1 {
+		t.Fatalf("cleanup with a blob row = %+v, %v", r, err)
+	}
+	// The row goes while its file stays: the same one-file state again.
+	touch(t, e.blobPath("linked"), e.clock.now())
+	e.store.failDeletes(func([]byte) bool { return true })
+	if err := e.attachments.Delete(ctx, e.users.Member, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	e.store.failDeletes(nil)
+	e.clock.add(25 * time.Hour)
+	for range 2 {
+		if _, err := e.attachments.Cleanup(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := keptWarnings(logs); n != 2 {
+		t.Errorf("warnings = %d, want 2; log %q", n, logs.String())
+	}
+}
+
 // setWorkspaceCreated sets the creation time of the workspace.
 func (e env) setWorkspaceCreated(t *testing.T, at time.Time) {
 	t.Helper()
