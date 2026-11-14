@@ -5,6 +5,7 @@ package kit
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -45,6 +46,7 @@ func InTxWith(ctx context.Context, pool *pgxpool.Pool, base *q.Queries, fn func(
 			return err
 		}
 	}
+	slog.Default().Warn("transaction ran out of retries", "attempts", attempts, "error", err)
 	return err
 }
 
