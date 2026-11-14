@@ -66,16 +66,18 @@ ORDER BY created_at DESC, id DESC
 LIMIT @max_rows;
 
 -- name: LatestDeliveries :many
--- The newest deliveries of each given webhook, in ListDeliveries order.
+-- The newest deliveries of each given webhook, in ListDeliveries order,
+-- webhooks in the order of the given ids.
 SELECT d.id, d.webhook_id, d.resource, d.action, d.entity_id, d.status, d.attempts, d.response_status,
        d.last_error, d.duration_ms, d.created_at, d.last_attempt_at, d.next_attempt_at, d.finished_at
-FROM unnest(@webhook_ids::uuid[]) w (id)
+FROM unnest(@webhook_ids::uuid[]) WITH ORDINALITY AS w (id, ord)
 CROSS JOIN LATERAL (
     SELECT * FROM webhook_deliveries
     WHERE webhook_id = w.id
     ORDER BY created_at DESC, id DESC
     LIMIT @max_rows
-) d;
+) d
+ORDER BY w.ord, d.created_at DESC, d.id DESC;
 
 -- name: GetAttempt :one
 -- The delivery with what an attempt needs from its webhook, read at attempt time.
