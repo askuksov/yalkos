@@ -175,6 +175,30 @@ func (q *Queries) DeleteOrphanAttachmentAudit(ctx context.Context) (int64, error
 	return result.RowsAffected(), nil
 }
 
+const existingBlobs = `-- name: ExistingBlobs :many
+SELECT sha256 FROM blobs WHERE sha256 = ANY($1::bytea[])
+`
+
+func (q *Queries) ExistingBlobs(ctx context.Context, sums [][]byte) ([][]byte, error) {
+	rows, err := q.db.Query(ctx, existingBlobs, sums)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items [][]byte
+	for rows.Next() {
+		var sha256 []byte
+		if err := rows.Scan(&sha256); err != nil {
+			return nil, err
+		}
+		items = append(items, sha256)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAttachment = `-- name: GetAttachment :one
 SELECT attachments.id, attachments.issue_id, attachments.uploader_id, attachments.blob_sha256, attachments.name, attachments.created_at, b.size, b.content_type
 FROM attachments JOIN blobs b ON b.sha256 = attachments.blob_sha256

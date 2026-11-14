@@ -5,6 +5,9 @@ ON CONFLICT (sha256) DO NOTHING;
 -- name: BlobExists :one
 SELECT EXISTS (SELECT 1 FROM blobs WHERE sha256 = $1);
 
+-- name: ExistingBlobs :many
+SELECT sha256 FROM blobs WHERE sha256 = ANY(@sums::bytea[]);
+
 -- name: AnyBlob :one
 SELECT EXISTS (SELECT 1 FROM blobs);
 

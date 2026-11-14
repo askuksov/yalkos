@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -38,6 +39,8 @@ const (
 	// Staging files and stored files without a blob row are removed once
 	// older than this, well past the slowest upload.
 	fileTTL = 24 * time.Hour
+	// Stored files whose blob rows Cleanup reads in one statement.
+	fileBatch = 1000
 )
 
 // Attachment is an uploaded file; IssueID is nil while it is pending.
@@ -472,7 +475,8 @@ func (s *Service) Cleanup(ctx context.Context) (CleanupResult, error) {
 }
 
 // dropOrphanFiles removes stored files modified before before that have no
-// blob row and returns how many it removed.
+// blob row and returns how many it removed. Rows are read for fileBatch files
+// at a time; only files without one are checked one by one.
 func (s *Service) dropOrphanFiles(ctx context.Context, before time.Time) (int, error) {
 	// Files older than the workspace predate this database (recreated next to
 	// an existing data directory, dump not restored yet), so they are kept.
@@ -502,23 +506,42 @@ func (s *Service) dropOrphanFiles(ctx context.Context, before time.Time) (int, e
 		return 0, errors.Join(errs...)
 	}
 	n := 0
-	for _, sum := range sums {
+	for chunk := range slices.Chunk(sums, fileBatch) {
 		if ctx.Err() != nil {
 			return n, errors.Join(append(errs, ctx.Err())...)
 		}
-		dropped, err := s.dropFile(ctx, sum)
-		if dropped {
-			n++
-		}
+		found, err := s.q.ExistingBlobs(ctx, chunk)
 		if err != nil {
-			errs = append(errs, err)
+			errs = append(errs, fmt.Errorf("existing blobs: %w", err))
+			continue
+		}
+		known := make(map[string]bool, len(found))
+		for _, sum := range found {
+			known[string(sum)] = true
+		}
+		for _, sum := range chunk {
+			if known[string(sum)] {
+				continue
+			}
+			if ctx.Err() != nil {
+				return n, errors.Join(append(errs, ctx.Err())...)
+			}
+			dropped, err := s.dropFile(ctx, sum)
+			if dropped {
+				n++
+			}
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 	return n, errors.Join(errs...)
 }
 
 // dropFile removes the stored file of sum unless a blob row exists. The hash
-// lock keeps an upload of the same content from writing its row meanwhile.
+// lock keeps an upload of the same content from writing its row meanwhile;
+// the recheck under it is needed although a batch read found no row, because
+// an upload commits its file before inserting the row.
 func (s *Service) dropFile(ctx context.Context, sum []byte) (bool, error) {
 	unlock := s.locks.Lock(sum)
 	defer unlock()
