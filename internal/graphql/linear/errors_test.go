@@ -1,7 +1,9 @@
 package linear_test
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -55,6 +57,19 @@ func TestPresenterTranslates(t *testing.T) {
 	g = linear.Present(errors.New("pg: connection reset"))
 	if g.Extensions["type"] != "internal error" || g.Message != "Internal error" || g.Extensions["userPresentableMessage"] != nil {
 		t.Errorf("internal = %q %v", g.Message, g.Extensions)
+	}
+}
+
+func TestPresenterStartOver(t *testing.T) {
+	logged := false
+	g := linear.PresentLogged(fmt.Errorf("issue: %w", kit.ErrStartOver), func(context.Context, error) { logged = true })
+	msg := "This changed while saving. Try again."
+	if g.Message != msg || g.Extensions["code"] != "CONFLICT" || g.Extensions["type"] != "lock timeout" ||
+		g.Extensions["userError"] != true || g.Extensions["userPresentableMessage"] != msg {
+		t.Fatalf("start over = %q %v", g.Message, g.Extensions)
+	}
+	if logged {
+		t.Fatal("start over logged as internal")
 	}
 }
 

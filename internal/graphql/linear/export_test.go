@@ -13,7 +13,12 @@ import (
 
 // Present runs an error through the /graphql error presenter.
 func Present(err error) *gqlerror.Error {
-	return presenter(nil, func(context.Context, error) {})(context.Background(), err)
+	return PresentLogged(err, func(context.Context, error) {})
+}
+
+// PresentLogged is Present with logf for internal errors.
+func PresentLogged(err error, logf func(context.Context, error)) *gqlerror.Error {
+	return presenter(nil, logf)(context.Background(), err)
 }
 
 // CostOf validates query against the schema and returns its cost.

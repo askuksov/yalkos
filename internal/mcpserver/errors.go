@@ -51,6 +51,8 @@ func userText(err error, tool string, logger *slog.Logger) string {
 		return nf.Entity + " not found."
 	case errors.Is(err, kit.ErrForbidden):
 		return "You do not have permission to do this."
+	case errors.Is(err, kit.ErrStartOver):
+		return "The data changed while saving; try again."
 	}
 	logger.Error("mcp tool failed", slog.String("tool", tool), slog.String("error", err.Error()))
 	return "Internal error; try again later."

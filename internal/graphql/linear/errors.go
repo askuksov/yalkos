@@ -31,6 +31,7 @@ var errorTypes = map[string]string{
 	"COMPLEXITY_LIMIT_EXCEEDED": "graphql error",
 	"RATELIMITED":               "ratelimited",
 	"RATE_LIMITED":              "ratelimited",
+	"CONFLICT":                  "lock timeout",
 	gqlerr.CodeInternal:         "internal error",
 }
 

@@ -71,6 +71,8 @@ func From(ctx context.Context, err error) *gqlerror.Error {
 		return newErr(ctx, "Setup required", "SETUP_REQUIRED", "setup required", true)
 	case errors.Is(err, account.ErrAlreadySetUp):
 		return newErr(ctx, "This instance is already set up", "ALREADY_SET_UP", "invalid input", true)
+	case errors.Is(err, kit.ErrStartOver):
+		return newErr(ctx, "This changed while saving. Try again.", "CONFLICT", "lock timeout", true)
 	case errors.Is(err, account.ErrInviteInvalid):
 		return newErr(ctx, "This invite link is invalid or has expired.", "INVITE_INVALID", "invalid input", true)
 	default:

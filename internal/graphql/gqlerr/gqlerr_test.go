@@ -3,6 +3,7 @@ package gqlerr_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -25,6 +26,20 @@ func TestFromNotFound(t *testing.T) {
 	}
 	if !errors.Is(kit.NotFoundError{Entity: "Issue"}, kit.ErrNotFound) {
 		t.Fatal("NotFoundError is not ErrNotFound")
+	}
+}
+
+func TestFromStartOver(t *testing.T) {
+	err := fmt.Errorf("issue: %w", kit.ErrStartOver)
+	e := gqlerr.From(context.Background(), err)
+	if e.Message != "This changed while saving. Try again." || e.Extensions["code"] != "CONFLICT" ||
+		e.Extensions["type"] != "lock timeout" || e.Extensions["userError"] != true {
+		t.Fatalf("got %q %v", e.Message, e.Extensions)
+	}
+	logged := false
+	out := gqlerr.Presenter(func(context.Context, error) { logged = true })(context.Background(), err)
+	if out.Extensions["code"] != "CONFLICT" || logged {
+		t.Fatalf("presenter: %v, logged %v", out.Extensions, logged)
 	}
 }
 
