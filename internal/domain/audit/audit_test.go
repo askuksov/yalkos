@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -150,5 +151,74 @@ func TestByIDs(t *testing.T) {
 	got, err := svc.ByIDs(ctx, []uuid.UUID{all.Items[1].ID, uuid.New(), all.Items[0].ID})
 	if err != nil || len(got) != 2 || got[0].ID != all.Items[1].ID || got[1].ID != all.Items[0].ID || len(got[0].Changes) != 1 {
 		t.Fatalf("ByIDs = %+v, %v", got, err)
+	}
+}
+
+// stmtCounter is a pgx tracer that counts SQL statements.
+type stmtCounter struct{ n atomic.Int64 }
+
+func (c *stmtCounter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
+	c.n.Add(1)
+	return ctx
+}
+
+func (c *stmtCounter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
+
+// Record reads the names of every kind in one statement, however many ids
+// each kind has, and none when the changes name nothing.
+func TestRecordNamesOneStatement(t *testing.T) {
+	base, users, clock := testfx.New(t)
+	ctx := context.Background()
+	cfg := base.Config()
+	counter := &stmtCounter{}
+	cfg.ConnConfig.Tracer = counter
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+
+	ids := func(n int) []uuid.UUID {
+		out := make([]uuid.UUID, n)
+		for i := range out {
+			out[i] = uuid.New()
+		}
+		return out
+	}
+	statements := func(changes map[string]audit.Change) int64 {
+		var least int64 = -1
+		for range 3 {
+			var used int64
+			err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+				before := counter.n.Load()
+				defer func() { used = counter.n.Load() - before }()
+				return audit.Record(ctx, q.New(pool).WithTx(tx), audit.Event{
+					EntityType: "issue", EntityID: uuid.New(), ActorID: &users.Member.ID, Action: "update", Changes: changes, At: clock(),
+				})
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if least < 0 || used < least {
+				least = used
+			}
+		}
+		return least
+	}
+	named := func(n int) map[string]audit.Change {
+		return map[string]audit.Change{
+			"labelIds":    {From: ids(n), To: ids(n)},
+			"milestoneId": {From: ids(1)[0], To: ids(1)[0]},
+			"stateId":     {From: ids(1)[0], To: ids(1)[0]},
+			"projectId":   {From: ids(1)[0], To: ids(1)[0]},
+		}
+	}
+	two, ten := statements(named(2)), statements(named(10))
+	// One names statement and one insert.
+	if two != 2 || ten != 2 {
+		t.Errorf("statements per Record = %d with 2 labels, %d with 10; want 2 and 2", two, ten)
+	}
+	if none := statements(map[string]audit.Change{"title": {From: "a", To: "b"}}); none != 1 {
+		t.Errorf("statements per Record naming nothing = %d, want 1", none)
 	}
 }
