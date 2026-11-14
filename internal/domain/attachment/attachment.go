@@ -316,7 +316,7 @@ func (s *Service) UsedInText(ctx context.Context, issueIDs []uuid.UUID) (map[uui
 	}
 	out := make(map[uuid.UUID]bool, len(rows))
 	for _, r := range rows {
-		out[r.ID] = r.Used != nil && *r.Used // never NULL: both columns are NOT NULL
+		out[r.ID] = r.Used
 	}
 	return out, nil
 }

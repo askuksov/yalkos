@@ -28,13 +28,21 @@ WHERE attachments.issue_id = ANY(@issue_ids::uuid[])
 ORDER BY attachments.created_at, attachments.id;
 
 -- name: AttachmentsUsedInText :many
--- Whether the issue's description or one of its comments holds the
--- attachment's download path (what IDsInMarkdown links), in any case.
-SELECT a.id,
-  strpos(lower(i.description), '/api/attachments/' || a.id::text || '/') > 0
-  OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = a.issue_id
-             AND strpos(lower(c.body), '/api/attachments/' || a.id::text || '/') > 0) AS used
-FROM attachments a JOIN issues i ON i.id = a.issue_id
+-- Whether the issue's description or one of its comments links to the
+-- attachment as IDsInMarkdown does (same pattern as urlIDRe in
+-- internal/domain/attachment/link.go): path case-sensitive, id in any case.
+-- The linked ids are extracted once per issue, not once per attachment.
+WITH texts AS (
+  SELECT i.id AS issue_id, i.description AS body FROM issues i WHERE i.id = ANY(@issue_ids::uuid[])
+  UNION ALL
+  SELECT c.issue_id, c.body FROM comments c WHERE c.issue_id = ANY(@issue_ids::uuid[])
+), linked AS MATERIALIZED (
+  SELECT DISTINCT t.issue_id, lower(m[1]) AS id
+  FROM texts t,
+    regexp_matches(t.body, '/api/attachments/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/', 'g') AS m
+)
+SELECT a.id, (l.id IS NOT NULL)::boolean AS used
+FROM attachments a LEFT JOIN linked l ON l.issue_id = a.issue_id AND l.id = a.id::text
 WHERE a.issue_id = ANY(@issue_ids::uuid[]);
 
 -- name: DeleteAttachment :exec
