@@ -335,13 +335,14 @@ func (q *Queries) InsertTestDelivery(ctx context.Context, arg InsertTestDelivery
 const latestDeliveries = `-- name: LatestDeliveries :many
 SELECT d.id, d.webhook_id, d.resource, d.action, d.entity_id, d.status, d.attempts, d.response_status,
        d.last_error, d.duration_ms, d.created_at, d.last_attempt_at, d.next_attempt_at, d.finished_at
-FROM unnest($1::uuid[]) w (id)
+FROM unnest($1::uuid[]) WITH ORDINALITY AS w (id, ord)
 CROSS JOIN LATERAL (
     SELECT id, webhook_id, resource, action, entity_id, payload, status, attempts, response_status, last_error, duration_ms, created_at, last_attempt_at, next_attempt_at, finished_at FROM webhook_deliveries
     WHERE webhook_id = w.id
     ORDER BY created_at DESC, id DESC
     LIMIT $2
 ) d
+ORDER BY w.ord, d.created_at DESC, d.id DESC
 `
 
 type LatestDeliveriesParams struct {
@@ -366,7 +367,8 @@ type LatestDeliveriesRow struct {
 	FinishedAt     *time.Time
 }
 
-// The newest deliveries of each given webhook, in ListDeliveries order.
+// The newest deliveries of each given webhook, in ListDeliveries order,
+// webhooks in the order of the given ids.
 func (q *Queries) LatestDeliveries(ctx context.Context, arg LatestDeliveriesParams) ([]LatestDeliveriesRow, error) {
 	rows, err := q.db.Query(ctx, latestDeliveries, arg.WebhookIds, arg.MaxRows)
 	if err != nil {
