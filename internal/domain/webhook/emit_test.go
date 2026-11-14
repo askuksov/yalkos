@@ -500,3 +500,44 @@ func TestDeliveriesNewestFirstAndLimit(t *testing.T) {
 		t.Fatalf("Owner role: %v", err)
 	}
 }
+
+func TestLatestDeliveriesPerWebhook(t *testing.T) {
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	other := e.create(t, webhook.CreateInput{Enabled: true, Resources: []event.Resource{event.Comment}})
+	empty := e.create(t, webhook.CreateInput{Enabled: true, Resources: []event.Resource{event.Milestone}})
+	ents := make([]uuid.UUID, 3)
+	for i := range ents {
+		ents[i] = uuid.New()
+		c := event.Change{Resource: event.Issue, Action: event.Create, EntityID: ents[i], At: at.Add(time.Duration(i) * time.Second)}
+		if err := e.emit(t, c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := e.emit(t, event.Change{Resource: event.Comment, Action: event.Create, At: at}); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	ids := []uuid.UUID{w.ID, other.ID, empty.ID, uuid.New()}
+
+	got, err := e.svc.LatestDeliveries(ctx, e.users.Admin, ids, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got[w.ID]) != 2 || *got[w.ID][0].EntityID != ents[2] || *got[w.ID][1].EntityID != ents[1] {
+		t.Fatalf("webhook deliveries = %+v, want the two newest, newest first", got[w.ID])
+	}
+	if len(got[other.ID]) != 1 || got[other.ID][0].WebhookID != other.ID {
+		t.Fatalf("other webhook deliveries = %+v", got[other.ID])
+	}
+	if len(got) != 2 {
+		t.Fatalf("webhooks with deliveries = %d, want 2", len(got))
+	}
+	for _, n := range []int{0, 51, -1} {
+		_, err := e.svc.LatestDeliveries(ctx, e.users.Admin, ids, n)
+		wantInput(t, err, "first", kit.ReasonOutOfRange, "must be 1–50")
+	}
+	if _, err := e.svc.LatestDeliveries(ctx, e.users.Member, ids, 1); !errors.Is(err, kit.ErrForbidden) {
+		t.Fatalf("member err = %v, want ErrForbidden", err)
+	}
+}

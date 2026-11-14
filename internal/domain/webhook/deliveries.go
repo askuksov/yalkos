@@ -68,8 +68,8 @@ func (s *Service) Deliveries(ctx context.Context, actor account.User, webhookID 
 	if err := authorize(actor); err != nil {
 		return nil, err
 	}
-	if limit < 1 || limit > maxDeliveries {
-		return nil, kit.Input("first", kit.ReasonOutOfRange, "must be 1–50").With("min", 1).With("max", maxDeliveries)
+	if err := validDeliveryLimit(limit); err != nil {
+		return nil, err
 	}
 	rows, err := s.q.ListDeliveries(ctx, q.ListDeliveriesParams{WebhookID: webhookID, MaxRows: int32(limit)})
 	if err != nil {
@@ -77,12 +77,45 @@ func (s *Service) Deliveries(ctx context.Context, actor account.User, webhookID 
 	}
 	out := make([]Delivery, len(rows))
 	for i, r := range rows {
-		out[i] = Delivery{
-			ID: r.ID, WebhookID: r.WebhookID, Resource: r.Resource, Action: r.Action, EntityID: r.EntityID,
-			Status: r.Status, Attempts: int(r.Attempts), ResponseStatus: intPtr(r.ResponseStatus), LastError: r.LastError,
-			DurationMS: intPtr(r.DurationMs), CreatedAt: r.CreatedAt, LastAttemptAt: r.LastAttemptAt,
-			NextAttemptAt: r.NextAttemptAt, FinishedAt: r.FinishedAt,
-		}
+		out[i] = deliveryFromRow(r)
 	}
 	return out, nil
+}
+
+// LatestDeliveries returns the newest deliveries of each given webhook, newest
+// first, with the same rule and limit as Deliveries. A webhook without
+// deliveries (or one that does not exist) has no entry.
+func (s *Service) LatestDeliveries(ctx context.Context, actor account.User, webhookIDs []uuid.UUID, limit int) (map[uuid.UUID][]Delivery, error) {
+	if err := authorize(actor); err != nil {
+		return nil, err
+	}
+	if err := validDeliveryLimit(limit); err != nil {
+		return nil, err
+	}
+	rows, err := s.q.LatestDeliveries(ctx, q.LatestDeliveriesParams{WebhookIds: webhookIDs, MaxRows: int32(limit)})
+	if err != nil {
+		return nil, fmt.Errorf("latest deliveries: %w", err)
+	}
+	out := make(map[uuid.UUID][]Delivery, len(webhookIDs))
+	for _, r := range rows {
+		d := deliveryFromRow(q.ListDeliveriesRow(r))
+		out[d.WebhookID] = append(out[d.WebhookID], d)
+	}
+	return out, nil
+}
+
+func validDeliveryLimit(limit int) error {
+	if limit < 1 || limit > maxDeliveries {
+		return kit.Input("first", kit.ReasonOutOfRange, "must be 1–50").With("min", 1).With("max", maxDeliveries)
+	}
+	return nil
+}
+
+func deliveryFromRow(r q.ListDeliveriesRow) Delivery {
+	return Delivery{
+		ID: r.ID, WebhookID: r.WebhookID, Resource: r.Resource, Action: r.Action, EntityID: r.EntityID,
+		Status: r.Status, Attempts: int(r.Attempts), ResponseStatus: intPtr(r.ResponseStatus), LastError: r.LastError,
+		DurationMS: intPtr(r.DurationMs), CreatedAt: r.CreatedAt, LastAttemptAt: r.LastAttemptAt,
+		NextAttemptAt: r.NextAttemptAt, FinishedAt: r.FinishedAt,
+	}
 }
