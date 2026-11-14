@@ -213,6 +213,8 @@ func checkAssignee(ctx context.Context, tx *q.Queries, id *uuid.UUID) error {
 }
 
 // checkMilestone validates a milestone of the issue's project (nil is none).
+// The caller holds the project lock, which milestone and state deletes also
+// take, so the milestone cannot disappear between this check and the write.
 func checkMilestone(ctx context.Context, tx *q.Queries, projectID uuid.UUID, id *uuid.UUID) error {
 	if id == nil {
 		return nil

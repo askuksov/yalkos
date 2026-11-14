@@ -332,3 +332,82 @@ func TestLabelChangeRestartsWhenMovedMeanwhile(t *testing.T) {
 		t.Errorf("label parent = %v, want %v", got.ParentID, to.ID)
 	}
 }
+
+// waitWaiting waits until at least n other sessions of this database wait for a lock.
+func waitWaiting(t *testing.T, e env, n int) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if waiting(t, e) >= n {
+			return
+		}
+	}
+	t.Fatalf("fewer than %d sessions wait for a lock", n)
+}
+
+func within(t *testing.T, name string, done <-chan error) error {
+	t.Helper()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(10 * time.Second):
+		t.Fatalf("%s did not finish", name)
+		return nil
+	}
+}
+
+// groupRace queues first and then second behind a session holding the group
+// and returns their errors in that order.
+func groupRace(t *testing.T, e env, g label.Label, first, second func() error) [2]error {
+	t.Helper()
+	h := hold(t, e)
+	if err := h.lock(g.ID, "UPDATE"); err != nil {
+		t.Fatal(err)
+	}
+	a := make(chan error, 1)
+	go func() { a <- first() }()
+	waitWaiting(t, e, 1)
+	b := make(chan error, 1)
+	go func() { b <- second() }()
+	waitWaiting(t, e, 2)
+	h.commit()
+	return [2]error{within(t, "first", a), within(t, "second", b)}
+}
+
+// A label created in a group that is being deleted sees the delete and
+// rejects the group instead of failing on its foreign key.
+func TestLabelCreateAfterGroupDelete(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	group := func(t *testing.T, name string) label.Label {
+		return e.create(t, e.users.Admin, label.CreateInput{Name: name, IsGroup: true})
+	}
+	del := func(g label.Label) func() error {
+		return func() error { return e.labels.Delete(ctx, e.users.Admin, g.ID) }
+	}
+	add := func(g label.Label) func() error {
+		return func() error {
+			_, err := e.labels.Create(ctx, e.users.Admin, label.CreateInput{Name: "Web", Color: "#AABBCC", ParentID: &g.ID})
+			return err
+		}
+	}
+
+	t.Run("delete first", func(t *testing.T) {
+		g := group(t, "Area")
+		errs := groupRace(t, e, g, del(g), add(g))
+		if errs[0] != nil {
+			t.Fatalf("delete: %v", errs[0])
+		}
+		wantInput(t, errs[1], "parentId", kit.ReasonNotFound)
+	})
+	t.Run("create first", func(t *testing.T) {
+		g := group(t, "Zone")
+		errs := groupRace(t, e, g, add(g), del(g))
+		if errs[0] != nil {
+			t.Fatalf("create: %v", errs[0])
+		}
+		wantInput(t, errs[1], "id", kit.ReasonNotAllowed)
+		if got := e.byName(t, "Web"); got.ParentID == nil || *got.ParentID != g.ID {
+			t.Errorf("label parent = %v, want %v", got.ParentID, g.ID)
+		}
+	})
+}
