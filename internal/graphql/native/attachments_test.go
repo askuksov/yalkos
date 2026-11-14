@@ -102,7 +102,7 @@ func TestAttachmentUsedInTextAPI(t *testing.T) {
 		}
 		return a.ID.String()
 	}
-	inComment, inDescription, unused := upload("c.png"), upload("d.png"), upload("n.png")
+	inComment, inDescription, unused, upperPath := upload("c.png"), upload("d.png"), upload("n.png"), upload("u.png")
 	owner.do(`mutation($id: ID!, $d: String!) { updateIssue(id: $id, input: { description: $d }) { id } }`,
 		map[string]any{"id": i.ID, "d": "see ![d](/api/attachments/" + inDescription + "/d.png)"}).decode(t, "updateIssue", &struct{}{})
 	// The only reference sits in the oldest of 60 comments: absolute, upper case.
@@ -110,6 +110,10 @@ func TestAttachmentUsedInTextAPI(t *testing.T) {
 		body := fmt.Sprintf("comment %d", n)
 		if n == 0 {
 			body = "![c](https://app.example.com/api/attachments/" + strings.ToUpper(inComment) + "/c.png)"
+		}
+		// An upper-case path is a broken link (the route is case-sensitive).
+		if n == 1 {
+			body = "![u](/API/ATTACHMENTS/" + upperPath + "/u.png)"
 		}
 		owner.do(`mutation($i: ID!, $b: String!) { createComment(issueId: $i, body: $b) { id } }`,
 			map[string]any{"i": i.ID, "b": body}).decode(t, "createComment", &struct{}{})
@@ -130,7 +134,7 @@ func TestAttachmentUsedInTextAPI(t *testing.T) {
 		}
 		return out
 	}
-	want := map[string]bool{inComment: true, inDescription: true, unused: false}
+	want := map[string]bool{inComment: true, inDescription: true, unused: false, upperPath: false}
 	if got := used(); !maps.Equal(got, want) {
 		t.Errorf("usedInText = %v, want %v", got, want)
 	}
@@ -152,8 +156,8 @@ func TestAttachmentUsedInTextAPI(t *testing.T) {
 		upload(fmt.Sprintf("more-%d.png", n))
 	}
 	many := count()
-	t.Logf("usedInText: %d SQL statements for 3 attachments, %d for 13", few, many)
+	t.Logf("usedInText: %d SQL statements for 4 attachments, %d for 14", few, many)
 	if many > few {
-		t.Errorf("usedInText of 13 attachments ran %d SQL statements, of 3: %d", many, few)
+		t.Errorf("usedInText of 14 attachments ran %d SQL statements, of 4: %d", many, few)
 	}
 }

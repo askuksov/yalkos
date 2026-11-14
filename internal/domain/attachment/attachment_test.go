@@ -823,3 +823,56 @@ func TestUsedInText(t *testing.T) {
 		t.Errorf("UsedInText = %v, want %v (pending %s)", got, want, pending.ID)
 	}
 }
+
+// UsedInText counts a link exactly when IDsInMarkdown would link it: the same
+// text in a description or in a comment gives the same answer as linking.
+func TestUsedInTextMatchesLinking(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	cases := []struct {
+		name, text string // {id}, {ID}: the attachment id, lower and upper case
+		want       bool
+	}{
+		{"relative", "![x](/api/attachments/{id}/x.png)", true},
+		{"absolute", "see https://app.example.com/api/attachments/{id}/x.png", true},
+		{"upper case id", "/api/attachments/{ID}/x.png", true},
+		{"twice", "/api/attachments/{id}/a.png /api/attachments/{id}/b.png", true},
+		{"upper case path", "![x](/API/ATTACHMENTS/{id}/x.png)", false},
+		{"mixed case path", "/Api/Attachments/{id}/x.png", false},
+		{"no slash after id", "/api/attachments/{id}", false},
+		{"no path", "{id}", false},
+		{"empty", "", false},
+	}
+	for _, c := range cases {
+		for _, inComment := range []bool{false, true} {
+			name := c.name + " in description"
+			if inComment {
+				name = c.name + " in comment"
+			}
+			t.Run(name, func(t *testing.T) {
+				i := e.issue(t, issue.CreateInput{})
+				a := e.upload(t, e.users.Member, "x.png", png, &i.ID)
+				text := strings.NewReplacer("{id}", a.ID.String(), "{ID}", strings.ToUpper(a.ID.String())).Replace(c.text)
+				if linked := slices.Contains(attachment.IDsInMarkdown(text), a.ID); linked != c.want {
+					t.Fatalf("IDsInMarkdown(%q) links it: %v, want %v", text, linked, c.want)
+				}
+				if inComment {
+					if text != "" {
+						if _, err := e.comments.Create(ctx, e.users.Member, i.ID, text, nil); err != nil {
+							t.Fatal(err)
+						}
+					}
+				} else if _, err := e.issues.Update(ctx, e.users.Member, i.ID, issue.Patch{Description: ptr(text)}); err != nil {
+					t.Fatal(err)
+				}
+				got, err := e.attachments.UsedInText(ctx, []uuid.UUID{i.ID})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got[a.ID] != c.want || len(got) != 1 {
+					t.Errorf("UsedInText(%q) = %v, want only %s: %v", text, got, a.ID, c.want)
+				}
+			})
+		}
+	}
+}
