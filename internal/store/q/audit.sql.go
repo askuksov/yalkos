@@ -12,59 +12,49 @@ import (
 	"github.com/google/uuid"
 )
 
-const auditLabelNames = `-- name: AuditLabelNames :many
+const auditNames = `-- name: AuditNames :many
 SELECT l.id, l.name, coalesce(l.parent_id = w.type_group_id, false)::boolean AS is_type
 FROM labels l JOIN workspaces w ON w.id = l.workspace_id
 WHERE l.id = ANY($1::uuid[])
+UNION ALL
+SELECT id, name, false FROM milestones WHERE id = ANY($2::uuid[])
+UNION ALL
+SELECT id, name, false FROM states WHERE id = ANY($3::uuid[])
+UNION ALL
+SELECT id, key, false FROM projects WHERE id = ANY($4::uuid[])
 `
 
-type AuditLabelNamesRow struct {
+type AuditNamesParams struct {
+	LabelIds     []uuid.UUID
+	MilestoneIds []uuid.UUID
+	StateIds     []uuid.UUID
+	ProjectIds   []uuid.UUID
+}
+
+type AuditNamesRow struct {
 	ID     uuid.UUID
 	Name   string
 	IsType bool
 }
 
-// Plain reads (no row locks): is_type is whether the label's group is the
-// workspace's type group.
-func (q *Queries) AuditLabelNames(ctx context.Context, ids []uuid.UUID) ([]AuditLabelNamesRow, error) {
-	rows, err := q.db.Query(ctx, auditLabelNames, ids)
+// Names of the labels, milestones, states and projects (by key) an event
+// refers to, in one statement. Plain reads (no row locks): is_type is whether
+// a label's group is the workspace's type group.
+func (q *Queries) AuditNames(ctx context.Context, arg AuditNamesParams) ([]AuditNamesRow, error) {
+	rows, err := q.db.Query(ctx, auditNames,
+		arg.LabelIds,
+		arg.MilestoneIds,
+		arg.StateIds,
+		arg.ProjectIds,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AuditLabelNamesRow
+	var items []AuditNamesRow
 	for rows.Next() {
-		var i AuditLabelNamesRow
+		var i AuditNamesRow
 		if err := rows.Scan(&i.ID, &i.Name, &i.IsType); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const auditMilestoneNames = `-- name: AuditMilestoneNames :many
-SELECT id, name FROM milestones WHERE id = ANY($1::uuid[])
-`
-
-type AuditMilestoneNamesRow struct {
-	ID   uuid.UUID
-	Name string
-}
-
-func (q *Queries) AuditMilestoneNames(ctx context.Context, ids []uuid.UUID) ([]AuditMilestoneNamesRow, error) {
-	rows, err := q.db.Query(ctx, auditMilestoneNames, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []AuditMilestoneNamesRow
-	for rows.Next() {
-		var i AuditMilestoneNamesRow
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

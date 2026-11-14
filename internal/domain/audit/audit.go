@@ -35,10 +35,11 @@ type Event struct {
 	At                 time.Time
 }
 
-// Record writes e using tx (the caller's transaction). The names of the labels
-// and milestones in e's labelIds/milestoneId changes are read in the same
-// transaction and stored next to the changes, so the entry keeps them after a
-// rename or delete; a caller that deletes one records its events first.
+// Record writes e using tx (the caller's transaction). The names of the labels,
+// milestones, states and projects in e's labelIds, milestoneId, stateId and
+// projectId changes (a project by its key) are read in the same transaction,
+// in one statement, and stored next to the changes, so the entry keeps them
+// after a rename or delete; a caller that deletes one records its events first.
 func Record(ctx context.Context, tx *q.Queries, e Event) error {
 	changes := e.Changes
 	if changes == nil {
@@ -68,51 +69,66 @@ type storedName struct {
 	Type bool   `json:"type,omitempty"`
 }
 
-// resolveNames returns the encoded names of the labels and milestones that
-// changes refer to, or nil when it names none. Plain reads: no row locks.
-func resolveNames(ctx context.Context, tx *q.Queries, changes map[string]Change) ([]byte, error) {
-	var labels, milestones []uuid.UUID
-	if c, ok := changes["labelIds"]; ok {
-		for _, v := range []any{c.From, c.To} {
+// idsOf appends the ids that field of changes holds in From and To; nil is
+// skipped. Label ids are a list, the others a single id.
+func idsOf(changes map[string]Change, field string, list bool, dst []uuid.UUID) ([]uuid.UUID, error) {
+	c, ok := changes[field]
+	if !ok {
+		return dst, nil
+	}
+	for _, v := range []any{c.From, c.To} {
+		if list {
 			var ids []uuid.UUID
 			if err := recode(v, &ids); err != nil {
-				return nil, fmt.Errorf("audit: label ids: %w", err)
+				return nil, fmt.Errorf("audit: %s: %w", field, err)
 			}
-			labels = append(labels, ids...)
+			dst = append(dst, ids...)
+			continue
+		}
+		var id *uuid.UUID
+		if err := recode(v, &id); err != nil {
+			return nil, fmt.Errorf("audit: %s: %w", field, err)
+		}
+		if id != nil {
+			dst = append(dst, *id)
 		}
 	}
-	if c, ok := changes["milestoneId"]; ok {
-		for _, v := range []any{c.From, c.To} {
-			var id *uuid.UUID
-			if err := recode(v, &id); err != nil {
-				return nil, fmt.Errorf("audit: milestone id: %w", err)
-			}
-			if id != nil {
-				milestones = append(milestones, *id)
-			}
+	return dst, nil
+}
+
+// resolveNames returns the encoded names of the labels, milestones, states and
+// projects (by key) that changes refer to, or nil when it names none. One
+// statement for all kinds; plain reads: no row locks.
+func resolveNames(ctx context.Context, tx *q.Queries, changes map[string]Change) ([]byte, error) {
+	var arg q.AuditNamesParams
+	var err error
+	for _, f := range []struct {
+		field string
+		list  bool
+		dst   *[]uuid.UUID
+	}{
+		{"labelIds", true, &arg.LabelIds},
+		{"milestoneId", false, &arg.MilestoneIds},
+		{"stateId", false, &arg.StateIds},
+		{"projectId", false, &arg.ProjectIds},
+	} {
+		if *f.dst, err = idsOf(changes, f.field, f.list, nil); err != nil {
+			return nil, err
 		}
 	}
-	out := map[uuid.UUID]storedName{}
-	if len(labels) > 0 {
-		rows, err := tx.AuditLabelNames(ctx, labels)
-		if err != nil {
-			return nil, fmt.Errorf("audit: label names: %w", err)
-		}
-		for _, r := range rows {
-			out[r.ID] = storedName{Name: r.Name, Type: r.IsType}
-		}
-	}
-	if len(milestones) > 0 {
-		rows, err := tx.AuditMilestoneNames(ctx, milestones)
-		if err != nil {
-			return nil, fmt.Errorf("audit: milestone names: %w", err)
-		}
-		for _, r := range rows {
-			out[r.ID] = storedName{Name: r.Name}
-		}
-	}
-	if len(out) == 0 {
+	if len(arg.LabelIds)+len(arg.MilestoneIds)+len(arg.StateIds)+len(arg.ProjectIds) == 0 {
 		return nil, nil
+	}
+	rows, err := tx.AuditNames(ctx, arg)
+	if err != nil {
+		return nil, fmt.Errorf("audit: names: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	out := make(map[uuid.UUID]storedName, len(rows))
+	for _, r := range rows {
+		out[r.ID] = storedName{Name: r.Name, Type: r.IsType}
 	}
 	b, err := json.Marshal(out)
 	if err != nil {
@@ -163,7 +179,8 @@ type FieldChange struct {
 	From, To json.RawMessage
 }
 
-// Name is a label or milestone named by an event, as it was when recorded.
+// Name is a label, milestone, state or project (by its key) named by an event,
+// as it was when recorded.
 type Name struct {
 	ID   uuid.UUID
 	Name string

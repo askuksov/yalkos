@@ -98,13 +98,14 @@ func TestIssueHistoryKeepsNames(t *testing.T) {
 			}
 		}
 	}
-	// create; priority (no names); Perf deleted; Bug deleted; moved (milestone cleared).
+	// create (with its state and project key); priority (no names); Perf deleted;
+	// Bug deleted; moved (both projects and their states, milestone cleared).
 	check(moved.ID, []string{
-		"create[Beta,Bug(type),Perf]", "update[]", "update[Bug(type),Perf]", "update[Bug(type)]", "update[Beta]",
+		"create[AAA,Beta,Bug(type),Perf,Todo]", "update[]", "update[Bug(type),Perf]", "update[Bug(type)]", "update[AAA,BBB,Beta,Todo,Todo]",
 	})
 	// create; Perf deleted; Bug deleted; Beta deleted.
 	check(stays.ID, []string{
-		"create[Beta,Bug(type),Perf]", "update[Bug(type),Perf]", "update[Bug(type)]", "update[Beta]",
+		"create[AAA,Beta,Bug(type),Perf,Todo]", "update[Bug(type),Perf]", "update[Bug(type)]", "update[Beta]",
 	})
 	h := namedHistory(t, owner, moved.ID)
 	if fields(h[1]) != "priority" || h[1].Names == nil {
@@ -135,7 +136,7 @@ func TestIssueHistoryKeepsNameBeforeRename(t *testing.T) {
 	owner.do(`mutation($id: ID!, $in: UpdateIssueInput!) { updateIssue(id: $id, input: $in) { id } }`,
 		map[string]any{"id": i.ID, "in": map[string]any{"removeLabelIds": []string{docs.ID}}}).decode(t, "updateIssue", &struct{}{})
 	h := namedHistory(t, owner, i.ID)
-	if len(h) != 2 || names(h[0]) != "Beta,Docs,Task(type)" || names(h[1]) != "Guides,Task(type)" {
+	if len(h) != 2 || names(h[0]) != "Beta,Docs,Task(type),Todo,YLK" || names(h[1]) != "Guides,Task(type)" {
 		t.Fatalf("history = %+v", h)
 	}
 }

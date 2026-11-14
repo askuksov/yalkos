@@ -7,7 +7,7 @@ export type HistoryEntry = {
   action: string
   actor: { id: string; name: string } | null
   changes: { field: string; from: string | null; to: string | null }[]
-  /** Label and milestone names as they were at the change; empty for older entries. */
+  /** Label, milestone, state and project (key) names as they were at the change; empty for older entries. */
   names: { id: string; name: string; type: boolean }[]
   createdAt: string
 }
@@ -51,9 +51,10 @@ export function describe(entry: HistoryEntry, ctx: DescribeContext): string[] {
 
   const byField = new Map(entry.changes.map((c) => [c.field, c]))
   const user = (id: unknown) => (typeof id === 'string' && ctx.users.get(id)) || t('activity.someone')
-  const state = (id: unknown) => (typeof id === 'string' && ctx.states.get(id)) || t('activity.deletedState')
-  const project = (id: unknown) => (typeof id === 'string' && ctx.projects.get(id)) || t('activity.unknownProject')
   const stored = new Map(entry.names.map((n) => [n.id, n]))
+  // Live name first, then the one stored with the entry, then the generic text.
+  const state = (id: unknown) => (typeof id === 'string' && (ctx.states.get(id) ?? stored.get(id)?.name)) || t('activity.deletedState')
+  const project = (id: unknown) => (typeof id === 'string' && (ctx.projects.get(id) ?? stored.get(id)?.name)) || t('activity.unknownProject')
   // A milestone of the current project by its live name, else as stored (deleted, or of a former project).
   const milestone = (id: unknown) => (typeof id === 'string' && (ctx.milestones?.get(id) ?? stored.get(id)?.name)) || t('activity.unknownMilestone')
   const lines: string[] = []

@@ -2537,12 +2537,12 @@ type HistoryEntry {
   action: String!
   actor: User
   changes: [FieldChange!]!
-  "Names of the labels and milestones in changes as they were when the change was made; empty for older entries."
+  "Names of the labels, milestones, states and projects in changes as they were when the change was made (a project by its key); empty for older entries."
   names: [HistoryName!]!
   createdAt: Time!
 }
 
-"A label or milestone named by a history entry; type is true for a label of the type group."
+"A label, milestone, state or project named by a history entry (a project by its key); type is true for a label of the type group."
 type HistoryName {
   id: ID!
   name: String!

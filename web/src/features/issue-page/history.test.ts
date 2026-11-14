@@ -98,6 +98,22 @@ group('history', () => {
       expect(named([['milestoneId', 'm-old', null]], [q3])).toEqual(['Olga removed it from milestone Q3 release'])
     })
 
+    it('names a deleted state by its stored name', () => {
+      const doomed = { id: 's-doomed', name: 'Doomed', type: false }
+      expect(named([['stateId', 's-todo', 's-doomed']], [doomed])).toEqual(['Olga changed state from Todo to Doomed'])
+      expect(named([['stateId', 's-doomed', 's-done']], [doomed])).toEqual(['Olga changed state from Doomed to Done'])
+    })
+
+    it('names a deleted project by its stored key in the move line', () => {
+      const gone = { id: 'p-gone', name: 'AAA', type: false }
+      expect(named([['projectId', 'p-gone', 'p2'], ['number', 12, 3]], [gone])).toEqual(['Olga moved the issue from AAA to WEB (was AAA-12)'])
+    })
+
+    it('control: a live state or project keeps its live name over the stored one', () => {
+      expect(named([['stateId', 's-todo', 's-done']], [{ id: 's-done', name: 'Finished', type: false }])).toEqual(['Olga changed state from Todo to Done'])
+      expect(named([['projectId', 'p1', 'p2'], ['number', 12, 3]], [{ id: 'p1', name: 'OLD', type: false }])).toEqual(['Olga moved the issue from YLK to WEB (was YLK-12)'])
+    })
+
     it('control: a renamed live label shows its live name and live type flag', () => {
       expect(named([['labelIds', [], ['perf']]], [{ id: 'perf', name: 'Perf', type: true }])).toEqual(['Olga added label Performance'])
       expect(named([['milestoneId', null, 'm1']], [{ id: 'm1', name: 'Banks', type: false }])).toEqual(['Olga added the issue to milestone Bank APIs'])
@@ -106,6 +122,8 @@ group('history', () => {
     it('control: an entry without stored names keeps the generic text', () => {
       expect(named([['labelIds', ['gone'], []]], [])).toEqual(['Olga removed label a deleted label'])
       expect(named([['milestoneId', 'm-old', null]], [])).toEqual(['Olga removed it from milestone a deleted milestone'])
+      expect(named([['stateId', 's-gone', 's-done']], [])).toEqual(['Olga changed state from a deleted state to Done'])
+      expect(named([['projectId', 'p-gone', 'p2'], ['number', 12, 3]], [])).toEqual(['Olga moved the issue from another project to WEB (was another project-12)'])
     })
   })
 })
