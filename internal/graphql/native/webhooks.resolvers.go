@@ -177,20 +177,12 @@ func (r *webhookResolver) CreatedBy(ctx context.Context, obj *Webhook) (*User, e
 
 // Deliveries is the resolver for the deliveries field.
 func (r *webhookResolver) Deliveries(ctx context.Context, obj *Webhook, first *int) ([]WebhookDelivery, error) {
-	a, err := actor(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// Deliveries of an unknown webhook read as an empty list, so the webhook
-	// itself is checked first.
-	if _, err := r.Webhooks.Get(ctx, a.User, obj.uid); err != nil {
-		return nil, err
-	}
 	limit := webhookDeliveriesDefault
 	if first != nil {
 		limit = *first
 	}
-	ds, err := r.Webhooks.Deliveries(ctx, a.User, obj.uid, limit)
+	// The batch checks the actor's right to read webhooks once.
+	ds, err := loadersFrom(ctx).webhookDeliveries.Load(ctx, deliveriesKey{webhook: obj.uid, limit: limit})
 	if err != nil {
 		return nil, err
 	}

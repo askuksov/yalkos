@@ -14,6 +14,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/domain/webhook"
 )
 
 // loaders batch per-request lookups by id, so a list of N items costs one
@@ -45,6 +46,14 @@ type loaders struct {
 	issueAttachments *dataloadgen.Loader[uuid.UUID, []attachment.Attachment]
 	// By issue id: whether each attachment of the batch is used in its text.
 	attachmentsUsed *dataloadgen.Loader[uuid.UUID, map[uuid.UUID]bool]
+	// By webhook id and page size: its newest deliveries.
+	webhookDeliveries *dataloadgen.Loader[deliveriesKey, []webhook.Delivery]
+}
+
+// deliveriesKey is a webhook and how many of its newest deliveries to load.
+type deliveriesKey struct {
+	webhook uuid.UUID
+	limit   int
 }
 
 type loadersKey struct{}
@@ -96,6 +105,42 @@ func newLoaders(d Deps) *loaders {
 		commentCounts:     dataloadgen.NewLoader(mapped(d.Comments.Counts), opt),
 		issueAttachments:  dataloadgen.NewLoader(grouped(d.Attachments.ByIssues), opt),
 		attachmentsUsed:   dataloadgen.NewLoader(shared(d.Attachments.UsedInText), opt),
+		webhookDeliveries: dataloadgen.NewLoader(webhookDeliveries(d), opt),
+	}
+}
+
+// webhookDeliveries batches the newest deliveries per webhook: one query per
+// distinct page size. The actor must be allowed to read webhooks.
+func webhookDeliveries(d Deps) func(context.Context, []deliveriesKey) ([][]webhook.Delivery, []error) {
+	return func(ctx context.Context, keys []deliveriesKey) ([][]webhook.Delivery, []error) {
+		values := make([][]webhook.Delivery, len(keys))
+		errs := make([]error, len(keys))
+		a, err := actor(ctx)
+		byLimit := map[int][]uuid.UUID{}
+		for _, k := range keys {
+			byLimit[k.limit] = append(byLimit[k.limit], k.webhook)
+		}
+		found := make(map[deliveriesKey][]webhook.Delivery, len(keys))
+		failed := make(map[int]error, len(byLimit))
+		for limit, ids := range byLimit {
+			if err != nil {
+				failed[limit] = err
+				continue
+			}
+			byWebhook, ferr := d.Webhooks.LatestDeliveries(ctx, a.User, ids, limit)
+			if ferr != nil {
+				failed[limit] = ferr
+				continue
+			}
+			for id, ds := range byWebhook {
+				found[deliveriesKey{id, limit}] = ds
+			}
+		}
+		for i, k := range keys {
+			errs[i] = failed[k.limit]
+			values[i] = found[k]
+		}
+		return values, errs
 	}
 }
 
