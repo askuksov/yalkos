@@ -404,6 +404,8 @@ func (s *Service) moveIssues(ctx context.Context, ptx pgx.Tx, tx *q.Queries, act
 	if err != nil {
 		return fmt.Errorf("move issues: %w", err)
 	}
+	live := make([]q.MoveIssuesToStateRow, 0, len(rows))
+	events := make([]audit.Event, 0, len(rows))
 	for _, r := range rows {
 		if r.DeletedAt != nil {
 			continue
@@ -412,15 +414,19 @@ func (s *Service) moveIssues(ctx context.Context, ptx pgx.Tx, tx *q.Queries, act
 			map[string]any{"stateId": from.ID, "completedAt": r.OldCompletedAt, "canceledAt": r.OldCanceledAt},
 			map[string]any{"stateId": to.ID, "completedAt": r.CompletedAt, "canceledAt": r.CanceledAt},
 		)
-		if err := audit.Record(ctx, tx, audit.Event{
+		live = append(live, r)
+		events = append(events, audit.Event{
 			EntityType: "issue", Action: "update", EntityID: r.ID, ProjectID: &r.ProjectID, ActorID: &actor.ID,
 			Changes: changes, At: now,
-		}); err != nil {
-			return err
-		}
+		})
+	}
+	if err := audit.RecordMany(ctx, tx, events); err != nil {
+		return err
+	}
+	for n, r := range live {
 		if err := s.emit(ctx, ptx, event.Change{
 			Resource: event.Issue, Action: event.Update, EntityID: r.ID, ProjectIDs: []uuid.UUID{r.ProjectID},
-			ActorID: actor.ID, At: now, Diff: changes, PrevUpdatedAt: r.OldUpdatedAt,
+			ActorID: actor.ID, At: now, Diff: events[n].Changes, PrevUpdatedAt: r.OldUpdatedAt,
 		}); err != nil {
 			return err
 		}

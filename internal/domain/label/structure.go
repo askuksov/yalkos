@@ -320,16 +320,18 @@ func (s *Service) Delete(ctx context.Context, actor account.User, id uuid.UUID) 
 		}
 		changes := make([]map[string]audit.Change, len(sets))
 		touched := make([]uuid.UUID, len(sets))
+		events := make([]audit.Event, len(sets))
 		for n, set := range sets {
 			after := slices.DeleteFunc(slices.Clone(set.LabelIds), func(l uuid.UUID) bool { return l == id })
 			changes[n] = map[string]audit.Change{"labelIds": {From: set.LabelIds, To: after}}
 			touched[n] = set.IssueID
-			if err := audit.Record(ctx, tx, audit.Event{
+			events[n] = audit.Event{
 				EntityType: "issue", Action: "update", EntityID: set.IssueID, ProjectID: &set.ProjectID, ActorID: &actor.ID,
 				Changes: changes[n], At: now,
-			}); err != nil {
-				return err
 			}
+		}
+		if err := audit.RecordMany(ctx, tx, events); err != nil {
+			return err
 		}
 		// The label is reported while it still exists; the issues once they
 		// have lost it and carry the new updated_at.

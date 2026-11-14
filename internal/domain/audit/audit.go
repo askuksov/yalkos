@@ -35,28 +35,68 @@ type Event struct {
 	At                 time.Time
 }
 
-// Record writes e using tx (the caller's transaction). The names of the labels,
-// milestones, states and projects in e's labelIds, milestoneId, stateId and
-// projectId changes (a project by its key) are read in the same transaction,
-// in one statement, and stored next to the changes, so the entry keeps them
-// after a rename or delete; a caller that deletes one records its events first.
+// Record writes e using tx (the caller's transaction); see RecordMany.
 func Record(ctx context.Context, tx *q.Queries, e Event) error {
-	changes := e.Changes
-	if changes == nil {
-		changes = map[string]Change{}
+	return RecordMany(ctx, tx, []Event{e})
+}
+
+// RecordMany writes events using tx (the caller's transaction), in order. The
+// names of the labels, milestones, states and projects in each event's
+// labelIds, milestoneId, stateId and projectId changes (a project by its key)
+// are read in the same transaction, in one statement for all events, and each
+// event stores the names of its own ids next to its changes, so the entry
+// keeps them after a rename or delete; a caller that deletes one records its
+// events first. All rows are inserted in one statement.
+func RecordMany(ctx context.Context, tx *q.Queries, events []Event) error {
+	if len(events) == 0 {
+		return nil
 	}
-	b, err := json.Marshal(changes)
-	if err != nil {
-		return fmt.Errorf("audit: encode changes: %w", err)
+	refs := make([]q.AuditNamesParams, len(events))
+	var all q.AuditNamesParams
+	for i, e := range events {
+		var err error
+		if refs[i], err = namedIDs(e.Changes); err != nil {
+			return err
+		}
+		all.LabelIds = append(all.LabelIds, refs[i].LabelIds...)
+		all.MilestoneIds = append(all.MilestoneIds, refs[i].MilestoneIds...)
+		all.StateIds = append(all.StateIds, refs[i].StateIds...)
+		all.ProjectIds = append(all.ProjectIds, refs[i].ProjectIds...)
 	}
-	names, err := resolveNames(ctx, tx, changes)
+	found, err := lookupNames(ctx, tx, all)
 	if err != nil {
 		return err
 	}
-	if err := tx.InsertAuditEvent(ctx, q.InsertAuditEventParams{
-		EntityType: e.EntityType, EntityID: e.EntityID, ProjectID: e.ProjectID, ActorID: e.ActorID,
-		Action: e.Action, Changes: b, Names: names, CreatedAt: e.At,
-	}); err != nil {
+	// NULL project and actor ids and absent names are empty strings.
+	in := q.InsertAuditEventsParams{
+		EntityTypes: make([]string, len(events)), EntityIds: make([]uuid.UUID, len(events)),
+		ProjectIds: make([]string, len(events)), ActorIds: make([]string, len(events)),
+		Actions: make([]string, len(events)), Changes: make([]string, len(events)),
+		Names: make([]string, len(events)), CreatedAts: make([]time.Time, len(events)),
+	}
+	for i, e := range events {
+		changes := e.Changes
+		if changes == nil {
+			changes = map[string]Change{}
+		}
+		b, err := json.Marshal(changes)
+		if err != nil {
+			return fmt.Errorf("audit: encode changes: %w", err)
+		}
+		names, err := encodeNames(refs[i], found)
+		if err != nil {
+			return err
+		}
+		in.EntityTypes[i], in.EntityIds[i], in.Actions[i], in.Changes[i], in.Names[i], in.CreatedAts[i] =
+			e.EntityType, e.EntityID, e.Action, string(b), names, e.At
+		if e.ProjectID != nil {
+			in.ProjectIds[i] = e.ProjectID.String()
+		}
+		if e.ActorID != nil {
+			in.ActorIds[i] = e.ActorID.String()
+		}
+	}
+	if err := tx.InsertAuditEvents(ctx, in); err != nil {
 		return fmt.Errorf("audit: record: %w", err)
 	}
 	return nil
@@ -69,22 +109,30 @@ type storedName struct {
 	Type bool   `json:"type,omitempty"`
 }
 
-// idsOf appends the ids that field of changes holds in From and To; nil is
-// skipped. Label ids are a list, the others a single id.
-func idsOf(changes map[string]Change, field string, list bool, dst []uuid.UUID) ([]uuid.UUID, error) {
+// listIDs appends the ids that field of changes holds, as lists, in From and To.
+func listIDs(changes map[string]Change, field string, dst []uuid.UUID) ([]uuid.UUID, error) {
 	c, ok := changes[field]
 	if !ok {
 		return dst, nil
 	}
 	for _, v := range []any{c.From, c.To} {
-		if list {
-			var ids []uuid.UUID
-			if err := recode(v, &ids); err != nil {
-				return nil, fmt.Errorf("audit: %s: %w", field, err)
-			}
-			dst = append(dst, ids...)
-			continue
+		var ids []uuid.UUID
+		if err := recode(v, &ids); err != nil {
+			return nil, fmt.Errorf("audit: %s: %w", field, err)
 		}
+		dst = append(dst, ids...)
+	}
+	return dst, nil
+}
+
+// singleIDs appends the ids that field of changes holds, one each, in From and
+// To; nil is skipped.
+func singleIDs(changes map[string]Change, field string, dst []uuid.UUID) ([]uuid.UUID, error) {
+	c, ok := changes[field]
+	if !ok {
+		return dst, nil
+	}
+	for _, v := range []any{c.From, c.To} {
 		var id *uuid.UUID
 		if err := recode(v, &id); err != nil {
 			return nil, fmt.Errorf("audit: %s: %w", field, err)
@@ -96,45 +144,60 @@ func idsOf(changes map[string]Change, field string, list bool, dst []uuid.UUID) 
 	return dst, nil
 }
 
-// resolveNames returns the encoded names of the labels, milestones, states and
-// projects (by key) that changes refer to, or nil when it names none. One
-// statement for all kinds; plain reads: no row locks.
-func resolveNames(ctx context.Context, tx *q.Queries, changes map[string]Change) ([]byte, error) {
-	var arg q.AuditNamesParams
+// namedIDs returns the ids of the labels, milestones, states and projects that
+// changes refer to.
+func namedIDs(changes map[string]Change) (q.AuditNamesParams, error) {
+	var ids q.AuditNamesParams
 	var err error
-	for _, f := range []struct {
-		field string
-		list  bool
-		dst   *[]uuid.UUID
-	}{
-		{"labelIds", true, &arg.LabelIds},
-		{"milestoneId", false, &arg.MilestoneIds},
-		{"stateId", false, &arg.StateIds},
-		{"projectId", false, &arg.ProjectIds},
-	} {
-		if *f.dst, err = idsOf(changes, f.field, f.list, nil); err != nil {
-			return nil, err
-		}
+	if ids.LabelIds, err = listIDs(changes, "labelIds", nil); err != nil {
+		return ids, err
 	}
-	if len(arg.LabelIds)+len(arg.MilestoneIds)+len(arg.StateIds)+len(arg.ProjectIds) == 0 {
+	if ids.MilestoneIds, err = singleIDs(changes, "milestoneId", nil); err != nil {
+		return ids, err
+	}
+	if ids.StateIds, err = singleIDs(changes, "stateId", nil); err != nil {
+		return ids, err
+	}
+	ids.ProjectIds, err = singleIDs(changes, "projectId", nil)
+	return ids, err
+}
+
+// lookupNames reads the names of ids in one statement for all kinds, or none
+// when ids is empty; plain reads: no row locks.
+func lookupNames(ctx context.Context, tx *q.Queries, ids q.AuditNamesParams) (map[uuid.UUID]storedName, error) {
+	if len(ids.LabelIds)+len(ids.MilestoneIds)+len(ids.StateIds)+len(ids.ProjectIds) == 0 {
 		return nil, nil
 	}
-	rows, err := tx.AuditNames(ctx, arg)
+	rows, err := tx.AuditNames(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("audit: names: %w", err)
-	}
-	if len(rows) == 0 {
-		return nil, nil
 	}
 	out := make(map[uuid.UUID]storedName, len(rows))
 	for _, r := range rows {
 		out[r.ID] = storedName{Name: r.Name, Type: r.IsType}
 	}
+	return out, nil
+}
+
+// encodeNames returns the encoded names of the ids in refs that found holds,
+// or "" when there are none.
+func encodeNames(refs q.AuditNamesParams, found map[uuid.UUID]storedName) (string, error) {
+	out := map[uuid.UUID]storedName{}
+	for _, list := range [][]uuid.UUID{refs.LabelIds, refs.MilestoneIds, refs.StateIds, refs.ProjectIds} {
+		for _, id := range list {
+			if n, ok := found[id]; ok {
+				out[id] = n
+			}
+		}
+	}
+	if len(out) == 0 {
+		return "", nil
+	}
 	b, err := json.Marshal(out)
 	if err != nil {
-		return nil, fmt.Errorf("audit: encode names: %w", err)
+		return "", fmt.Errorf("audit: encode names: %w", err)
 	}
-	return b, nil
+	return string(b), nil
 }
 
 // recode reads v (whatever type the caller recorded) through its JSON encoding.

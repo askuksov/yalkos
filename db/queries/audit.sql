@@ -1,6 +1,12 @@
--- name: InsertAuditEvent :exec
+-- name: InsertAuditEvents :exec
+-- Inserts one row per array position, in position order. project_ids,
+-- actor_ids and names carry the empty string for NULL (the Go array of uuid cannot hold NULL).
 INSERT INTO audit_events (entity_type, entity_id, project_id, actor_id, action, changes, names, created_at)
-VALUES (@entity_type, @entity_id, @project_id, @actor_id, @action, @changes, sqlc.narg(names)::jsonb, @created_at);
+SELECT (@entity_types::text[])[i], (@entity_ids::uuid[])[i], nullif((@project_ids::text[])[i], '')::uuid,
+       nullif((@actor_ids::text[])[i], '')::uuid, (@actions::text[])[i], (@changes::text[])[i]::jsonb,
+       nullif((@names::text[])[i], '')::jsonb, (@created_ats::timestamptz[])[i]
+FROM generate_series(1, cardinality(@entity_types::text[])) AS i
+ORDER BY i;
 
 -- name: AuditNames :many
 -- Names of the labels, milestones, states and projects (by key) an event
