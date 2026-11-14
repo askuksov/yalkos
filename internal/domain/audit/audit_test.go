@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -13,7 +14,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/label"
+	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/page"
+	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/store/q"
 	"github.com/askuksov/yalkos/internal/testfx"
 )
@@ -220,5 +224,108 @@ func TestRecordNamesOneStatement(t *testing.T) {
 	}
 	if none := statements(map[string]audit.Change{"title": {From: "a", To: "b"}}); none != 1 {
 		t.Errorf("statements per Record naming nothing = %d, want 1", none)
+	}
+}
+
+// RecordMany stores what Record stores for each event: the same changes, the
+// names of the ids that event's own changes refer to (not the union of all
+// events), the event time, and the order of events that share an entity and a
+// time.
+func TestRecordManyMatchesRecord(t *testing.T) {
+	pool, users, clock := testfx.New(t)
+	ctx := context.Background()
+	projects := project.New(pool, clock)
+	labels := label.New(pool, clock)
+	milestones := milestone.New(pool, projects, clock)
+	p1, err := projects.Create(ctx, users.Admin, project.CreateInput{Key: "ONE", Name: "One"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2, err := projects.Create(ctx, users.Admin, project.CreateInput{Key: "TWO", Name: "Two"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	states, err := projects.States(ctx, p1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lab := func(name string) uuid.UUID {
+		l, err := labels.Create(ctx, users.Member, label.CreateInput{Name: name, Color: "#AABBCC"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return l.ID
+	}
+	l1, l2 := lab("Perf"), lab("Sec")
+	m, err := milestones.Create(ctx, users.Admin, p1.ID, milestone.CreateInput{Name: "v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone := uuid.New()
+	at := clock()
+
+	type spec struct {
+		slot    int // events with equal slot share an entity
+		at      time.Time
+		changes map[string]audit.Change
+	}
+	specs := []spec{
+		{0, at, map[string]audit.Change{"labelIds": {From: []uuid.UUID{l1}, To: []uuid.UUID{l1, l2}}}},
+		{1, at.Add(time.Second), map[string]audit.Change{"stateId": {From: states[0].ID, To: states[1].ID}}},
+		{2, at, map[string]audit.Change{"projectId": {From: p1.ID, To: p2.ID}, "title": {From: "a", To: "b"}}},
+		{3, at, map[string]audit.Change{"milestoneId": {From: nil, To: m.ID}, "labelIds": {From: []uuid.UUID{l2}, To: []uuid.UUID{}}}},
+		{4, at, map[string]audit.Change{"title": {From: "a", To: "b"}}},
+		{5, at, map[string]audit.Change{"labelIds": {From: []uuid.UUID{gone, l1}, To: []uuid.UUID{l1}}, "stateId": {From: gone, To: states[0].ID}}},
+		{0, at, map[string]audit.Change{"labelIds": {From: []uuid.UUID{l1, l2}, To: []uuid.UUID{l2}}}},
+	}
+	build := func() ([]audit.Event, []uuid.UUID) {
+		entities := make([]uuid.UUID, 6)
+		for i := range entities {
+			entities[i] = uuid.New()
+		}
+		events := make([]audit.Event, len(specs))
+		for i, s := range specs {
+			events[i] = audit.Event{
+				EntityType: "issue", Action: "update", EntityID: entities[s.slot], ProjectID: &p1.ID,
+				ActorID: &users.Member.ID, Changes: s.changes, At: s.at,
+			}
+		}
+		return events, entities
+	}
+	control, controlEntities := build()
+	batch, batchEntities := build()
+	if err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		for _, e := range control {
+			if err := audit.Record(ctx, q.New(pool).WithTx(tx), e); err != nil {
+				return err
+			}
+		}
+		return audit.RecordMany(ctx, q.New(pool).WithTx(tx), batch)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	svc := audit.New(pool)
+	for slot := range controlEntities {
+		want, err := svc.List(ctx, controlEntities[slot], page.Args{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := svc.List(ctx, batchEntities[slot], page.Args{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(want.Items) == 0 || len(got.Items) != len(want.Items) {
+			t.Fatalf("slot %d: %d entries, want %d", slot, len(got.Items), len(want.Items))
+		}
+		for i := range want.Items {
+			w, g := want.Items[i], got.Items[i]
+			w.ID, g.ID = uuid.Nil, uuid.Nil
+			if !reflect.DeepEqual(w, g) {
+				t.Errorf("slot %d entry %d:\n got  %+v\n want %+v", slot, i, g, w)
+			}
+		}
+	}
+	if err := audit.RecordMany(ctx, q.New(pool), nil); err != nil {
+		t.Errorf("RecordMany of nothing: %v", err)
 	}
 }

@@ -88,32 +88,38 @@ func (q *Queries) DeleteProjectAudit(ctx context.Context, projectID uuid.UUID) e
 	return err
 }
 
-const insertAuditEvent = `-- name: InsertAuditEvent :exec
+const insertAuditEvents = `-- name: InsertAuditEvents :exec
 INSERT INTO audit_events (entity_type, entity_id, project_id, actor_id, action, changes, names, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+SELECT ($1::text[])[i], ($2::uuid[])[i], nullif(($3::text[])[i], '')::uuid,
+       nullif(($4::text[])[i], '')::uuid, ($5::text[])[i], ($6::text[])[i]::jsonb,
+       nullif(($7::text[])[i], '')::jsonb, ($8::timestamptz[])[i]
+FROM generate_series(1, cardinality($1::text[])) AS i
+ORDER BY i
 `
 
-type InsertAuditEventParams struct {
-	EntityType string
-	EntityID   uuid.UUID
-	ProjectID  *uuid.UUID
-	ActorID    *uuid.UUID
-	Action     string
-	Changes    []byte
-	Names      []byte
-	CreatedAt  time.Time
+type InsertAuditEventsParams struct {
+	EntityTypes []string
+	EntityIds   []uuid.UUID
+	ProjectIds  []string
+	ActorIds    []string
+	Actions     []string
+	Changes     []string
+	Names       []string
+	CreatedAts  []time.Time
 }
 
-func (q *Queries) InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) error {
-	_, err := q.db.Exec(ctx, insertAuditEvent,
-		arg.EntityType,
-		arg.EntityID,
-		arg.ProjectID,
-		arg.ActorID,
-		arg.Action,
+// Inserts one row per array position, in position order. project_ids,
+// actor_ids and names carry the empty string for NULL (the Go array of uuid cannot hold NULL).
+func (q *Queries) InsertAuditEvents(ctx context.Context, arg InsertAuditEventsParams) error {
+	_, err := q.db.Exec(ctx, insertAuditEvents,
+		arg.EntityTypes,
+		arg.EntityIds,
+		arg.ProjectIds,
+		arg.ActorIds,
+		arg.Actions,
 		arg.Changes,
 		arg.Names,
-		arg.CreatedAt,
+		arg.CreatedAts,
 	)
 	return err
 }
