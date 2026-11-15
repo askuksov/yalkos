@@ -143,7 +143,7 @@ group('history', () => {
       })
     })
 
-    it('control: an empty live name without a stored entry keeps the generic text', () => {
+    it('shows the generic text for an empty live name without a stored entry', () => {
       const blank: DescribeContext = {
         ...live,
         states: new Map([...live.states, ['s-blank', '']]),
