@@ -268,6 +268,30 @@ describe('issue page', () => {
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
+    it('uploads a large file chosen with Attach file before the size limit has loaded', async () => {
+      const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+        const name = ((init.body as FormData).get('file') as File).name
+        return { ok: true, status: 200, json: async () => stored(name) }
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      serve(
+        withIssue(pageIssue(1), {
+          Limits: () => new Promise(() => {}),
+          IssueChildren: () => ({ issue: { id: 'i1', children: { nodes: [] } } }),
+          IssueTimeline: () => timeline([]),
+          IssueAttachments: () => ({ issue: { id: 'i1', attachments: [] } }),
+        }),
+      )
+      const view = renderAt('/issue/YLK-1')
+      const files = await screen.findByRole('region', { name: 'Attachments' })
+      await waitFor(() => expect(callsOf('Limits')).toHaveLength(1))
+      expect(view.client.getQueryData(['limits'])).toBeUndefined()
+      fireEvent.change(attachInput(files), { target: { files: [sizeMb('huge.bin', 99)] } })
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      expect(uploadedNames(fetchMock)).toEqual(['huge.bin'])
+      expect(screen.queryByText(/larger than/)).toBeNull()
+    })
+
     it('skips an oversized file dropped on the page and shows the limit', async () => {
       const { fetchMock, files } = await openWithLimit()
       const page = files.closest('[data-drop-zone]') as HTMLElement
