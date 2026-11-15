@@ -114,6 +114,40 @@ describe('markdown', () => {
     expect(link).toHaveTextContent(alt || src)
   })
 
+  it('keeps the title of an outside image shown as a link', () => {
+    render(<Markdown source={'![a](https://example.com/x.png "title")'} />)
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', 'https://example.com/x.png')
+    expect(link).toHaveAttribute('title', 'title')
+  })
+
+  it('keeps the title of a reference-style outside image shown as a link', () => {
+    render(<Markdown source={'![a][ref]\n\n[ref]: https://example.com/x.png "t"'} />)
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', 'https://example.com/x.png')
+    expect(link).toHaveAttribute('title', 't')
+  })
+
+  it('adds no title to a reference-style outside image without one (control)', () => {
+    render(<Markdown source={'![a][ref]\n\n[ref]: https://example.com/x.png'} />)
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', 'https://example.com/x.png')
+    expect(link).not.toHaveAttribute('title')
+  })
+
+  it('shows a mailto image as a link to the address (control)', () => {
+    const { container } = render(<Markdown source={'![a](mailto:x@y.z)'} />)
+    expect(container.querySelector('img')).toBeNull()
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', 'mailto:x@y.z')
+    expect(link).toHaveTextContent('a')
+  })
+
+  it('keeps the title on a same-origin image (control)', () => {
+    const { container } = render(<Markdown source={'![a](/api/attachments/a1/x.png "title")'} />)
+    expect(container.querySelector('img')).toHaveAttribute('title', 'title')
+  })
+
   it('keeps a backslash path on the same origin (control)', () => {
     // The Markdown parser percent-encodes the backslash, so the browser does
     // not read it as a slash and the path stays on this origin.
