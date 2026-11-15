@@ -390,19 +390,9 @@ func seedIssues(t *testing.T, owner *client) {
 	}
 }
 
-// countList runs an issue list with selection and returns the fewest SQL
-// statements of three runs: loader batches can split on a slow run (-race),
-// while one relation loaded per issue would add 50 statements every time.
+// countList runs an issue list with selection and returns its SQL statement
+// count.
 func countList(t *testing.T, owner *client, queries *counter, selection string) int64 {
-	t.Helper()
-	n := countListOnce(t, owner, queries, selection)
-	for range 2 {
-		n = min(n, countListOnce(t, owner, queries, selection))
-	}
-	return n
-}
-
-func countListOnce(t *testing.T, owner *client, queries *counter, selection string) int64 {
 	t.Helper()
 	queries.n.Store(0)
 	var conn struct {
@@ -421,25 +411,27 @@ func TestIssueListQueryCount(t *testing.T) {
 	s, queries := tracedServer(t)
 	owner := ownerBrowser(t, s)
 	seedIssues(t, owner)
-	if n := countList(t, owner, queries, `id project { key } state { name } assignee { id } creator { id } parent { id }`); n > 8 {
-		t.Fatalf("issue list ran %d SQL statements, want ≤ 8", n)
+	// Widened after seeding: every request pays the window once per loader level.
+	native.SetLoaderWait(t, 250*time.Millisecond)
+	if n := countList(t, owner, queries, `id project { key } state { name } assignee { id } creator { id } parent { id }`); n != 6 {
+		t.Fatalf("issue list ran %d SQL statements, want %d", n, 6)
 	}
 	// Project states and members batch by project too.
-	if n := countList(t, owner, queries, `id project { key states { id } members { id } }`); n > 8 {
-		t.Fatalf("issue list with project states/members ran %d SQL statements, want ≤ 8", n)
+	if n := countList(t, owner, queries, `id project { key states { id } members { id } }`); n != 6 {
+		t.Fatalf("issue list with project states/members ran %d SQL statements, want %d", n, 6)
 	}
 	// Sub-issue progress batches into one query for the page.
-	if n := countList(t, owner, queries, `id subIssueProgress { completed total }`); n > 8 {
-		t.Fatalf("issue list with sub-issue progress ran %d SQL statements, want ≤ 8", n)
+	if n := countList(t, owner, queries, `id subIssueProgress { completed total }`); n != 3 {
+		t.Fatalf("issue list with sub-issue progress ran %d SQL statements, want %d", n, 3)
 	}
 	// Labels, type and milestone (with its progress) batch per page too.
 	if n := countList(t, owner, queries, `id type { id name color } labels { id name color parent { id } }
-		milestone { id name status progress { completed total } }`); n > 10 {
-		t.Fatalf("issue list with labels and milestone ran %d SQL statements, want ≤ 10", n)
+		milestone { id name status progress { completed total } }`); n != 6 {
+		t.Fatalf("issue list with labels and milestone ran %d SQL statements, want %d", n, 6)
 	}
 	// Comment counts and attachments batch per page.
-	if n := countList(t, owner, queries, `id commentCount attachments { id name url uploader { id } }`); n > 8 {
-		t.Fatalf("issue list with comment counts and attachments ran %d SQL statements, want ≤ 8", n)
+	if n := countList(t, owner, queries, `id commentCount attachments { id name url uploader { id } }`); n != 4 {
+		t.Fatalf("issue list with comment counts and attachments ran %d SQL statements, want %d", n, 4)
 	}
 }
 
