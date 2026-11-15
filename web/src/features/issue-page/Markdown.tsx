@@ -22,16 +22,16 @@ function sameOrigin(src: string): boolean {
   }
 }
 
-function MarkdownImage({ src, alt, ...props }: ComponentProps<'img'>) {
+function MarkdownImage({ src, alt, title, ...props }: ComponentProps<'img'>) {
   const inLink = useContext(InLink)
   const url = typeof src === 'string' ? src : ''
-  if (url && sameOrigin(url)) return <img src={url} alt={alt} {...props} />
+  if (url && sameOrigin(url)) return <img src={url} alt={alt} title={title} {...props} />
   // Images from other sites are not loaded: the request would tell that site
   // who reads the text and when. An empty url was dropped as unsafe.
   if (!url) return alt ? <>{alt}</> : null
   if (inLink) return <>{alt || url}</>
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer">
+    <a href={url} title={title} target="_blank" rel="noopener noreferrer">
       {alt || url}
     </a>
   )
