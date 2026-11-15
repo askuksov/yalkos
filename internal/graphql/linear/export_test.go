@@ -2,6 +2,7 @@ package linear
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/vektah/gqlparser/v2"
@@ -46,4 +47,11 @@ func BranchName(identifier, title string) string { return branchName(identifier,
 // StateConn is stateConn without a filter; board selects the board order.
 func StateConn(states []project.State, by *PaginationOrderBy, a page.Args, board bool) (*WorkflowStateConnection, error) {
 	return stateConn(states, nil, nil, by, a, board)
+}
+
+// SetLoaderWait sets the loader batch window until t ends.
+func SetLoaderWait(t testing.TB, d time.Duration) {
+	old := loaderWait
+	loaderWait = d
+	t.Cleanup(func() { loaderWait = old })
 }

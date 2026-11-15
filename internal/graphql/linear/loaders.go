@@ -50,7 +50,10 @@ type loaders struct {
 
 type loadersKey struct{}
 
-const loaderWait = time.Millisecond
+// loaderWait is how long a loader collects keys before it runs one batch.
+// Tests widen it: a slow runner can need longer to reach every Load of a
+// page, which splits the batch.
+var loaderWait = time.Millisecond
 
 func newLoaders(d Deps) *loaders {
 	opt := dataloadgen.WithWait(loaderWait)
