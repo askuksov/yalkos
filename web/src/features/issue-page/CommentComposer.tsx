@@ -12,7 +12,9 @@ import { CreateCommentMutation } from './operations'
 
 const draftKey = (issueId: string) => `yalkos.draft.comment.${issueId}`
 
-// Uploads do not survive a reload, so their placeholders are dropped on restore.
+// Uploads do not survive a reload, so placeholders are dropped when the draft is
+// saved (the stored text then holds no language-specific wording) and, for older
+// drafts, on restore.
 function readDraft(issueId: string): string {
   try {
     const saved = localStorage.getItem(draftKey(issueId)) ?? ''
@@ -26,7 +28,8 @@ function readDraft(issueId: string): string {
 
 function writeDraft(issueId: string, text: string) {
   try {
-    if (text) localStorage.setItem(draftKey(issueId), text)
+    const clean = dropUploadPlaceholders(text)
+    if (clean) localStorage.setItem(draftKey(issueId), clean)
     else localStorage.removeItem(draftKey(issueId))
   } catch {
     // Storage unavailable: the draft lives only in the field.

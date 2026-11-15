@@ -1,4 +1,4 @@
-import { createEvent, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, createEvent, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -113,6 +113,63 @@ describe('issue timeline', () => {
     const activity = await openIssue()
     expect(within(activity).getByRole('textbox', { name: 'Comment' })).toHaveValue(draft)
     expect(localStorage.getItem('yalkos.draft.comment.i1')).toBe(draft)
+  })
+
+  describe('draft with an upload in progress', () => {
+    const png = () => new File(['x'], 'a.png', { type: 'image/png' })
+    const paste = (box: HTMLElement) =>
+      fireEvent.paste(box, { clipboardData: { files: [png()], types: ['Files'], getData: () => '' } })
+
+    it('stores the typed text without the placeholder while the field still shows it', async () => {
+      vi.mocked(uploadFile).mockReturnValue(new Promise(() => {}))
+      serve(handlers())
+      const activity = await openIssue()
+      const box = within(activity).getByRole('textbox', { name: 'Comment' })
+      await userEvent.type(box, 'See ')
+      paste(box)
+      await waitFor(() => expect(box).toHaveValue('See ![Uploading a.png…]()'))
+      expect(localStorage.getItem('yalkos.draft.comment.i1')).toBe('See ')
+    })
+
+    it('removes the stored draft when only a placeholder is in the field', async () => {
+      vi.mocked(uploadFile).mockReturnValue(new Promise(() => {}))
+      serve(handlers())
+      const activity = await openIssue()
+      const box = within(activity).getByRole('textbox', { name: 'Comment' })
+      paste(box)
+      await waitFor(() => expect(box).toHaveValue('![Uploading a.png…]()'))
+      expect(localStorage.getItem('yalkos.draft.comment.i1')).toBeNull()
+    })
+
+    it('restores the clean text under another language', async () => {
+      vi.mocked(uploadFile).mockReturnValue(new Promise(() => {}))
+      serve(handlers())
+      const activity = await openIssue()
+      const box = within(activity).getByRole('textbox', { name: 'Comment' })
+      await userEvent.type(box, 'See ')
+      paste(box)
+      await waitFor(() => expect(box).toHaveValue('See ![Uploading a.png…]()'))
+      cleanup()
+      try {
+        await i18n.changeLanguage('pseudo')
+        renderAt('/issue/YLK-1')
+        const restored = await screen.findByRole('textbox', { name: i18n.t('issue:comments.label') })
+        expect(restored).toHaveValue('See ')
+      } finally {
+        await i18n.changeLanguage('en')
+      }
+    })
+
+    it('keeps the link of a finished upload in the stored draft (control)', async () => {
+      vi.mocked(uploadFile).mockResolvedValue({ id: 'a1', url: '/api/attachments/a1/a.png', name: 'a.png', size: 1, contentType: 'image/png', inline: true })
+      serve(handlers())
+      const activity = await openIssue()
+      const box = within(activity).getByRole('textbox', { name: 'Comment' })
+      await userEvent.type(box, 'See ')
+      paste(box)
+      await waitFor(() => expect(box).toHaveValue('See ![a.png](/api/attachments/a1/a.png)'))
+      expect(localStorage.getItem('yalkos.draft.comment.i1')).toBe('See ![a.png](/api/attachments/a1/a.png)')
+    })
   })
 
   it('edits own comment and shows (edited)', async () => {
