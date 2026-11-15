@@ -36,6 +36,11 @@ function value(raw: string | null): unknown {
   }
 }
 
+/** Name rule for history lines: the live name, else the one stored with the entry; an empty string counts as missing. */
+function pick(id: unknown, live: (id: string) => string | undefined, stored: Map<string, { name: string }>): string {
+  return typeof id === 'string' ? live(id) || stored.get(id)?.name || '' : ''
+}
+
 /** Fields that never get a line of their own. */
 const hidden = new Set(['sortOrder', 'number', 'completedAt', 'canceledAt'])
 
@@ -52,11 +57,10 @@ export function describe(entry: HistoryEntry, ctx: DescribeContext): string[] {
   const byField = new Map(entry.changes.map((c) => [c.field, c]))
   const user = (id: unknown) => (typeof id === 'string' && ctx.users.get(id)) || t('activity.someone')
   const stored = new Map(entry.names.map((n) => [n.id, n]))
-  // Live name first, then the one stored with the entry, then the generic text.
-  const state = (id: unknown) => (typeof id === 'string' && (ctx.states.get(id) ?? stored.get(id)?.name)) || t('activity.deletedState')
-  const project = (id: unknown) => (typeof id === 'string' && (ctx.projects.get(id) ?? stored.get(id)?.name)) || t('activity.unknownProject')
+  const state = (id: unknown) => pick(id, (x) => ctx.states.get(x), stored) || t('activity.deletedState')
+  const project = (id: unknown) => pick(id, (x) => ctx.projects.get(x), stored) || t('activity.unknownProject')
   // A milestone of the current project by its live name, else as stored (deleted, or of a former project).
-  const milestone = (id: unknown) => (typeof id === 'string' && (ctx.milestones?.get(id) ?? stored.get(id)?.name)) || t('activity.unknownMilestone')
+  const milestone = (id: unknown) => pick(id, (x) => ctx.milestones?.get(x), stored) || t('activity.unknownMilestone')
   const lines: string[] = []
   const moved = byField.get('projectId')
 
@@ -130,7 +134,7 @@ function labelLines(actor: string, from: unknown, to: unknown, stored: Map<strin
   const added = after.filter((x) => !before.includes(x))
   const removed = before.filter((x) => !after.includes(x))
   // A live label decides its name and type; a deleted one falls back to the entry's stored name.
-  const name = (id: string) => ctx.labels?.get(id)?.name ?? stored.get(id)?.name ?? t('activity.unknownLabel')
+  const name = (id: string) => pick(id, (x) => ctx.labels?.get(x)?.name, stored) || t('activity.unknownLabel')
   const isType = (id: string) => {
     const live = ctx.labels?.get(id)
     return live ? live.type : !!stored.get(id)?.type

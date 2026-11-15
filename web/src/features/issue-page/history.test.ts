@@ -119,6 +119,44 @@ group('history', () => {
       expect(named([['milestoneId', null, 'm1']], [{ id: 'm1', name: 'Banks', type: false }])).toEqual(['Olga added the issue to milestone Bank APIs'])
     })
 
+    group('a live item with an empty name', () => {
+      const blank: DescribeContext = {
+        ...live,
+        states: new Map([...live.states, ['s-blank', '']]),
+        projects: new Map([...live.projects, ['p-blank', '']]),
+        labels: new Map([...live.labels!, ['l-blank', { name: '', type: false }]]),
+        milestones: new Map([...live.milestones!, ['m-blank', '']]),
+      }
+      const run = (changes: [string, unknown, unknown][], id: string) => describe(entry(changes, 'update', olga, [{ id, name: 'Stored', type: false }]), blank)
+
+      it('shows the stored label name', () => {
+        expect(run([['labelIds', [], ['l-blank']]], 'l-blank')).toEqual(['Olga added label Stored'])
+      })
+      it('shows the stored state name', () => {
+        expect(run([['stateId', 's-todo', 's-blank']], 's-blank')).toEqual(['Olga changed state from Todo to Stored'])
+      })
+      it('shows the stored milestone name', () => {
+        expect(run([['milestoneId', null, 'm-blank']], 'm-blank')).toEqual(['Olga added the issue to milestone Stored'])
+      })
+      it('shows the stored project key in the move line', () => {
+        expect(run([['projectId', 'p-blank', 'p2'], ['number', 12, 3]], 'p-blank')).toEqual(['Olga moved the issue from Stored to WEB (was Stored-12)'])
+      })
+    })
+
+    it('control: an empty live name without a stored entry keeps the generic text', () => {
+      const blank: DescribeContext = {
+        ...live,
+        states: new Map([...live.states, ['s-blank', '']]),
+        labels: new Map([...live.labels!, ['l-blank', { name: '', type: false }]]),
+      }
+      expect(describe(entry([['labelIds', [], ['l-blank']]], 'update', olga, []), blank)).toEqual(['Olga added label a deleted label'])
+      expect(describe(entry([['stateId', 's-todo', 's-blank']], 'update', olga, []), blank)).toEqual(['Olga changed state from Todo to a deleted state'])
+    })
+
+    it('control: a type change with the old type live and the new one only stored', () => {
+      expect(named([['labelIds', ['feat'], ['bug']]], [{ id: 'bug', name: 'Bug', type: true }])).toEqual(['Olga changed type from Feature to Bug'])
+    })
+
     it('control: an entry without stored names keeps the generic text', () => {
       expect(named([['labelIds', ['gone'], []]], [])).toEqual(['Olga removed label a deleted label'])
       expect(named([['milestoneId', 'm-old', null]], [])).toEqual(['Olga removed it from milestone a deleted milestone'])
