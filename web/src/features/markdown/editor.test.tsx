@@ -59,13 +59,14 @@ function mount(props: { issueId?: string; initial?: string; autoFocus?: boolean 
   reported = []
   busy = []
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <ToastProvider>
         <Harness {...props} />
       </ToastProvider>
     </QueryClientProvider>,
   )
+  return { ...view, client }
 }
 
 function paste(target: HTMLElement, files: File[]) {
@@ -118,6 +119,21 @@ describe('MarkdownEditor', () => {
     expect(await screen.findByText('File is larger than 25 MB')).toBeInTheDocument()
     expect(upload).not.toHaveBeenCalled()
     expect(lastValue).toBe('')
+  })
+
+  it('uploads a large file pasted before the size limit has loaded', async () => {
+    serve({ ...signedInAs(owner), Limits: () => new Promise(() => {}) })
+    upload.mockResolvedValue(result({ name: 'big.png', url: '/api/attachments/a1/big.png' }))
+    const view = mount({ issueId: 'i1' })
+    const area = await screen.findByRole('textbox', { name: 'Description' })
+    await waitFor(() => expect(mocked).toHaveBeenCalled())
+    expect(view.client.getQueryData(['limits'])).toBeUndefined()
+    const big = png('big.png')
+    Object.defineProperty(big, 'size', { value: 99 * 1024 * 1024 })
+    paste(area, [big])
+    await waitFor(() => expect(lastValue).toBe('![big.png](/api/attachments/a1/big.png)'))
+    expect(upload).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/larger than/)).toBeNull()
   })
 
   it('a failed upload removes the placeholder and explains', async () => {
