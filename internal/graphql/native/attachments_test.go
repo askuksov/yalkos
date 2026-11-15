@@ -139,7 +139,7 @@ func TestAttachmentUsedInTextAPI(t *testing.T) {
 		t.Errorf("usedInText = %v, want %v", got, want)
 	}
 
-	// Fewest statements of three runs (see countList).
+	// Fewest statements of three runs: loader batches can split on a slow run.
 	count := func() int64 {
 		var n int64
 		for run := range 3 {
