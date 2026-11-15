@@ -102,6 +102,17 @@ describe('milestones', () => {
     await waitFor(() => expect(router.state.location.search).toBe('?x=2'))
   })
 
+  it.each([
+    ['?new=0&x=2', '?x=2'],
+    ['?new=', ''],
+  ])('drops a new parameter other than 1 without opening the dialog (%s)', async (search, expected) => {
+    serve(handlers())
+    const { router } = renderAt(`/p/YLK/milestones${search}`)
+    await screen.findByRole('link', { name: 'Bank APIs' })
+    await waitFor(() => expect(router.state.location.search).toBe(expected))
+    expect(screen.queryByRole('dialog', { name: 'New milestone' })).not.toBeInTheDocument()
+  })
+
   it('does not open the dialog on an archived project', async () => {
     serve({
       ...handlers(),
