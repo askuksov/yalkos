@@ -315,6 +315,9 @@ describe('issue timeline', () => {
       Object.defineProperty(ev, 'relatedTarget', { value: relatedTarget })
       fireEvent(el, ev)
     }
+    function dragEnter(el: HTMLElement) {
+      fireEvent.dragEnter(el, { dataTransfer: dt })
+    }
     async function openZone() {
       serve(handlers())
       renderAt('/issue/YLK-1')
@@ -342,6 +345,50 @@ describe('issue timeline', () => {
       fireEvent.dragOver(files, { dataTransfer: dt })
       dragLeave(files, sibling)
       expect(highlighted()).toBe(true)
+    })
+
+    it('stays on when the browser omits the related target and the drag entered another element', async () => {
+      const { files, page, highlighted } = await openZone()
+      const other = page.querySelector('header, h1') as HTMLElement
+      dragEnter(files)
+      fireEvent.dragOver(files, { dataTransfer: dt })
+      expect(highlighted()).toBe(true)
+      dragEnter(other)
+      dragLeave(files, null)
+      expect(highlighted()).toBe(true)
+    })
+
+    it('clears when the drag leaves the window and the left element was the last one entered', async () => {
+      const { files, highlighted } = await openZone()
+      dragEnter(files)
+      fireEvent.dragOver(files, { dataTransfer: dt })
+      expect(highlighted()).toBe(true)
+      dragLeave(files, null)
+      expect(highlighted()).toBe(false)
+    })
+
+    it('stays on when the drag enters a child of the element it leaves, then clears when it leaves the child', async () => {
+      const { files, highlighted } = await openZone()
+      const child = files.firstElementChild as HTMLElement
+      expect(files.contains(child)).toBe(true)
+      dragEnter(files)
+      fireEvent.dragOver(files, { dataTransfer: dt })
+      dragEnter(child)
+      dragLeave(files, null)
+      expect(highlighted()).toBe(true)
+      dragLeave(child, null)
+      expect(highlighted()).toBe(false)
+    })
+
+    it('forgets the entered element on drop', async () => {
+      const { files, page, highlighted } = await openZone()
+      const other = page.querySelector('header, h1') as HTMLElement
+      dragEnter(other)
+      fireEvent.dragOver(other, { dataTransfer: dt })
+      fireEvent.drop(page, { dataTransfer: dt })
+      expect(highlighted()).toBe(false)
+      dragLeave(files, null)
+      expect(highlighted()).toBe(false)
     })
 
     it('clears on drop', async () => {
