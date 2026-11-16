@@ -139,25 +139,21 @@ func TestAttachmentUsedInTextAPI(t *testing.T) {
 		t.Errorf("usedInText = %v, want %v", got, want)
 	}
 
-	// Fewest statements of three runs: loader batches can split on a slow run.
-	count := func() int64 {
-		var n int64
-		for run := range 3 {
-			queries.n.Store(0)
-			used()
-			if c := queries.n.Load(); run == 0 || c < n {
-				n = c
-			}
+	// Each loader in this query gets one key (the issue), so the batch
+	// cannot split: the count is exact without a wider window.
+	count := func(attachments int) {
+		t.Helper()
+		queries.n.Store(0)
+		used()
+		n := queries.n.Load()
+		t.Logf("usedInText of %d attachments: %d SQL statements", attachments, n)
+		if n != 5 {
+			t.Errorf("usedInText of %d attachments ran %d SQL statements, want 5", attachments, n)
 		}
-		return n
 	}
-	few := count()
+	count(4)
 	for n := range 10 {
 		upload(fmt.Sprintf("more-%d.png", n))
 	}
-	many := count()
-	t.Logf("usedInText: %d SQL statements for 4 attachments, %d for 14", few, many)
-	if many > few {
-		t.Errorf("usedInText of 14 attachments ran %d SQL statements, of 4: %d", many, few)
-	}
+	count(14)
 }

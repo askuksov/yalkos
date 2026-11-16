@@ -8,8 +8,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/askuksov/yalkos/internal/graphql/native"
 )
 
 type gqlWebhook struct {
@@ -414,51 +417,43 @@ func seedWebhookDeliveries(t *testing.T, owner *client, recvURL string, from, n 
 	return out
 }
 
-// listWebhookDeliveries runs the webhook list with deliveries(first) and
-// returns the delivery ids per webhook and the fewest SQL statements of three
-// runs (loader batches can split on a slow run).
+// listWebhookDeliveries runs the webhook list with deliveries(first) once
+// and returns the delivery ids per webhook and the SQL statements it ran.
 func listWebhookDeliveries(t *testing.T, owner *client, queries *counter, first int) (map[string][]string, int64) {
 	t.Helper()
-	var best int64
-	var got map[string][]string
-	for run := range 3 {
-		queries.n.Store(0)
-		var list []struct {
-			ID         string        `json:"id"`
-			Deliveries []gqlDelivery `json:"deliveries"`
-		}
-		owner.do(fmt.Sprintf(`{ webhooks { id deliveries(first: %d) { id } } }`, first), nil).decode(t, "webhooks", &list)
-		n := queries.n.Load()
-		if run == 0 || n < best {
-			best = n
-		}
-		got = map[string][]string{}
-		for _, w := range list {
-			for _, d := range w.Deliveries {
-				got[w.ID] = append(got[w.ID], d.ID)
-			}
+	queries.n.Store(0)
+	var list []struct {
+		ID         string        `json:"id"`
+		Deliveries []gqlDelivery `json:"deliveries"`
+	}
+	owner.do(fmt.Sprintf(`{ webhooks { id deliveries(first: %d) { id } } }`, first), nil).decode(t, "webhooks", &list)
+	n := queries.n.Load()
+	t.Logf("deliveries(first: %d) of %d webhooks: %d SQL statements", first, len(list), n)
+	got := map[string][]string{}
+	for _, w := range list {
+		for _, d := range w.Deliveries {
+			got[w.ID] = append(got[w.ID], d.ID)
 		}
 	}
-	return got, best
+	return got, n
 }
 
-// The webhook list loads the latest deliveries of every row: more webhooks
-// must not mean more SQL statements.
+// The webhook list loads the latest deliveries of every row in one batch:
+// more webhooks must not mean more SQL statements.
 func TestWebhookListDeliveriesQueryCount(t *testing.T) {
 	s, queries := tracedServer(t)
 	owner := ownerBrowser(t, s)
 	recv := receiver(t, 200)
 
 	want := seedWebhookDeliveries(t, owner, recv.URL, 0, 2)
-	got, few := listWebhookDeliveries(t, owner, queries, 1)
-	for id, ids := range want {
-		if !slices.Equal(got[id], ids[:1]) {
-			t.Fatalf("webhook %s: deliveries(first: 1) = %v, want %v", id, got[id], ids[:1])
-		}
-	}
-
 	maps.Copy(want, seedWebhookDeliveries(t, owner, recv.URL, 2, 10))
-	got, many := listWebhookDeliveries(t, owner, queries, 1)
+	// Widened after seeding, so the batch holds every row even on a slow runner.
+	native.SetLoaderWait(t, 250*time.Millisecond)
+
+	got, n := listWebhookDeliveries(t, owner, queries, 1)
+	if n != 3 {
+		t.Fatalf("deliveries of 10 webhooks ran %d SQL statements, want 3", n)
+	}
 	if len(got) != 10 {
 		t.Fatalf("webhooks with deliveries = %d, want 10", len(got))
 	}
@@ -468,13 +463,13 @@ func TestWebhookListDeliveriesQueryCount(t *testing.T) {
 			t.Fatalf("webhook %s: deliveries(first: 1) = %v, want %v", id, got[id], ids[:1])
 		}
 	}
-	if many != few {
-		t.Fatalf("%d SQL statements for 2 webhooks, %d for 10", few, many)
-	}
 
 	// first: 2 gives the two newest of each, newest first; a webhook with a
 	// single delivery gives one.
-	got, _ = listWebhookDeliveries(t, owner, queries, 2)
+	got, n = listWebhookDeliveries(t, owner, queries, 2)
+	if n != 3 {
+		t.Fatalf("deliveries of 10 webhooks ran %d SQL statements, want 3", n)
+	}
 	for id, ids := range want {
 		if !slices.Equal(got[id], ids[:min(2, len(ids))]) {
 			t.Fatalf("webhook %s: deliveries(first: 2) = %v, want %v", id, got[id], ids[:min(2, len(ids))])
