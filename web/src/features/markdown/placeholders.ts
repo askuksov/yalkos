@@ -10,7 +10,10 @@ const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 // An escaped file name on one line: no bare brackets, backslashes only as escapes.
 const NAME = String.raw`(?:\\[\\[\]]|[^\\[\]\n])*`
 
-/** Matches the upload placeholder of the current locale; null if the template has no name. */
+/**
+ * Matches the upload placeholder of the current locale; null if the template has no name.
+ * Current locale only: a runtime language switch would need every loaded language's template.
+ */
 function placeholderPattern(): string | null {
   const mark = 'YALKOS_NAME_MARK'
   const parts = i18n.t('issue:editor.uploading', { name: mark }).split(mark)
