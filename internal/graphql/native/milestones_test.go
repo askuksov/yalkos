@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/askuksov/yalkos/internal/graphql/native"
 )
 
 type gqlMilestone struct {
@@ -176,28 +179,18 @@ type projectMilestones struct {
 	} `json:"milestones"`
 }
 
-// countProjectMilestones runs a project list with selection and returns the
-// fewest SQL statements of three runs, with the projects of the last run.
-func countProjectMilestones(t *testing.T, owner *client, queries *counter, selection string, projects int) (int64, []projectMilestones) {
+// countProjectMilestones runs a page of the project list with selection
+// once and returns the SQL statements it ran and the projects of the page.
+func countProjectMilestones(t *testing.T, owner *client, queries *counter, selection string, first int) (int64, []projectMilestones) {
 	t.Helper()
-	var fewest int64
-	var nodes []projectMilestones
-	for run := range 3 {
-		queries.n.Store(0)
-		var conn struct {
-			Nodes []projectMilestones `json:"nodes"`
-		}
-		owner.do(`{ projects(first: 100) { nodes { id key isMember `+selection+` } } }`, nil).decode(t, "projects", &conn)
-		if len(conn.Nodes) != projects {
-			t.Fatalf("projects = %d, want %d", len(conn.Nodes), projects)
-		}
-		if n := queries.n.Load(); run == 0 || n < fewest {
-			fewest = n
-		}
-		nodes = conn.Nodes
+	queries.n.Store(0)
+	var conn struct {
+		Nodes []projectMilestones `json:"nodes"`
 	}
-	t.Logf("%d projects, %s: %d SQL statements", projects, selection, fewest)
-	return fewest, nodes
+	owner.do(fmt.Sprintf(`{ projects(first: %d) { nodes { id key isMember %s } } }`, first, selection), nil).decode(t, "projects", &conn)
+	n := queries.n.Load()
+	t.Logf("%d projects, %s: %d SQL statements", len(conn.Nodes), selection, n)
+	return n, conn.Nodes
 }
 
 // checkProjectMilestones compares each project's milestones with what the
@@ -228,21 +221,29 @@ func checkProjectMilestones(t *testing.T, s server, nodes []projectMilestones, i
 func TestProjectMilestonesQueryCount(t *testing.T) {
 	s, queries := tracedServer(t)
 	owner := ownerBrowser(t, s)
-	const open, all = `milestones(includeDone: false) { id name }`, `milestones { id name }`
+	addMilestoneProjects(t, owner, 0, 10)
+	// Widened after seeding, so each batch holds the whole page even on a
+	// slow runner.
+	native.SetLoaderWait(t, 250*time.Millisecond)
 
-	addMilestoneProjects(t, owner, 0, 2)
-	openFew, _ := countProjectMilestones(t, owner, queries, open, 2)
-	allFew, _ := countProjectMilestones(t, owner, queries, all, 2)
-
-	addMilestoneProjects(t, owner, 2, 10)
-	openMany, nodes := countProjectMilestones(t, owner, queries, open, 10)
-	checkProjectMilestones(t, s, nodes, false, 1)
-	if openMany-openFew > 1 {
-		t.Fatalf("open milestones: %d SQL statements for 2 projects, %d for 10", openFew, openMany)
-	}
-	allMany, nodes := countProjectMilestones(t, owner, queries, all, 10)
-	checkProjectMilestones(t, s, nodes, true, 2)
-	if allMany-allFew > 1 {
-		t.Fatalf("all milestones: %d SQL statements for 2 projects, %d for 10", allFew, allMany)
+	for _, c := range []struct {
+		name, selection string
+		includeDone     bool
+		statements      int64
+		milestones      int
+	}{
+		{"open", `milestones(includeDone: false) { id name }`, false, 5, 1},
+		{"all", `milestones { id name }`, true, 4, 2},
+	} {
+		for _, first := range []int{2, 100} {
+			n, nodes := countProjectMilestones(t, owner, queries, c.selection, first)
+			if want := min(first, 10); len(nodes) != want {
+				t.Fatalf("projects(first: %d) = %d, want %d", first, len(nodes), want)
+			}
+			if n != c.statements {
+				t.Fatalf("%s milestones of %d projects ran %d SQL statements, want %d", c.name, len(nodes), n, c.statements)
+			}
+			checkProjectMilestones(t, s, nodes, c.includeDone, c.milestones)
+		}
 	}
 }
