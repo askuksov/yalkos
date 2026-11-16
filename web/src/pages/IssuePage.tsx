@@ -67,6 +67,11 @@ function IssueView({ issue }: { issue: PageIssue }) {
   const [moving, setMoving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const lastEntered = useRef<EventTarget | null>(null)
+  const clearDragOver = () => {
+    lastEntered.current = null
+    setDragOver(false)
+  }
   const attach = useAttach(issue.id)
   const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files')
   useTitle(t('docTitle', { identifier: issue.identifier, title: issue.title }))
@@ -108,18 +113,22 @@ function IssueView({ issue }: { issue: PageIssue }) {
       data-drop-zone
       onDragOver={(e) => {
         // An editor that took the drag shows its own highlight.
-        if (e.defaultPrevented) return setDragOver(false)
+        if (e.defaultPrevented) return clearDragOver()
         if (readOnly || !hasFiles(e)) return
         e.preventDefault()
         setDragOver(true)
       }}
+      onDragEnter={(e) => {
+        lastEntered.current = e.target
+      }}
       onDragLeave={(e) => {
-        // relatedTarget is null when the drag leaves the window or is cancelled.
-        const to = e.relatedTarget
-        if (!(to instanceof Node) || !e.currentTarget.contains(to)) setDragOver(false)
+        // Safari reports no related target on dragleave; dragenter on the new element fires before dragleave on the old one.
+        const to = e.relatedTarget ?? lastEntered.current
+        if (to instanceof Node && to !== e.target && e.currentTarget.contains(to)) return
+        clearDragOver()
       }}
       onDrop={(e) => {
-        setDragOver(false)
+        clearDragOver()
         if (readOnly || e.defaultPrevented || !hasFiles(e)) return
         e.preventDefault()
         attach(Array.from(e.dataTransfer.files))
