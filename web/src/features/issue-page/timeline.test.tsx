@@ -350,6 +350,7 @@ describe('issue timeline', () => {
     it('stays on when the browser omits the related target and the drag entered another element', async () => {
       const { files, page, highlighted } = await openZone()
       const other = page.querySelector('header, h1') as HTMLElement
+      expect(page.contains(other)).toBe(true)
       dragEnter(files)
       fireEvent.dragOver(files, { dataTransfer: dt })
       expect(highlighted()).toBe(true)
@@ -383,10 +384,14 @@ describe('issue timeline', () => {
     it('forgets the entered element on drop', async () => {
       const { files, page, highlighted } = await openZone()
       const other = page.querySelector('header, h1') as HTMLElement
+      expect(page.contains(other)).toBe(true)
       dragEnter(other)
       fireEvent.dragOver(other, { dataTransfer: dt })
+      expect(highlighted()).toBe(true)
       fireEvent.drop(page, { dataTransfer: dt })
       expect(highlighted()).toBe(false)
+      fireEvent.dragOver(files, { dataTransfer: dt })
+      expect(highlighted()).toBe(true)
       dragLeave(files, null)
       expect(highlighted()).toBe(false)
     })

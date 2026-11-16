@@ -122,7 +122,8 @@ function IssueView({ issue }: { issue: PageIssue }) {
         lastEntered.current = e.target
       }}
       onDragLeave={(e) => {
-        // Safari reports no related target on dragleave; dragenter on the new element fires before dragleave on the old one.
+        // Safari reports no related target on dragleave, so use the element entered last (dragenter on the new element
+        // fires before dragleave on the old one); if that is the element being left, the drag left the window or was cancelled.
         const to = e.relatedTarget ?? lastEntered.current
         if (to instanceof Node && to !== e.target && e.currentTarget.contains(to)) return
         clearDragOver()
