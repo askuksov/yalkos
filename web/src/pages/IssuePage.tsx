@@ -49,6 +49,20 @@ function useBack(projectKey: string) {
   }
 }
 
+type Frame = { top: number; left: number; width: number; height: number }
+
+/** The visible box (client box, no scrollbar) of the nearest scrolling ancestor, or of the element itself. */
+function visibleBox(el: HTMLElement): Frame {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const { overflowY } = getComputedStyle(p)
+    if (overflowY !== 'auto' && overflowY !== 'scroll') continue
+    const r = p.getBoundingClientRect()
+    return { top: r.top + p.clientTop, left: r.left + p.clientLeft, width: p.clientWidth, height: p.clientHeight }
+  }
+  const r = el.getBoundingClientRect()
+  return { top: r.top, left: r.left, width: r.width, height: r.height }
+}
+
 function IssueView({ issue }: { issue: PageIssue }) {
   const top = useRef<HTMLDivElement>(null)
   // The shell's scroll area is shared with the list: start the issue at the top.
@@ -66,11 +80,13 @@ function IssueView({ issue }: { issue: PageIssue }) {
   const [prop, setProp] = useState<PropName | null>(null)
   const [moving, setMoving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
+  // The drop frame's box, measured when the highlight turns on; null while the highlight is off.
+  const [dropFrame, setDropFrame] = useState<Frame | null>(null)
+  const dragOver = dropFrame !== null
   const lastEntered = useRef<EventTarget | null>(null)
   const clearDragOver = () => {
     lastEntered.current = null
-    setDragOver(false)
+    setDropFrame(null)
   }
   const attach = useAttach(issue.id)
   const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files')
@@ -116,7 +132,7 @@ function IssueView({ issue }: { issue: PageIssue }) {
         if (e.defaultPrevented) return clearDragOver()
         if (readOnly || !hasFiles(e)) return
         e.preventDefault()
-        setDragOver(true)
+        if (!dragOver) setDropFrame(visibleBox(e.currentTarget))
       }}
       onDragEnter={(e) => {
         lastEntered.current = e.target
@@ -135,6 +151,7 @@ function IssueView({ issue }: { issue: PageIssue }) {
         attach(Array.from(e.dataTransfer.files))
       }}
     >
+      {dropFrame && <div className={s.dropFrame} style={dropFrame} data-drop-frame aria-hidden="true" />}
       <IssueHeader
         issue={issue}
         readOnly={readOnly}
