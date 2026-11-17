@@ -95,5 +95,5 @@
   block-size: 1px;
 }
 .overlay {
-  pointer-events: none;
+  cursor: grabbing;
 }
