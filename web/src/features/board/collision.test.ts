@@ -67,6 +67,19 @@ describe('boardCollision', () => {
     expect(ids(boardCollision(layout(cards, { x: 100, y: 500 })))).toEqual([columnDropId('a')])
   })
 
+  it('drops into the empty column whose header is under the pointer', () => {
+    // The card list starts below the header: the pointer is above column a's list.
+    expect(ids(boardCollision(layout([nextColumnCard], { x: 100, y: -10 })))).toEqual([columnDropId('a')])
+  })
+
+  it('picks the top card of the non-empty column whose header is under the pointer', () => {
+    const cards = [{ id: 'a1', column: 'a' as const, top: 0 }, { id: 'a2', column: 'a' as const, top: 90 }, nextColumnCard]
+    // The dragged rect leans towards column b, so closestCorners alone would pick b1.
+    const args = layout(cards, { x: 100, y: -10 }, { left: 150, top: -50, ...cardSize })
+    expect(ids(closestCorners(args))[0]).toBe('b1')
+    expect(ids(boardCollision(args))[0]).toBe('a1')
+  })
+
   it('falls back to closestCorners in the gap between columns', () => {
     const args = layout([nextColumnCard], { x: 205, y: 100 })
     expect(ids(boardCollision(args))).toEqual(ids(closestCorners(args)))
