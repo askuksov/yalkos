@@ -84,4 +84,9 @@ describe('boardCollision', () => {
     const args = layout([nextColumnCard], { x: 205, y: 100 })
     expect(ids(boardCollision(args))).toEqual(ids(closestCorners(args)))
   })
+
+  it('falls back to closestCorners without a pointer (keyboard drags)', () => {
+    const args = layout([nextColumnCard], null)
+    expect(boardCollision(args)).toEqual(closestCorners(args))
+  })
 })
