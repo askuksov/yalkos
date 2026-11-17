@@ -1,4 +1,4 @@
-import { closestCorners, DndContext, DragOverlay, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -13,6 +13,7 @@ import { toFilter, toSearch, today, type ViewParams } from '../issues/filters'
 import s from './board.module.css'
 import { BoardCardOverlay } from './BoardCard'
 import { BoardColumn } from './BoardColumn'
+import { boardCollision } from './collision'
 import { useBoardDrag } from './useBoardDrag'
 
 type Props = {
@@ -92,7 +93,7 @@ export function Board({ project, params, viewerId }: Props) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={boardCollision}
       onDragStart={(e: DragStartEvent) => setDragged((e.active.data.current?.issue as IssueRowFieldsFragment | undefined) ?? null)}
       onDragEnd={(e: DragEndEvent) => {
         setDragged(null)

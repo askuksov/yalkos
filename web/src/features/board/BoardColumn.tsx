@@ -62,7 +62,7 @@ export function BoardColumn({ projectKey, state, filter, search, selected, onSel
         <span className={s.grow} />
         {onCreate && <Button size="sm" variant="ghost" icon={<Plus size={14} aria-hidden />} aria-label={t('create.inState', { state: state.name })} onClick={onCreate} />}
       </header>
-      <SortableContext items={nodes.map((n) => n.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext id={columnDropId(state.id)} items={nodes.map((n) => n.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className={s.cards} role="listbox" aria-label={state.name}>
           {nodes.map((n) => (
             <BoardCard key={n.id} issue={n} selected={selected === n.id} onHover={() => onSelect(n.id)} draggable={draggable} />
