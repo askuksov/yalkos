@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GraphQLRequestError } from '../../api/client'
 import { conn, issueRow, owner, signedInAs, stateOf } from '../../test/fixtures'
@@ -113,5 +113,68 @@ describe('board', () => {
     expect(selected()).toBe('i1')
     fireEvent.keyDown(document.body, { key: 'Enter', code: 'Enter' })
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/issue/YLK-1'))
+  })
+
+  describe('dragging a card', () => {
+    const lay: { spy?: ReturnType<typeof vi.spyOn> } = {}
+    afterEach(() => lay.spy?.mockRestore())
+
+    // Lay the columns out left to right; each card sits 20 px further right than the one above it.
+    function layOutColumns() {
+      lay.spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        const column = this.closest<HTMLElement>('[data-column]')
+        if (!column) return new DOMRect(0, 0, 0, 0)
+        const x = [...column.parentElement!.children].indexOf(column) * 300
+        if (this === column) return new DOMRect(x, 0, 280, 440)
+        const row = this.dataset.rowId ? [...this.parentElement!.children].indexOf(this) : -1
+        return row < 0 ? new DOMRect(x, 36, 280, 400) : new DOMRect(x + 8 + row * 20, 36 + row * 50, 264, 40)
+      })
+    }
+
+    // jsdom has no layout, so the keyboard sensor drives the drag: focus the card, Space, then an arrow.
+    async function startDrag(arrow = 'ArrowRight') {
+      serve({
+        ...signedInAs(owner),
+        IssueGroup: (v: Vars) => conn(stateEq(v) === 's-todo' ? [card(1, 's-todo', 1), card(2, 's-todo', 2)] : stateEq(v) === 's-done' ? [card(4, 's-done', 1)] : []),
+      })
+      renderAt('/p/YLK/board')
+      await screen.findByText('Issue 2')
+      const source = document.querySelector<HTMLElement>('[data-row-id="i2"]')!
+      source.focus()
+      fireEvent.keyDown(source, { code: 'Space', key: ' ' })
+      // The source card dims once the sensor has started the drag; its key listener is attached right after.
+      await waitFor(() => expect(source.style.opacity).toBe('0.5'))
+      fireEvent.keyDown(document, { code: arrow, key: arrow })
+      return source
+    }
+
+    it('shows a copy of the card in the drag overlay without a row id', async () => {
+      await startDrag()
+      const overlay = await waitFor(() => {
+        const found = document.querySelector<HTMLElement>('[data-drag-overlay]')
+        expect(found).not.toBeNull()
+        return found!
+      })
+      expect(within(overlay).getByText('YLK-2')).toBeInTheDocument()
+      expect(within(overlay).getByText('Issue 2')).toBeInTheDocument()
+      expect(overlay.hasAttribute('data-row-id')).toBe(false)
+      expect(overlay.querySelector('[data-row-id]')).toBeNull()
+      // A hidden copy with no link, so it adds no second link or tab stop.
+      expect(overlay).toHaveAttribute('aria-hidden', 'true')
+      expect(overlay.querySelector('a')).toBeNull()
+      // Keyboard navigation still sees one card per issue.
+      expect(document.querySelectorAll('[data-row-id="i2"]')).toHaveLength(1)
+      fireEvent.keyDown(document, { code: 'Escape', key: 'Escape' })
+      await waitFor(() => expect(document.querySelector('[data-drag-overlay]')).toBeNull())
+    })
+
+    it('does not move the source card sideways while it is dragged', async () => {
+      layOutColumns()
+      // Up to the card above: a drop spot inside the same column, 20 px to the left.
+      const source = await startDrag('ArrowUp')
+      // Without the overlay the source itself follows the drag (here by -20px), which makes the column scroll sideways.
+      expect(source.style.transform).not.toMatch(/translate3d\((?!0px)-?[\d.]+px/)
+      fireEvent.keyDown(document, { code: 'Escape', key: 'Escape' })
+    })
   })
 })

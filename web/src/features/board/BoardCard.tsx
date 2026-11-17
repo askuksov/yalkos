@@ -14,14 +14,12 @@ type Props = { issue: IssueRowFieldsFragment; selected: boolean; onHover: () => 
 
 /** identifier, title (2 lines), priority, type and labels, assignee, due date, sub-issue count, parent badge. */
 export function BoardCard({ issue, selected, onHover, draggable }: Props) {
-  const { t } = useTranslation('issues')
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: issue.id, disabled: !draggable })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: issue.id, disabled: !draggable, data: { issue } })
   const style = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     transition,
     opacity: isDragging ? 0.5 : 1,
   }
-  const overdue = isOverdue(issue)
   const href = `/issue/${issue.identifier}`
   const { role: _role, ...dragAttributes } = attributes
   return (
@@ -40,6 +38,27 @@ export function BoardCard({ issue, selected, onHover, draggable }: Props) {
       {...dragAttributes}
       {...listeners}
     >
+      <CardContent issue={issue} />
+    </div>
+  )
+}
+
+/** The card as shown under the pointer while dragging: no sortable registration and no data-row-id. */
+export function BoardCardOverlay({ issue }: { issue: IssueRowFieldsFragment }) {
+  return (
+    <div className={[s.card, s.overlay].join(' ')} data-drag-overlay aria-hidden>
+      <CardContent issue={issue} plainTitle />
+    </div>
+  )
+}
+
+/** `plainTitle` renders the title as text, for the overlay copy that must not hold a link. */
+function CardContent({ issue, plainTitle = false }: { issue: IssueRowFieldsFragment; plainTitle?: boolean }) {
+  const { t } = useTranslation('issues')
+  const overdue = isOverdue(issue)
+  const href = `/issue/${issue.identifier}`
+  return (
+    <>
       <div className={s.cardTop}>
         <span className={s.identifier}>{issue.identifier}</span>
         {issue.parent && (
@@ -51,9 +70,13 @@ export function BoardCard({ issue, selected, onHover, draggable }: Props) {
         <span className={s.grow} />
         {issue.assignee && <Avatar id={issue.assignee.id} name={issue.assignee.name} size={18} />}
       </div>
-      <Link to={href} className={s.cardTitle} draggable={false}>
-        {issue.title}
-      </Link>
+      {plainTitle ? (
+        <span className={s.cardTitle}>{issue.title}</span>
+      ) : (
+        <Link to={href} className={s.cardTitle} draggable={false}>
+          {issue.title}
+        </Link>
+      )}
       <div className={s.cardBottom}>
         <PriorityIcon priority={issue.priority} />
         <LabelChips type={issue.type ?? null} labels={issue.labels} />
@@ -68,6 +91,6 @@ export function BoardCard({ issue, selected, onHover, draggable }: Props) {
           </span>
         )}
       </div>
-    </div>
+    </>
   )
 }
