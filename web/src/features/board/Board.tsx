@@ -1,8 +1,9 @@
-import { closestCorners, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { closestCorners, DndContext, DragOverlay, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 
+import type { IssueRowFieldsFragment } from '../../gql/graphql'
 import { isInteractive, useHotkey } from '../../lib/hotkeys'
 import { usePalette } from '../command/palette'
 import { targetsFrom } from '../command/targets'
@@ -10,6 +11,7 @@ import type { PickerState } from '../pickers/StatePicker'
 import { useCreateIssue } from '../issues/createIssue'
 import { toFilter, toSearch, today, type ViewParams } from '../issues/filters'
 import s from './board.module.css'
+import { BoardCardOverlay } from './BoardCard'
 import { BoardColumn } from './BoardColumn'
 import { useBoardDrag } from './useBoardDrag'
 
@@ -26,6 +28,7 @@ export function Board({ project, params, viewerId }: Props) {
   const { openCreateIssue } = useCreateIssue()
   const container = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [dragged, setDragged] = useState<IssueRowFieldsFragment | null>(null)
   const search = toSearch({ ...params, order: 'SORT_ORDER', dir: 'ASC' })
   // A milestone's board keeps its own cache next to the project board.
   const cacheKey = project.milestoneId ? `${project.key}/m/${project.milestoneId}` : project.key
@@ -87,7 +90,16 @@ export function Board({ project, params, viewerId }: Props) {
   })
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={(e: DragStartEvent) => setDragged((e.active.data.current?.issue as IssueRowFieldsFragment | undefined) ?? null)}
+      onDragEnd={(e: DragEndEvent) => {
+        setDragged(null)
+        onDragEnd(e)
+      }}
+      onDragCancel={() => setDragged(null)}
+    >
       <div ref={container} className={s.board}>
         {states.map((st) => (
           <BoardColumn
@@ -103,6 +115,8 @@ export function Board({ project, params, viewerId }: Props) {
           />
         ))}
       </div>
+      {/* The overlay lives outside the scrolling columns, so a dragged card cannot make them scroll sideways. */}
+      <DragOverlay>{dragged ? <BoardCardOverlay issue={dragged} /> : null}</DragOverlay>
     </DndContext>
   )
 }
