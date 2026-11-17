@@ -38,7 +38,10 @@ export function BoardColumn({ projectKey, state, filter, search, selected, onSel
   })
   const nodes = q.data?.pages.flatMap((p) => p.issues.nodes) ?? []
   const total = q.data?.pages[0]?.issues.totalCount
-  const { setNodeRef, isOver } = useDroppable({ id: columnDropId(state.id), disabled: !draggable })
+  const dropId = columnDropId(state.id)
+  const { setNodeRef, isOver, over, active } = useDroppable({ id: dropId, disabled: !draggable })
+  // Outline the target column over its cards too, but not the column the dragged card comes from.
+  const outlined = (isOver || over?.data.current?.sortable?.containerId === dropId) && active?.data.current?.sortable?.containerId !== dropId
 
   // Load the next page when the end of the column scrolls into view.
   const end = useRef<HTMLDivElement>(null)
@@ -54,7 +57,7 @@ export function BoardColumn({ projectKey, state, filter, search, selected, onSel
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   return (
-    <section className={[s.column, isOver ? s.over : ''].join(' ')} data-column={state.id}>
+    <section className={[s.column, outlined ? s.over : ''].join(' ')} data-column={state.id}>
       <header className={s.columnHeader}>
         <StateIcon type={state.type} color={state.color} />
         <span className={s.columnName}>{state.name}</span>
@@ -62,7 +65,7 @@ export function BoardColumn({ projectKey, state, filter, search, selected, onSel
         <span className={s.grow} />
         {onCreate && <Button size="sm" variant="ghost" icon={<Plus size={14} aria-hidden />} aria-label={t('create.inState', { state: state.name })} onClick={onCreate} />}
       </header>
-      <SortableContext id={columnDropId(state.id)} items={nodes.map((n) => n.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext id={dropId} items={nodes.map((n) => n.id)} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className={s.cards} role="listbox" aria-label={state.name}>
           {nodes.map((n) => (
             <BoardCard key={n.id} issue={n} selected={selected === n.id} onHover={() => onSelect(n.id)} draggable={draggable} />

@@ -120,14 +120,16 @@ describe('board', () => {
     afterEach(() => lay.spy?.mockRestore())
 
     // Lay the columns out left to right; each card sits 20 px further right than the one above it.
-    function layOutColumns() {
+    // `emptyHeight` is the height of a column's card list (the drop area of an empty column).
+    function layOutColumns(spacing = 300, emptyHeight = 400) {
       lay.spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
         const column = this.closest<HTMLElement>('[data-column]')
-        if (!column) return new DOMRect(0, 0, 0, 0)
-        const x = [...column.parentElement!.children].indexOf(column) * 300
+        // The drag overlay (or its wrapper) is what the collision uses as the dragged rect: place it over the source card.
+        if (!column) return this.querySelector('[data-drag-overlay]') || this.hasAttribute('data-drag-overlay') ? document.querySelector<HTMLElement>('[data-row-id="i2"]')!.getBoundingClientRect() : new DOMRect(0, 0, 0, 0)
+        const x = [...column.parentElement!.children].indexOf(column) * spacing
         if (this === column) return new DOMRect(x, 0, 280, 440)
         const row = this.dataset.rowId ? [...this.parentElement!.children].indexOf(this) : -1
-        return row < 0 ? new DOMRect(x, 36, 280, 400) : new DOMRect(x + 8 + row * 20, 36 + row * 50, 264, 40)
+        return row < 0 ? new DOMRect(x, 36, 280, emptyHeight) : new DOMRect(x + 8 + row * 20, 36 + row * 50, 264, 40)
       })
     }
 
@@ -174,6 +176,34 @@ describe('board', () => {
       const source = await startDrag('ArrowUp')
       // Without the overlay the source itself follows the drag (here by -20px), which makes the column scroll sideways.
       expect(source.style.transform).not.toMatch(/translate3d\((?!0px)-?[\d.]+px/)
+      fireEvent.keyDown(document, { code: 'Escape', key: 'Escape' })
+    })
+
+    // Columns whose outline class is set (the CSS module class is "over", possibly hashed).
+    const outlined = () => [...document.querySelectorAll<HTMLElement>('[data-column]')].filter((c) => /over/.test(c.className)).map((c) => c.dataset.column)
+
+    it('outlines another column while the card is over one of its cards', async () => {
+      // Columns 30 px apart: the card of Done is the nearest drop spot to the right of the dragged one.
+      layOutColumns(30)
+      await startDrag()
+      await waitFor(() => expect(outlined()).toEqual(['s-done']))
+      fireEvent.keyDown(document, { code: 'Escape', key: 'Escape' })
+      await waitFor(() => expect(outlined()).toEqual([]))
+    })
+
+    it('outlines an empty column while the card is over it', async () => {
+      // Only the list of In Progress (empty) is near; its height is small so it is the nearest drop spot.
+      layOutColumns(30, 60)
+      await startDrag()
+      await waitFor(() => expect(outlined()).toEqual(['s-progress']))
+      fireEvent.keyDown(document, { code: 'Escape', key: 'Escape' })
+    })
+
+    it('does not outline the source column while the card is reordered inside it', async () => {
+      layOutColumns()
+      await startDrag('ArrowUp')
+      await waitFor(() => expect(document.querySelector('[data-drag-overlay]')).not.toBeNull())
+      expect(outlined()).toEqual([])
       fireEvent.keyDown(document, { code: 'Escape', key: 'Escape' })
     })
   })
