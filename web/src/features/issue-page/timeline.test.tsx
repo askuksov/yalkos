@@ -412,6 +412,56 @@ describe('issue timeline', () => {
       fireEvent.dragOver(box, { dataTransfer: dt })
       expect(highlighted()).toBe(false)
     })
+
+    describe('drop frame', () => {
+      const frame = () => document.querySelector('[data-drop-frame]') as HTMLElement | null
+
+      it('shows an inert overlay while highlighted and removes it on leave and on drop', async () => {
+        const { files, page } = await openZone()
+        expect(frame()).toBeNull()
+        fireEvent.dragOver(files, { dataTransfer: dt })
+        expect(frame()).not.toBeNull()
+        expect(frame()).toHaveAttribute('aria-hidden', 'true')
+        dragLeave(files, null)
+        expect(frame()).toBeNull()
+        fireEvent.dragOver(files, { dataTransfer: dt })
+        expect(frame()).not.toBeNull()
+        fireEvent.drop(page, { dataTransfer: dt })
+        expect(frame()).toBeNull()
+      })
+
+      it('takes its box from the scrolling ancestor, without the scrollbar', async () => {
+        const { files, page } = await openZone()
+        const scroller = page.closest('main') as HTMLElement
+        scroller.style.overflowY = 'auto'
+        scroller.getBoundingClientRect = () => new DOMRect(240, 0, 800, 600)
+        // A 15px scrollbar: the client box is narrower than the border box.
+        Object.defineProperty(scroller, 'clientWidth', { value: 785, configurable: true })
+        Object.defineProperty(scroller, 'clientHeight', { value: 600, configurable: true })
+        fireEvent.dragOver(files, { dataTransfer: dt })
+        expect(frame()).toHaveStyle({ top: '0px', left: '240px', width: '785px', height: '600px' })
+      })
+
+      it('keeps the box measured when the highlight turned on', async () => {
+        const { files, page } = await openZone()
+        const scroller = page.closest('main') as HTMLElement
+        scroller.style.overflowY = 'auto'
+        scroller.getBoundingClientRect = () => new DOMRect(240, 0, 800, 600)
+        Object.defineProperty(scroller, 'clientWidth', { value: 800, configurable: true })
+        Object.defineProperty(scroller, 'clientHeight', { value: 600, configurable: true })
+        fireEvent.dragOver(files, { dataTransfer: dt })
+        scroller.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100)
+        fireEvent.dragOver(files, { dataTransfer: dt })
+        expect(frame()).toHaveStyle({ left: '240px', width: '800px' })
+      })
+
+      it('falls back to the page box when nothing scrolls', async () => {
+        const { files, page } = await openZone()
+        page.getBoundingClientRect = () => new DOMRect(10, 20, 300, 400)
+        fireEvent.dragOver(files, { dataTransfer: dt })
+        expect(frame()).toHaveStyle({ top: '20px', left: '10px', width: '300px', height: '400px' })
+      })
+    })
   })
 
   it('has a single main landmark', async () => {

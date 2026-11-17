@@ -307,7 +307,15 @@
   border-radius: var(--radius);
   object-fit: cover;
 }
+/* The page keeps this class as the highlight state; the frame is drawn by .dropFrame. */
 .dragOver {
+}
+/* Fixed over the scroll area, above the sticky header, so all four edges stay visible. */
+.dropFrame {
+  position: fixed;
+  z-index: 6;
+  box-sizing: border-box;
   outline: 2px dashed var(--accent);
   outline-offset: -4px;
+  pointer-events: none;
 }
