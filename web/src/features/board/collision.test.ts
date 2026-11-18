@@ -62,6 +62,14 @@ describe('boardCollision', () => {
     expect(ids(boardCollision(args))).toEqual(['a1', 'a2'])
   })
 
+  it('ranks the cards in a gap by the pointer, not by where the dragged card was grabbed', () => {
+    // Gap between a1 (0-80) and a2 (90-170): the pointer is nearer a2, the dragged centre (y=50) nearer a1.
+    const cards = [{ id: 'a1', column: 'a' as const, top: 0 }, { id: 'a2', column: 'a' as const, top: 90 }, nextColumnCard]
+    const args = layout(cards, { x: 100, y: 86 }, { left: 0, top: 10, ...cardSize })
+    expect(ids(closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((c) => c.id === 'a1' || c.id === 'a2') }))[0]).toBe('a1')
+    expect(ids(boardCollision(args))).toEqual(['a2', 'a1'])
+  })
+
   it('returns the column when the pointer is below its last card', () => {
     const cards = [{ id: 'a1', column: 'a' as const, top: 0 }, nextColumnCard]
     expect(ids(boardCollision(layout(cards, { x: 100, y: 500 })))).toEqual([columnDropId('a')])
