@@ -1,4 +1,4 @@
-import { closestCenter, closestCorners, pointerWithin, type CollisionDetection } from '@dnd-kit/core'
+import { closestCorners, pointerWithin, type CollisionDetection } from '@dnd-kit/core'
 
 import { columnDropId } from './useBoardDrag'
 
@@ -27,8 +27,18 @@ export const boardCollision: CollisionDetection = (args) => {
   if (!column) return closestCorners(args)
 
   const cards = args.droppableContainers.filter((c) => c.data.current?.sortable?.containerId === column.id)
-  if (!cards.length) return [column]
+  const p = args.pointerCoordinates
+  if (!cards.length || !p) return [column]
   const lastBottom = Math.max(...cards.map((c) => args.droppableRects.get(c.id)?.bottom ?? -Infinity))
-  if (args.pointerCoordinates && args.pointerCoordinates.y > lastBottom) return [column]
-  return closestCenter({ ...args, droppableContainers: cards })
+  if (p.y > lastBottom) return [column]
+
+  // Rank from the pointer; closestCenter would measure from the dragged rect, which depends on the grab point.
+  return cards
+    .flatMap((droppableContainer) => {
+      const r = args.droppableRects.get(droppableContainer.id)
+      if (!r) return []
+      const value = Math.hypot(r.left + r.width / 2 - p.x, r.top + r.height / 2 - p.y)
+      return [{ id: droppableContainer.id, data: { droppableContainer, value } }]
+    })
+    .sort((a, b) => a.data.value - b.data.value)
 }
