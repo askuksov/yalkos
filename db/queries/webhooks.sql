@@ -151,7 +151,10 @@ VALUES (@id, @webhook_id, 'test', 'test', @payload, @status, 1, @response_status
         @created_at, @last_attempt_at, @finished_at);
 
 -- name: CleanupDeliveries :execrows
--- Keeps the newest 50 finished deliveries of every webhook; unfinished ones stay.
+-- Keeps the 50 most recently finished deliveries of every webhook; unfinished
+-- ones stay. Ranked by finish time, not creation: a delivery that failed after
+-- hours of retries is kept as the newest failure (LatestFailures) even when
+-- many deliveries created after it finished earlier.
 -- Skips rows another transaction holds instead of waiting: a webhook deletion
 -- locks its deliveries in the cascade's order, so waiting could close a lock
 -- cycle with it. The next run trims what was skipped. FOR UPDATE is not allowed
@@ -161,7 +164,7 @@ WHERE id IN (
     SELECT d.id FROM webhook_deliveries d
     WHERE d.id IN (
         SELECT ranked.id FROM (
-            SELECT id, row_number() OVER (PARTITION BY webhook_id ORDER BY created_at DESC, id DESC) AS n
+            SELECT id, row_number() OVER (PARTITION BY webhook_id ORDER BY coalesce(finished_at, created_at) DESC, id DESC) AS n
             FROM webhook_deliveries
             WHERE status IN ('succeeded', 'failed', 'canceled')
         ) ranked

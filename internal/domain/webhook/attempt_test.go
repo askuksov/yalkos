@@ -617,6 +617,52 @@ func TestCleanupKeeps50Finished(t *testing.T) {
 	}
 }
 
+// TestCleanupKeepsLateFailure: cleanup ranks by finish time, so a delivery
+// that failed after 50 newer ones finished is kept and the earliest finished
+// one goes.
+func TestCleanupKeepsLateFailure(t *testing.T) {
+	ctx := context.Background()
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	insert := func(status string, created, finished time.Time) uuid.UUID {
+		var id uuid.UUID
+		err := e.pool.QueryRow(ctx, `
+			INSERT INTO webhook_deliveries (webhook_id, resource, action, payload, status, created_at, finished_at)
+			VALUES ($1, 'issue', 'update', '{}', $2, $3, $4) RETURNING id`, w.ID, status, created, finished).Scan(&id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	late := insert("failed", atSec(0), atSec(0).Add(7*time.Hour))
+	var others []uuid.UUID
+	for i := 1; i <= 50; i++ {
+		at := atSec(0).Add(time.Duration(i) * time.Minute)
+		others = append(others, insert("succeeded", at, at))
+	}
+
+	r, err := e.svc.Cleanup(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r != (webhook.CleanupResult{Removed: 1}) {
+		t.Fatalf("cleanup result = %+v, want 1 removed", r)
+	}
+	if n := e.count(t, `SELECT count(*) FROM webhook_deliveries WHERE id = $1`, late); n != 1 {
+		t.Fatal("the late failure was deleted")
+	}
+	if n := e.count(t, `SELECT count(*) FROM webhook_deliveries WHERE id = $1`, others[0]); n != 0 {
+		t.Fatal("the earliest finished delivery was kept")
+	}
+	fs, err := e.svc.LatestFailures(ctx, e.users.Admin, []uuid.UUID{w.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fs[w.ID]; len(got) != 1 || got[0].ID != late {
+		t.Fatalf("failures = %+v, want the late failure", got)
+	}
+}
+
 func TestRunCleanupStopsWithContext(t *testing.T) {
 	e := newEmitEnv(t)
 	w := e.create(t, webhook.CreateInput{Enabled: true})
