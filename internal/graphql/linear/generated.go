@@ -888,6 +888,7 @@ type ComplexityRoot struct {
 		CreatedAt      func(childComplexity int) int
 		Creator        func(childComplexity int) int
 		Enabled        func(childComplexity int) int
+		Failures       func(childComplexity int) int
 		ID             func(childComplexity int) int
 		Label          func(childComplexity int) int
 		ResourceTypes  func(childComplexity int) int
@@ -906,6 +907,16 @@ type ComplexityRoot struct {
 	WebhookEdge struct {
 		Cursor func(childComplexity int) int
 		Node   func(childComplexity int) int
+	}
+
+	WebhookFailureEvent struct {
+		CreatedAt       func(childComplexity int) int
+		ExecutionID     func(childComplexity int) int
+		HTTPStatus      func(childComplexity int) int
+		ID              func(childComplexity int) int
+		ResponseOrError func(childComplexity int) int
+		URL             func(childComplexity int) int
+		Webhook         func(childComplexity int) int
 	}
 
 	WebhookPayload struct {
@@ -1088,6 +1099,8 @@ type WebhookResolver interface {
 	Team(ctx context.Context, obj *Webhook) (*Team, error)
 
 	Creator(ctx context.Context, obj *Webhook) (*User, error)
+
+	Failures(ctx context.Context, obj *Webhook) ([]WebhookFailureEvent, error)
 }
 type WorkflowStateResolver interface {
 	Team(ctx context.Context, obj *WorkflowState) (*Team, error)
@@ -5320,6 +5333,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Webhook.Enabled(childComplexity), true
+	case "Webhook.failures":
+		if e.ComplexityRoot.Webhook.Failures == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Webhook.Failures(childComplexity), true
 	case "Webhook.id":
 		if e.ComplexityRoot.Webhook.ID == nil {
 			break
@@ -5394,6 +5413,49 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.WebhookEdge.Node(childComplexity), true
+
+	case "WebhookFailureEvent.createdAt":
+		if e.ComplexityRoot.WebhookFailureEvent.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookFailureEvent.CreatedAt(childComplexity), true
+	case "WebhookFailureEvent.executionId":
+		if e.ComplexityRoot.WebhookFailureEvent.ExecutionID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookFailureEvent.ExecutionID(childComplexity), true
+	case "WebhookFailureEvent.httpStatus":
+		if e.ComplexityRoot.WebhookFailureEvent.HTTPStatus == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookFailureEvent.HTTPStatus(childComplexity), true
+	case "WebhookFailureEvent.id":
+		if e.ComplexityRoot.WebhookFailureEvent.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookFailureEvent.ID(childComplexity), true
+	case "WebhookFailureEvent.responseOrError":
+		if e.ComplexityRoot.WebhookFailureEvent.ResponseOrError == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookFailureEvent.ResponseOrError(childComplexity), true
+	case "WebhookFailureEvent.url":
+		if e.ComplexityRoot.WebhookFailureEvent.URL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookFailureEvent.URL(childComplexity), true
+	case "WebhookFailureEvent.webhook":
+		if e.ComplexityRoot.WebhookFailureEvent.Webhook == nil {
+			break
+		}
+
+		return e.ComplexityRoot.WebhookFailureEvent.Webhook(childComplexity), true
 
 	case "WebhookPayload.lastSyncId":
 		if e.ComplexityRoot.WebhookPayload.LastSyncID == nil {
@@ -7273,6 +7335,25 @@ type Webhook {
   enabled: Boolean!
   "True when the webhook covers all teams."
   allPublicTeams: Boolean!
+  "Up to 50 deliveries that are being retried or failed, the newest failure first."
+  failures: [WebhookFailureEvent!]!
+}
+
+"A failed delivery of an event to a webhook, as of its last attempt."
+type WebhookFailureEvent {
+  "The delivery id, also sent in the Linear-Delivery header."
+  id: ID!
+  "The delivery id; the same for every attempt of one event."
+  executionId: String!
+  "The status the receiver answered with; null when no answer came."
+  httpStatus: Float
+  "What went wrong, with the start of the receiver's answer (up to 1000 characters)."
+  responseOrError: String
+  "The current URL of the webhook."
+  url: String!
+  "When the delivery last failed."
+  createdAt: DateTime!
+  webhook: Webhook!
 }
 
 type WebhookConnection {
@@ -8900,6 +8981,8 @@ func (ec *executionContext) childFields_Webhook(ctx context.Context, field graph
 		return ec.fieldContext_Webhook_enabled(ctx, field)
 	case "allPublicTeams":
 		return ec.fieldContext_Webhook_allPublicTeams(ctx, field)
+	case "failures":
+		return ec.fieldContext_Webhook_failures(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Webhook", field.Name)
 }
@@ -8924,6 +9007,26 @@ func (ec *executionContext) childFields_WebhookEdge(ctx context.Context, field g
 		return ec.fieldContext_WebhookEdge_cursor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type WebhookEdge", field.Name)
+}
+
+func (ec *executionContext) childFields_WebhookFailureEvent(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_WebhookFailureEvent_id(ctx, field)
+	case "executionId":
+		return ec.fieldContext_WebhookFailureEvent_executionId(ctx, field)
+	case "httpStatus":
+		return ec.fieldContext_WebhookFailureEvent_httpStatus(ctx, field)
+	case "responseOrError":
+		return ec.fieldContext_WebhookFailureEvent_responseOrError(ctx, field)
+	case "url":
+		return ec.fieldContext_WebhookFailureEvent_url(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_WebhookFailureEvent_createdAt(ctx, field)
+	case "webhook":
+		return ec.fieldContext_WebhookFailureEvent_webhook(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type WebhookFailureEvent", field.Name)
 }
 
 func (ec *executionContext) childFields_WebhookPayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -28898,6 +29001,38 @@ func (ec *executionContext) fieldContext_Webhook_allPublicTeams(_ context.Contex
 	return graphql.NewScalarFieldContext("Webhook", field, false, false, "Boolean")
 }
 
+func (ec *executionContext) _Webhook_failures(ctx context.Context, field graphql.CollectedField, obj *Webhook) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Webhook_failures(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Webhook().Failures(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []WebhookFailureEvent) graphql.Marshaler {
+			return ec.marshalNWebhookFailureEvent2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookFailureEventᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Webhook_failures(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Webhook",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_WebhookFailureEvent(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _WebhookConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *WebhookConnection) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -29047,6 +29182,176 @@ func (ec *executionContext) _WebhookEdge_cursor(ctx context.Context, field graph
 }
 func (ec *executionContext) fieldContext_WebhookEdge_cursor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("WebhookEdge", field, false, false, "String")
+}
+
+func (ec *executionContext) _WebhookFailureEvent_id(ctx context.Context, field graphql.CollectedField, obj *WebhookFailureEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookFailureEvent_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookFailureEvent_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookFailureEvent", field, false, false, "ID")
+}
+
+func (ec *executionContext) _WebhookFailureEvent_executionId(ctx context.Context, field graphql.CollectedField, obj *WebhookFailureEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookFailureEvent_executionId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ExecutionID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookFailureEvent_executionId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookFailureEvent", field, false, false, "String")
+}
+
+func (ec *executionContext) _WebhookFailureEvent_httpStatus(ctx context.Context, field graphql.CollectedField, obj *WebhookFailureEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookFailureEvent_httpStatus(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HTTPStatus, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookFailureEvent_httpStatus(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookFailureEvent", field, false, false, "Float")
+}
+
+func (ec *executionContext) _WebhookFailureEvent_responseOrError(ctx context.Context, field graphql.CollectedField, obj *WebhookFailureEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookFailureEvent_responseOrError(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ResponseOrError, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookFailureEvent_responseOrError(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookFailureEvent", field, false, false, "String")
+}
+
+func (ec *executionContext) _WebhookFailureEvent_url(ctx context.Context, field graphql.CollectedField, obj *WebhookFailureEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookFailureEvent_url(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.URL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookFailureEvent_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookFailureEvent", field, false, false, "String")
+}
+
+func (ec *executionContext) _WebhookFailureEvent_createdAt(ctx context.Context, field graphql.CollectedField, obj *WebhookFailureEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookFailureEvent_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNDateTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookFailureEvent_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("WebhookFailureEvent", field, false, false, "DateTime")
+}
+
+func (ec *executionContext) _WebhookFailureEvent_webhook(ctx context.Context, field graphql.CollectedField, obj *WebhookFailureEvent) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_WebhookFailureEvent_webhook(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Webhook, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *Webhook) graphql.Marshaler {
+			return ec.marshalNWebhook2ᚖgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhook(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_WebhookFailureEvent_webhook(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WebhookFailureEvent",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Webhook(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _WebhookPayload_lastSyncId(ctx context.Context, field graphql.CollectedField, obj *WebhookPayload) (ret graphql.Marshaler) {
@@ -39613,6 +39918,12 @@ func (ec *executionContext) _Webhook(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "failures":
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._Webhook_failures(ctx, field, obj)
+				})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -39691,6 +40002,69 @@ func (ec *executionContext) _WebhookEdge(ctx context.Context, sel ast.SelectionS
 			}
 		case "cursor":
 			out.Values[i] = ec._WebhookEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
+
+	return out
+}
+
+var webhookFailureEventImplementors = []string{"WebhookFailureEvent"}
+
+func (ec *executionContext) _WebhookFailureEvent(ctx context.Context, sel ast.SelectionSet, obj *WebhookFailureEvent) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, webhookFailureEventImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := graphql.NewDeferredGroup(ctx)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WebhookFailureEvent")
+		case "id":
+			out.Values[i] = ec._WebhookFailureEvent_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "executionId":
+			out.Values[i] = ec._WebhookFailureEvent_executionId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "httpStatus":
+			out.Values[i] = ec._WebhookFailureEvent_httpStatus(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "responseOrError":
+			out.Values[i] = ec._WebhookFailureEvent_responseOrError(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "url":
+			out.Values[i] = ec._WebhookFailureEvent_url(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._WebhookFailureEvent_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "webhook":
+			out.Values[i] = ec._WebhookFailureEvent_webhook(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -41438,6 +41812,26 @@ func (ec *executionContext) marshalNWebhookEdge2ᚕgithubᚗcomᚋaskuksovᚋyal
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
 		return ec.marshalNWebhookEdge2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookEdge(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNWebhookFailureEvent2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookFailureEvent(ctx context.Context, sel ast.SelectionSet, v WebhookFailureEvent) graphql.Marshaler {
+	return ec._WebhookFailureEvent(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNWebhookFailureEvent2ᚕgithubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookFailureEventᚄ(ctx context.Context, sel ast.SelectionSet, v []WebhookFailureEvent) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNWebhookFailureEvent2githubᚗcomᚋaskuksovᚋyalkosᚋinternalᚋgraphqlᚋlinearᚐWebhookFailureEvent(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {

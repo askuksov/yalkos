@@ -74,6 +74,25 @@ func webhookOut(w webhook.Webhook) *Webhook {
 	}
 }
 
+// webhookFailuresOut maps the failed deliveries of webhook w. A delivery is
+// one failure event, as of its last attempt, so its id is also the execution
+// id; the URL is the webhook's current one, deliveries do not keep it.
+func webhookFailuresOut(w *Webhook, ds []webhook.Delivery) []WebhookFailureEvent {
+	out := make([]WebhookFailureEvent, len(ds))
+	for i, d := range ds {
+		f := WebhookFailureEvent{
+			ID: d.ID.String(), ExecutionID: d.ID.String(), ResponseOrError: d.LastError, URL: w.Src.URL,
+			CreatedAt: d.FailedAt(), Webhook: w,
+		}
+		if d.ResponseStatus != nil {
+			s := float64(*d.ResponseStatus)
+			f.HTTPStatus = &s
+		}
+		out[i] = f
+	}
+	return out
+}
+
 // resourcesIn maps event type names to resources.
 func resourcesIn(names []string) ([]event.Resource, error) {
 	out := make([]event.Resource, 0, len(names))

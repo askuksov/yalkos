@@ -1135,3 +1135,88 @@ func strOrNil(s *string) string {
 	}
 	return strconv.Quote(*s)
 }
+
+func TestLatestFailuresPerWebhook(t *testing.T) {
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	quiet := e.create(t, webhook.CreateInput{Enabled: true, Resources: []event.Resource{event.Comment}})
+	for i := range 4 {
+		e.emitAt(t, atSec(i))
+	}
+	ids := e.deliveryIDs(t, w.ID)
+	succeeded, retrying, failed := ids[0], ids[1], ids[2] // ids[3] stays pending
+
+	ok := okResult
+	ok.At = atSec(20)
+	e.record(t, succeeded, ok, 1)
+	retry := failResult
+	retry.At = atSec(10)
+	e.record(t, retrying, retry, 1)
+	final := webhook.Result{At: atSec(5), Err: "connection refused", Duration: time.Second}
+	e.record(t, failed, final, webhook.MaxAttempts)
+
+	ctx := context.Background()
+	got, err := e.svc.LatestFailures(ctx, e.users.Admin, []uuid.UUID{w.ID, quiet.ID, uuid.New()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("webhooks with failures = %d, want 1", len(got))
+	}
+	fs := got[w.ID]
+	// The retrying delivery failed last (at 10 s), the failed one at 6 s (its
+	// attempt started at 5 s and took a second).
+	if len(fs) != 2 || fs[0].ID != retrying || fs[1].ID != failed {
+		t.Fatalf("failures = %+v, want the retrying then the failed delivery", fs)
+	}
+	if !fs[0].FailedAt().Equal(atSec(10)) || !fs[1].FailedAt().Equal(atSec(6)) {
+		t.Fatalf("failed at = %v, %v", fs[0].FailedAt(), fs[1].FailedAt())
+	}
+	if fs[0].ResponseStatus == nil || *fs[0].ResponseStatus != 500 || fs[0].LastError == nil || *fs[0].LastError != "HTTP 500: boom" {
+		t.Fatalf("retrying failure = %+v", fs[0])
+	}
+	if fs[1].ResponseStatus != nil || fs[1].LastError == nil || *fs[1].LastError != "connection refused" {
+		t.Fatalf("final failure = %+v", fs[1])
+	}
+
+	if _, err := e.svc.LatestFailures(ctx, e.users.Member, []uuid.UUID{w.ID}); !errors.Is(err, kit.ErrForbidden) {
+		t.Fatalf("member err = %v, want ErrForbidden", err)
+	}
+}
+
+func TestLatestFailuresKeeps50Newest(t *testing.T) {
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	// 51 failed deliveries, failed 1 s apart, and one interrupted before its
+	// first attempt: it failed when it was marked, the newest of all.
+	_, err := e.pool.Exec(context.Background(), `
+		INSERT INTO webhook_deliveries (webhook_id, resource, action, payload, status, attempts, last_error,
+		                                created_at, last_attempt_at, finished_at)
+		SELECT $1, 'issue', 'update', '{}', 'failed', 4, 'HTTP 503', $2::timestamptz, $2::timestamptz + n * interval '1 second',
+		       $2::timestamptz + n * interval '1 second'
+		FROM generate_series(1, 51) n`, w.ID, atSec(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var interrupted uuid.UUID
+	err = e.pool.QueryRow(context.Background(), `
+		INSERT INTO webhook_deliveries (webhook_id, resource, action, payload, status, last_error, created_at, finished_at)
+		VALUES ($1, 'issue', 'update', '{}', 'failed', 'interrupted', $2, $3) RETURNING id`,
+		w.ID, atSec(0), atSec(59)).Scan(&interrupted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := e.svc.LatestFailures(context.Background(), e.users.Admin, []uuid.UUID{w.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fs := got[w.ID]
+	if len(fs) != 50 || fs[0].ID != interrupted || fs[0].LastAttemptAt != nil {
+		t.Fatalf("got %d failures, first %+v; want 50, the interrupted one first", len(fs), fs[0])
+	}
+	for i := 1; i < len(fs); i++ {
+		if want := atSec(52 - i); !fs[i].FailedAt().Equal(want) {
+			t.Fatalf("failure %d failed at %v, want %v", i, fs[i].FailedAt(), want)
+		}
+	}
+}

@@ -1298,6 +1298,23 @@ type WebhookEdge struct {
 	Cursor string   `json:"cursor"`
 }
 
+// A failed delivery of an event to a webhook, as of its last attempt.
+type WebhookFailureEvent struct {
+	// The delivery id, also sent in the Linear-Delivery header.
+	ID string `json:"id"`
+	// The delivery id; the same for every attempt of one event.
+	ExecutionID string `json:"executionId"`
+	// The status the receiver answered with; null when no answer came.
+	HTTPStatus *float64 `json:"httpStatus,omitempty"`
+	// What went wrong, with the start of the receiver's answer (up to 1000 characters).
+	ResponseOrError *string `json:"responseOrError,omitempty"`
+	// The current URL of the webhook.
+	URL string `json:"url"`
+	// When the delivery last failed.
+	CreatedAt time.Time `json:"createdAt"`
+	Webhook   *Webhook  `json:"webhook"`
+}
+
 type WebhookPayload struct {
 	LastSyncID float64  `json:"lastSyncId"`
 	Webhook    *Webhook `json:"webhook"`

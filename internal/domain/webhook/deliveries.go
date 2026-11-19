@@ -104,6 +104,38 @@ func (s *Service) LatestDeliveries(ctx context.Context, actor account.User, webh
 	return out, nil
 }
 
+// LatestFailures returns up to 50 retrying or failed deliveries of each given
+// webhook, the newest failure first (see FailedAt). A webhook without failures
+// (or one that does not exist) has no entry.
+func (s *Service) LatestFailures(ctx context.Context, actor account.User, webhookIDs []uuid.UUID) (map[uuid.UUID][]Delivery, error) {
+	if err := authorize(actor); err != nil {
+		return nil, err
+	}
+	rows, err := s.q.LatestFailures(ctx, q.LatestFailuresParams{WebhookIds: webhookIDs, MaxRows: maxDeliveries})
+	if err != nil {
+		return nil, fmt.Errorf("latest failures: %w", err)
+	}
+	out := make(map[uuid.UUID][]Delivery, len(webhookIDs))
+	for _, r := range rows {
+		d := deliveryFromRow(q.ListDeliveriesRow(r))
+		out[d.WebhookID] = append(out[d.WebhookID], d)
+	}
+	return out, nil
+}
+
+// FailedAt is when a retrying or failed delivery last failed: the end of its
+// final attempt, the start of its last attempt while it is retried, or the
+// moment it was failed as interrupted. LatestFailures orders by it.
+func (d Delivery) FailedAt() time.Time {
+	switch {
+	case d.FinishedAt != nil:
+		return *d.FinishedAt
+	case d.LastAttemptAt != nil:
+		return *d.LastAttemptAt
+	}
+	return d.CreatedAt
+}
+
 func validDeliveryLimit(limit int) error {
 	if limit < 1 || limit > maxDeliveries {
 		return kit.Input("first", kit.ReasonOutOfRange, "must be 1–50").With("min", 1).With("max", maxDeliveries)

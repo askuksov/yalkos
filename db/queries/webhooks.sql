@@ -79,6 +79,21 @@ CROSS JOIN LATERAL (
 ) d
 ORDER BY w.ord, d.created_at DESC, d.id DESC;
 
+-- name: LatestFailures :many
+-- The newest failed deliveries (retrying or failed) of each given webhook,
+-- newest failure first, webhooks in the order of the given ids. A delivery is
+-- one entry: its last attempt, or the moment it was failed as interrupted.
+SELECT d.id, d.webhook_id, d.resource, d.action, d.entity_id, d.status, d.attempts, d.response_status,
+       d.last_error, d.duration_ms, d.created_at, d.last_attempt_at, d.next_attempt_at, d.finished_at
+FROM unnest(@webhook_ids::uuid[]) WITH ORDINALITY AS w (id, ord)
+CROSS JOIN LATERAL (
+    SELECT * FROM webhook_deliveries
+    WHERE webhook_id = w.id AND status IN ('retrying', 'failed')
+    ORDER BY coalesce(finished_at, last_attempt_at, created_at) DESC, id DESC
+    LIMIT @max_rows
+) d
+ORDER BY w.ord, coalesce(d.finished_at, d.last_attempt_at, d.created_at) DESC, d.id DESC;
+
 -- name: GetAttempt :one
 -- The delivery with what an attempt needs from its webhook, read at attempt time.
 SELECT d.id, d.status, d.payload, w.url, w.secret, w.enabled, (d.payload ->> 'type')::text AS event_type
