@@ -663,6 +663,54 @@ func TestCleanupKeepsLateFailure(t *testing.T) {
 	}
 }
 
+// TestCleanupKeepsNewestSuccess: the newest event delivery that succeeded
+// outlives the 50 kept ones, so a late final failure of an older delivery
+// still sees it and does not disable the webhook.
+func TestCleanupKeepsNewestSuccess(t *testing.T) {
+	ctx := context.Background()
+	e := newEmitEnv(t)
+	w := e.create(t, webhook.CreateInput{Enabled: true})
+	e.emitAt(t, atSec(0))
+	retrying := e.deliveryIDs(t, w.ID)[0]
+	insert := func(status, resource string, created, finished time.Time) uuid.UUID {
+		var id uuid.UUID
+		err := e.pool.QueryRow(ctx, `
+			INSERT INTO webhook_deliveries (webhook_id, resource, action, payload, status, created_at, finished_at)
+			VALUES ($1, $2, 'update', '{}', $3, $4, $5) RETURNING id`, w.ID, resource, status, created, finished).Scan(&id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	older := insert("succeeded", "issue", atSec(0).Add(time.Minute), atSec(0).Add(time.Minute))
+	newest := insert("succeeded", "issue", atSec(0).Add(2*time.Minute), atSec(0).Add(2*time.Minute))
+	// A test delivery that succeeded later does not count: it never prevents
+	// disabling, so it gets no protection either.
+	test := insert("succeeded", webhook.TestResource, atSec(0).Add(3*time.Minute), atSec(0).Add(3*time.Minute))
+	for i := range 50 {
+		insert("failed", "issue", atSec(0).Add(-time.Hour), atSec(0).Add(time.Hour+time.Duration(i)*time.Minute))
+	}
+
+	r, err := e.svc.Cleanup(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r != (webhook.CleanupResult{Removed: 2}) {
+		t.Fatalf("cleanup result = %+v, want 2 removed", r)
+	}
+	for id, want := range map[uuid.UUID]int{older: 0, test: 0, newest: 1} {
+		if n := e.count(t, `SELECT count(*) FROM webhook_deliveries WHERE id = $1`, id); n != want {
+			t.Fatalf("delivery %s: %d rows, want %d", id, n, want)
+		}
+	}
+
+	// The retrying delivery, created before the kept success, fails for good.
+	final := failResult
+	final.At = atSec(0).Add(7 * time.Hour)
+	e.record(t, retrying, final, webhook.MaxAttempts)
+	e.wantEnabled(t, w.ID, true, "after a final failure with a later success kept")
+}
+
 func TestRunCleanupStopsWithContext(t *testing.T) {
 	e := newEmitEnv(t)
 	w := e.create(t, webhook.CreateInput{Enabled: true})

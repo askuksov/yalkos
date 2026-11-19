@@ -155,6 +155,10 @@ VALUES (@id, @webhook_id, 'test', 'test', @payload, @status, 1, @response_status
 -- ones stay. Ranked by finish time, not creation: a delivery that failed after
 -- hours of retries is kept as the newest failure (LatestFailures) even when
 -- many deliveries created after it finished earlier.
+-- The newest event delivery that succeeded always stays, beyond the 50 if
+-- need be: DisableWebhookForFailures looks for a success finished at or after
+-- a failed delivery was created, and if any such success exists, the newest
+-- one does too.
 -- Skips rows another transaction holds instead of waiting: a webhook deletion
 -- locks its deliveries in the cascade's order, so waiting could close a lock
 -- cycle with it. The next run trims what was skipped. FOR UPDATE is not allowed
@@ -169,6 +173,11 @@ WHERE id IN (
             WHERE status IN ('succeeded', 'failed', 'canceled')
         ) ranked
         WHERE n > 50
+          AND ranked.id NOT IN (
+              SELECT DISTINCT ON (webhook_id) id FROM webhook_deliveries
+              WHERE status = 'succeeded' AND resource <> 'test' AND finished_at IS NOT NULL
+              ORDER BY webhook_id, finished_at DESC, id DESC
+          )
     )
     FOR UPDATE SKIP LOCKED
 );
