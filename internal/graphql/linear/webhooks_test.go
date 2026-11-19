@@ -499,7 +499,7 @@ func TestLinearWebhookFailures(t *testing.T) {
 		}
 		return id
 	}
-	at := func(min int) *time.Time { v := base.Add(time.Duration(min) * time.Minute); return &v }
+	at := func(minutes int) *time.Time { v := base.Add(time.Duration(minutes) * time.Minute); return &v }
 	code := func(n int) *int { return &n }
 	insert(a.ID, "succeeded", code(200), "", at(9), at(9))
 	insert(a.ID, "pending", nil, "", nil, nil)
