@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/vikstrous/dataloadgen"
 
+	"github.com/askuksov/yalkos/internal/authn"
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
@@ -15,6 +16,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/domain/webhook"
 )
 
 // loaders batch per-request lookups by id, so a list of N items costs one
@@ -46,6 +48,9 @@ type loaders struct {
 	milestones *dataloadgen.Loader[uuid.UUID, milestone.Milestone]
 	// By milestone id: counts of its live issues.
 	milestoneProgress *dataloadgen.Loader[uuid.UUID, milestone.Progress]
+
+	// By webhook id: its newest failed deliveries.
+	webhookFailures *dataloadgen.Loader[uuid.UUID, []webhook.Delivery]
 }
 
 type loadersKey struct{}
@@ -80,6 +85,13 @@ func newLoaders(d Deps) *loaders {
 			return d.Milestones.ByIDs(ctx, ids)
 		}, func(m milestone.Milestone) uuid.UUID { return m.ID }), opt),
 		milestoneProgress: dataloadgen.NewLoader(mapped(d.Milestones.Progress), opt),
+		webhookFailures: dataloadgen.NewLoader(grouped(func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]webhook.Delivery, error) {
+			a, ok := authn.ActorFrom(ctx)
+			if !ok {
+				return nil, account.ErrUnauthenticated
+			}
+			return d.Webhooks.LatestFailures(ctx, a.User, ids)
+		}), opt),
 	}
 }
 

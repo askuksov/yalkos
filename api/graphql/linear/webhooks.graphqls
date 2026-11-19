@@ -17,6 +17,25 @@ type Webhook {
   enabled: Boolean!
   "True when the webhook covers all teams."
   allPublicTeams: Boolean!
+  "Up to 50 deliveries that are being retried or failed, the newest failure first."
+  failures: [WebhookFailureEvent!]!
+}
+
+"A failed delivery of an event to a webhook, as of its last attempt."
+type WebhookFailureEvent {
+  "The delivery id, also sent in the Linear-Delivery header."
+  id: ID!
+  "The delivery id; the same for every attempt of one event."
+  executionId: String!
+  "The status the receiver answered with; null when no answer came."
+  httpStatus: Float
+  "What went wrong, with the start of the receiver's answer (up to 1000 characters)."
+  responseOrError: String
+  "The current URL of the webhook."
+  url: String!
+  "When the delivery last failed."
+  createdAt: DateTime!
+  webhook: Webhook!
 }
 
 type WebhookConnection {

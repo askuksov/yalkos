@@ -26,6 +26,15 @@ func (r *webhookResolver) Creator(ctx context.Context, obj *Webhook) (*User, err
 	return r.userRef(ctx, obj.Src.CreatedBy)
 }
 
+// Failures is the resolver for the failures field.
+func (r *webhookResolver) Failures(ctx context.Context, obj *Webhook) ([]WebhookFailureEvent, error) {
+	ds, err := loadersFrom(ctx).webhookFailures.Load(ctx, obj.Src.ID)
+	if err != nil {
+		return nil, err
+	}
+	return webhookFailuresOut(obj, ds), nil
+}
+
 // Webhook returns WebhookResolver implementation.
 func (r *Resolver) Webhook() WebhookResolver { return &webhookResolver{r} }
 

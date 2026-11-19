@@ -6,6 +6,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/event"
@@ -473,5 +476,88 @@ func TestLinearWebhooksMemberKeyForbidden(t *testing.T) {
 				t.Errorf("a member changed the webhook: %+v", got)
 			}
 		})
+	}
+}
+
+// TestLinearWebhookFailures: every retrying or failed delivery is one failure
+// event, the newest first, as of its last attempt.
+func TestLinearWebhookFailures(t *testing.T) {
+	f := newWebhookFix(t)
+	a := f.create(t, nil)
+	b := f.create(t, func(in *webhook.CreateInput) { in.URL = "https://example.com/other" })
+	base := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
+	insert := func(hook uuid.UUID, status string, code *int, lastErr string, lastAttempt, finished *time.Time) uuid.UUID {
+		t.Helper()
+		var id uuid.UUID
+		err := f.pool.QueryRow(context.Background(), `
+			INSERT INTO webhook_deliveries (webhook_id, resource, action, payload, status, attempts, response_status,
+			                                last_error, created_at, last_attempt_at, finished_at)
+			VALUES ($1, 'issue', 'update', '{}', $2, 1, $3, NULLIF($4, ''), $5, $6, $7) RETURNING id`,
+			hook, status, code, lastErr, base, lastAttempt, finished).Scan(&id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	at := func(min int) *time.Time { v := base.Add(time.Duration(min) * time.Minute); return &v }
+	code := func(n int) *int { return &n }
+	insert(a.ID, "succeeded", code(200), "", at(9), at(9))
+	insert(a.ID, "pending", nil, "", nil, nil)
+	insert(a.ID, "canceled", nil, "webhook is disabled", nil, at(8))
+	failed := insert(a.ID, "failed", nil, "connection refused", at(3), at(4))
+	retrying := insert(a.ID, "retrying", code(503), "HTTP 503: busy", at(5), nil)
+	other := insert(b.ID, "failed", code(410), "HTTP 410", at(1), at(1))
+
+	type failure struct {
+		ID              string
+		ExecutionID     string `json:"executionId"`
+		HTTPStatus      *float64
+		ResponseOrError *string
+		URL             string
+		CreatedAt       string
+		Webhook         struct{ ID string }
+	}
+	const fields = `failures { id executionId httpStatus responseOrError url createdAt webhook { id } }`
+	var one struct {
+		Webhook struct{ Failures []failure }
+	}
+	f.gql(t, f.adminKey, `query($id: String!) { webhook(id: $id) { `+fields+` } }`, map[string]any{"id": a.ID.String()}).ok(t, &one)
+	got := one.Webhook.Failures
+	if len(got) != 2 || got[0].ID != retrying.String() || got[1].ID != failed.String() {
+		t.Fatalf("failures = %+v, want the retrying then the failed delivery", got)
+	}
+	r := got[0]
+	if r.ExecutionID != r.ID || r.HTTPStatus == nil || *r.HTTPStatus != 503 || r.ResponseOrError == nil ||
+		*r.ResponseOrError != "HTTP 503: busy" || r.URL != a.URL || r.CreatedAt != "2026-03-01T10:05:00.000Z" || r.Webhook.ID != a.ID.String() {
+		t.Errorf("retrying failure = %+v", r)
+	}
+	ff := got[1]
+	if ff.HTTPStatus != nil || ff.ResponseOrError == nil || *ff.ResponseOrError != "connection refused" || ff.CreatedAt != "2026-03-01T10:04:00.000Z" {
+		t.Errorf("failed failure = %+v", ff)
+	}
+
+	// In a list every webhook gets its own failures; one without any gets [].
+	c := f.create(t, nil)
+	var list struct {
+		Webhooks struct {
+			Nodes []struct {
+				ID       string
+				Failures []failure
+			}
+		}
+	}
+	f.gql(t, f.ownerKey, `{ webhooks { nodes { id `+fields+` } } }`, nil).ok(t, &list)
+	byID := map[string][]failure{}
+	for _, n := range list.Webhooks.Nodes {
+		if n.Failures == nil {
+			t.Errorf("webhook %s: failures is null, want a list", n.ID)
+		}
+		byID[n.ID] = n.Failures
+	}
+	if len(byID[a.ID.String()]) != 2 || len(byID[c.ID.String()]) != 0 {
+		t.Errorf("failures per webhook = %+v", byID)
+	}
+	if bs := byID[b.ID.String()]; len(bs) != 1 || bs[0].ID != other.String() || bs[0].URL != "https://example.com/other" || bs[0].Webhook.ID != b.ID.String() {
+		t.Errorf("other webhook failures = %+v", bs)
 	}
 }

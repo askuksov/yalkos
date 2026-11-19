@@ -7,7 +7,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@linear/sdk": "102.0.0",
+    "@linear/sdk": "103.0.0",
     "graphql": "17.1.0"
   }
 }
