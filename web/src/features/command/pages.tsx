@@ -15,7 +15,7 @@ import { PriorityIcon } from '../../ui/PriorityIcon'
 import { StateIcon } from '../../ui/StateIcon'
 import { useToast } from '../../ui/useToast'
 import { MoveIssueMutation } from '../issue-page/operations'
-import { deleteIssues } from '../issues/deleteIssues'
+import { useDeleteIssues } from '../issues/deleteIssues'
 import ls from '../labels/labels.module.css'
 import { useLabels } from '../labels/useLabels'
 import { useMilestones } from '../milestones/useMilestones'
@@ -347,23 +347,21 @@ export function MovePage({ q, targets, done }: PageProps) {
 
 export function DeletePage({ targets, done }: PageProps) {
   const { t } = useTranslation('command')
-  const qc = useQueryClient()
   const toast = useToast()
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const remove = useMutation({
-    mutationFn: () => deleteIssues(targets.map((x) => x.id)),
-    onSettled: () => Promise.all(['issues', 'children'].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
-    onSuccess: () => {
-      toast.show(t('deleted', { count: targets.length }))
+  // The palette stays open after a partial failure; a retry deletes only the
+  // issues left.
+  const remove = useDeleteIssues({
+    onSuccess: (count) => {
+      toast.show(t('deleted', { count }))
       const open = targets.find((x) => pathname === `/issue/${x.identifier}`)
       if (open) navigate(open.projectKey ? `/p/${open.projectKey}` : '/my-issues', { replace: true })
       done()
     },
-    onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
   })
   return (
-    <Command.Item value="confirm" disabled={remove.isPending} onSelect={() => remove.mutate()}>
+    <Command.Item value="confirm" disabled={remove.isPending} onSelect={() => remove.run(targets.map((x) => x.id))}>
       <span className={s.label}>{t('delete.confirm', { count: targets.length })}</span>
     </Command.Item>
   )
