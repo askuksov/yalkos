@@ -31,27 +31,45 @@ interface GraphQLResponse<T> {
   error?: string
 }
 
+/**
+ * How long a request may take, answer included, before it counts as failed
+ * (TIMEOUT). It bounds every API request, so a hung one cannot hold back an
+ * error message or a refresh that waits for it; file uploads do not use
+ * request and are not bound by it. A write that timed out may still have
+ * been applied: callers refresh what they show either way.
+ */
+export const REQUEST_TIMEOUT_MS = 30_000
+
 /** Sends a typed document to the native API with the session cookie. */
 export async function request<TResult, TVars>(
   doc: TypedDocumentNode<TResult, TVars>,
   vars?: TVars,
 ): Promise<TResult> {
+  const timeout = new AbortController()
+  const timer = setTimeout(() => timeout.abort(), REQUEST_TIMEOUT_MS)
+  const failed = (message: string) =>
+    timeout.signal.aborted ? new GraphQLRequestError('TIMEOUT', 'Request timed out') : new GraphQLRequestError('NETWORK_ERROR', message)
   let res: Response
-  try {
-    res = await fetch('/api/graphql', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: print(doc), variables: vars ?? {} }),
-    })
-  } catch {
-    throw new GraphQLRequestError('NETWORK_ERROR', 'Network error')
-  }
   let body: GraphQLResponse<TResult>
   try {
-    body = (await res.json()) as GraphQLResponse<TResult>
-  } catch {
-    throw new GraphQLRequestError('NETWORK_ERROR', `Request failed (${res.status})`)
+    try {
+      res = await fetch('/api/graphql', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: print(doc), variables: vars ?? {} }),
+        signal: timeout.signal,
+      })
+    } catch {
+      throw failed('Network error')
+    }
+    try {
+      body = (await res.json()) as GraphQLResponse<TResult>
+    } catch {
+      throw failed(`Request failed (${res.status})`)
+    }
+  } finally {
+    clearTimeout(timer)
   }
   if (body.error) {
     throw new GraphQLRequestError(`HTTP_${res.status}`, body.error)

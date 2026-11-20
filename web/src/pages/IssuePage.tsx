@@ -1,11 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type DragEvent, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate, useParams } from 'react-router'
 
 import { NotFound } from '../app/ProjectRoute'
 import { useTitle } from '../app/useTitle'
-import { errorMessage, GraphQLRequestError, request } from '../api/client'
+import { GraphQLRequestError, request } from '../api/client'
 import { Attachments } from '../features/issue-page/Attachments'
 import { IssueDescription } from '../features/issue-page/IssueDescription'
 import { IssueHeader } from '../features/issue-page/IssueHeader'
@@ -21,7 +21,7 @@ import type { PageIssue, PropName } from '../features/issue-page/types'
 import { usePageTarget, usePalette } from '../features/command/palette'
 import { pushRecent } from '../features/command/recent'
 import { useCreateDefaults, useCreateIssue } from '../features/issues/createIssue'
-import { DeleteIssueMutation } from '../features/issues/fragments'
+import { useDeleteIssues } from '../features/issues/deleteIssues'
 import { useEscape, useHotkey } from '../lib/hotkeys'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
@@ -109,16 +109,13 @@ function IssueView({ issue }: { issue: PageIssue }) {
   useHotkey('m', () => palette.open('milestone', [target]), { enabled: !readOnly && !busy })
   useEscape(back, !busy)
 
-  const remove = useMutation({
-    mutationFn: () => request(DeleteIssueMutation, { id: issue.id }),
+  const remove = useDeleteIssues({
     onSuccess: () => {
       setDeleting(false)
       toast.show(t('delete.done'))
-      void Promise.all(['issues', 'children'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
       qc.removeQueries({ queryKey: ['issue', issue.identifier] })
       back()
     },
-    onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
   })
 
   return (
@@ -180,7 +177,7 @@ function IssueView({ issue }: { issue: PageIssue }) {
         <p>{t('delete.body', { identifier: issue.identifier })}</p>
         <div className={s.dialogActions}>
           <Button onClick={() => setDeleting(false)}>{t('common:actions.cancel')}</Button>
-          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
+          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.run([issue.id])}>
             {t('delete.submit')}
           </Button>
         </div>

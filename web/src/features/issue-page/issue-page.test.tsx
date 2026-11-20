@@ -178,6 +178,33 @@ describe('issue page', () => {
     expect(await screen.findByText('Issue deleted')).toBeInTheDocument()
   })
 
+  it('sends one deletion for two confirmations in the same tick, and allows a retry after a failure', async () => {
+    const first = deferred<{ deleteIssue: boolean }>()
+    let calls = 0
+    serve(
+      withIssue(pageIssue(1), {
+        DeleteIssue: () => (++calls === 1 ? first.promise : { deleteIssue: true }),
+        IssueGroup: () => ({ issues: { totalCount: 0, nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } }),
+      }),
+    )
+    renderAt('/issue/YLK-1')
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Delete issue' })
+    const confirm = within(dialog).getByRole('button', { name: 'Delete' })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    await waitFor(() => expect(callsOf('DeleteIssue')).toHaveLength(1))
+
+    // The guard is released when the deletion settles: a retry goes out.
+    first.reject(new GraphQLRequestError('INTERNAL_ERROR', 'boom'))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Delete' })).toBeEnabled())
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/p\/YLK$/))
+    expect(callsOf('DeleteIssue')).toHaveLength(2)
+  })
+
   it('is read-only in an archived project', async () => {
     const archived = pageIssue(1, { description: 'Text', project: { id: 'p1', key: 'YLK', name: 'Yalkos', archivedAt: '2026-10-30T10:00:00Z', states } })
     serve(withIssue(archived))
