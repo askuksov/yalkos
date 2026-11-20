@@ -126,8 +126,11 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	labels.SetEmitter(webhooks)
 	milestones.SetEmitter(webhooks)
 	// At start and then hourly, deliveries whose job is gone are failed, and
-	// finished deliveries beyond the newest 50 per webhook are removed.
+	// finished deliveries beyond the newest 50 per webhook are removed. Every
+	// minute in between, deliveries whose job River rescued and discarded are
+	// failed too.
 	go webhooks.RunCleanup(ctx, time.Hour, logger)
+	go webhooks.RunRecovery(ctx, time.Minute, logger)
 	var limiter *ratelimit.Limiter
 	if cfg.APIRateLimit > 0 {
 		limiter = ratelimit.New(cfg.APIRateLimit, time.Now)
