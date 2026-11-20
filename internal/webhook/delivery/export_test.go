@@ -17,3 +17,7 @@ func (s *HTTPSender) Timeout() time.Duration { return s.timeout }
 
 // NewTransport returns the transport an attempt would use.
 func (s *HTTPSender) NewTransport() *http.Transport { return s.newTransport() }
+
+// LongestAttempt is the longest an attempt runs: the job timeout plus the
+// time allowed to record its outcome after it.
+const LongestAttempt = jobTimeout + recordTimeout

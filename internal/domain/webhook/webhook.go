@@ -132,9 +132,15 @@ func checkProject(ctx context.Context, db *q.Queries, id uuid.UUID) error {
 
 // projectGone reports a foreign key violation on webhooks.project_id: the
 // project was deleted between the check and the write.
-func projectGone(err error) bool {
+func projectGone(err error) bool { return fkViolation(err, "webhooks_project_id_fkey") }
+
+// webhookGone reports a foreign key violation on webhook_deliveries.webhook_id:
+// the webhook was deleted between reading it and logging a delivery.
+func webhookGone(err error) bool { return fkViolation(err, "webhook_deliveries_webhook_id_fkey") }
+
+func fkViolation(err error, constraint string) bool {
 	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == "webhooks_project_id_fkey"
+	return errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == constraint
 }
 
 // List returns all webhooks, newest first.
