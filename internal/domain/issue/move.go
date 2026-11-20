@@ -46,7 +46,11 @@ func (s *Service) Move(ctx context.Context, actor account.User, id, toProject uu
 			return fmt.Errorf("issue descendants: %w", err)
 		}
 		now := s.now()
-		for n, issueID := range append([]uuid.UUID{root.ID}, descendants...) {
+		ids := append([]uuid.UUID{root.ID}, descendants...)
+		// History entries of the whole subtree are written at the end, in one
+		// names lookup and one insert.
+		events := make([]audit.Event, 0, len(ids))
+		for n, issueID := range ids {
 			row, err := tx.GetIssueForUpdate(ctx, issueID)
 			if err != nil {
 				return fmt.Errorf("lock issue: %w", err)
@@ -82,9 +86,7 @@ func (s *Service) Move(ctx context.Context, actor account.User, id, toProject uu
 			}
 			after := toIssue(moved, target.Key)
 			changes := audit.Diff(snapshot(before), snapshot(after))
-			if err := record(ctx, tx, actor, after, "update", changes, now); err != nil {
-				return err
-			}
+			events = append(events, issueEvent(actor, after, "update", changes, now))
 			if err := s.emit(ctx, ptx, event.Change{
 				Resource: event.Issue, Action: event.Update, EntityID: issueID,
 				ProjectIDs: []uuid.UUID{before.ProjectID, toProject}, ActorID: actor.ID, At: now,
@@ -96,7 +98,7 @@ func (s *Service) Move(ctx context.Context, actor account.User, id, toProject uu
 				out = after
 			}
 		}
-		return nil
+		return audit.RecordMany(ctx, tx, events)
 	})
 	if err != nil {
 		return Issue{}, err

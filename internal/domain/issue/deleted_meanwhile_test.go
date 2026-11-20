@@ -18,7 +18,9 @@ import (
 // the write must see the delete and reject the input instead of failing on a
 // foreign key.
 
-// waitQueued waits until at least n other sessions of this database wait for a lock.
+// waitQueued waits until at least n other sessions of this database wait for
+// a lock. Unlike waitBlockedBy it counts a session queued behind another
+// waiter: Postgres reports that waiter, not the holder, as its blocker.
 func waitQueued(t *testing.T, e env, n int) {
 	t.Helper()
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
@@ -34,7 +36,8 @@ func waitQueued(t *testing.T, e env, n int) {
 	t.Fatalf("fewer than %d sessions wait for a lock", n)
 }
 
-func result(t *testing.T, name string, done <-chan error) error {
+// finished returns what done delivers, failing the test after 10 s.
+func finished(t *testing.T, name string, done <-chan error) error {
 	t.Helper()
 	select {
 	case err := <-done:
@@ -45,7 +48,8 @@ func result(t *testing.T, name string, done <-chan error) error {
 	}
 }
 
-func async(f func() error) <-chan error {
+// inBackground runs f in a goroutine and delivers its error.
+func inBackground(f func() error) <-chan error {
 	done := make(chan error, 1)
 	go func() { done <- f() }()
 	return done
@@ -57,15 +61,15 @@ func deletedMeanwhile(t *testing.T, e env, projectID uuid.UUID, del, write func(
 	t.Helper()
 	gate := begin(t, e)
 	gate.must(`SELECT 1 FROM projects WHERE id = $1 FOR UPDATE`, projectID)
-	deleted := async(del)
+	deleted := inBackground(del)
 	waitQueued(t, e, 1)
-	written := async(write)
+	written := inBackground(write)
 	waitQueued(t, e, 2)
 	gate.commit()
-	if err := result(t, "delete", deleted); err != nil {
+	if err := finished(t, "delete", deleted); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	return result(t, "write", written)
+	return finished(t, "write", written)
 }
 
 func TestMilestoneDeletedMeanwhile(t *testing.T) {

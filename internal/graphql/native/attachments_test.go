@@ -143,9 +143,9 @@ func TestAttachmentUsedInTextAPI(t *testing.T) {
 	// cannot split: the count is exact without a wider window.
 	count := func(attachments int) {
 		t.Helper()
-		queries.n.Store(0)
+		queries.Reset()
 		used()
-		n := queries.n.Load()
+		n := queries.N()
 		t.Logf("usedInText of %d attachments: %d SQL statements", attachments, n)
 		if n != 5 {
 			t.Errorf("usedInText of %d attachments ran %d SQL statements, want 5", attachments, n)

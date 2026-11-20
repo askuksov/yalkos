@@ -111,10 +111,15 @@ var errNotFound = kit.NotFoundError{Entity: "Issue"}
 var errMovedMeanwhile = fmt.Errorf("issue: moved to another project meanwhile: %w", kit.ErrStartOver)
 
 func record(ctx context.Context, tx *q.Queries, actor account.User, i Issue, action string, changes map[string]audit.Change, at time.Time) error {
-	return audit.Record(ctx, tx, audit.Event{
+	return audit.Record(ctx, tx, issueEvent(actor, i, action, changes, at))
+}
+
+// issueEvent is the history entry of a change to i.
+func issueEvent(actor account.User, i Issue, action string, changes map[string]audit.Change, at time.Time) audit.Event {
+	return audit.Event{
 		EntityType: "issue", Action: action, EntityID: i.ID, ProjectID: &i.ProjectID, ActorID: &actor.ID,
 		Changes: changes, At: at,
-	})
+	}
 }
 
 // lockProject locks a writable project referenced by an input field.

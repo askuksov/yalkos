@@ -9,11 +9,9 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/db"
@@ -22,6 +20,7 @@ import (
 	"github.com/askuksov/yalkos/internal/graphql/native"
 	"github.com/askuksov/yalkos/internal/store"
 	"github.com/askuksov/yalkos/internal/testdb"
+	"github.com/askuksov/yalkos/internal/testfx"
 )
 
 type gqlIssue struct {
@@ -331,18 +330,8 @@ func newHTTPServer(t *testing.T, h http.Handler) string {
 	return srv.URL
 }
 
-// counter is a pgx tracer that counts SQL statements.
-type counter struct{ n atomic.Int64 }
-
-func (c *counter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
-	c.n.Add(1)
-	return ctx
-}
-
-func (c *counter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
-
 // tracedServer is newServer on a pool that counts SQL statements.
-func tracedServer(t *testing.T) (server, *counter) {
+func tracedServer(t *testing.T) (server, *testfx.StmtCounter) {
 	t.Helper()
 	ctx := context.Background()
 	dbURL, setupPool := testdb.New(t)
@@ -353,7 +342,7 @@ func tracedServer(t *testing.T) (server, *counter) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	queries := &counter{}
+	queries := &testfx.StmtCounter{}
 	cfg.ConnConfig.Tracer = queries
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
@@ -392,9 +381,9 @@ func seedIssues(t *testing.T, owner *client) {
 
 // countList runs an issue list with selection and returns its SQL statement
 // count.
-func countList(t *testing.T, owner *client, queries *counter, selection string) int64 {
+func countList(t *testing.T, owner *client, queries *testfx.StmtCounter, selection string) int64 {
 	t.Helper()
-	queries.n.Store(0)
+	queries.Reset()
 	var conn struct {
 		Nodes []json.RawMessage `json:"nodes"`
 	}
@@ -402,7 +391,7 @@ func countList(t *testing.T, owner *client, queries *counter, selection string) 
 	if len(conn.Nodes) != 50 {
 		t.Fatalf("nodes = %d", len(conn.Nodes))
 	}
-	n := queries.n.Load()
+	n := queries.N()
 	t.Logf("%s: %d SQL statements", selection, n)
 	return n
 }

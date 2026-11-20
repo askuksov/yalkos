@@ -51,17 +51,9 @@ func RecordMany(ctx context.Context, tx *q.Queries, events []Event) error {
 	if len(events) == 0 {
 		return nil
 	}
-	refs := make([]q.AuditNamesParams, len(events))
-	var all q.AuditNamesParams
-	for i, e := range events {
-		var err error
-		if refs[i], err = namedIDs(e.Changes); err != nil {
-			return err
-		}
-		all.LabelIds = append(all.LabelIds, refs[i].LabelIds...)
-		all.MilestoneIds = append(all.MilestoneIds, refs[i].MilestoneIds...)
-		all.StateIds = append(all.StateIds, refs[i].StateIds...)
-		all.ProjectIds = append(all.ProjectIds, refs[i].ProjectIds...)
+	refs, all, err := eventRefs(events)
+	if err != nil {
+		return err
 	}
 	found, err := lookupNames(ctx, tx, all)
 	if err != nil {
@@ -102,6 +94,26 @@ func RecordMany(ctx context.Context, tx *q.Queries, events []Event) error {
 	return nil
 }
 
+// eventRefs returns the named ids of each event and of all events together,
+// each id once.
+func eventRefs(events []Event) ([]q.AuditNamesParams, q.AuditNamesParams, error) {
+	refs := make([]q.AuditNamesParams, len(events))
+	var all q.AuditNamesParams
+	for i, e := range events {
+		var err error
+		if refs[i], err = namedIDs(e.Changes); err != nil {
+			return nil, all, err
+		}
+		all.LabelIds = append(all.LabelIds, refs[i].LabelIds...)
+		all.MilestoneIds = append(all.MilestoneIds, refs[i].MilestoneIds...)
+		all.StateIds = append(all.StateIds, refs[i].StateIds...)
+		all.ProjectIds = append(all.ProjectIds, refs[i].ProjectIds...)
+	}
+	all.LabelIds, all.MilestoneIds = kit.Distinct(all.LabelIds), kit.Distinct(all.MilestoneIds)
+	all.StateIds, all.ProjectIds = kit.Distinct(all.StateIds), kit.Distinct(all.ProjectIds)
+	return refs, all, nil
+}
+
 // storedName is a value of the names column, keyed by id; type is written only
 // when true.
 type storedName struct {
@@ -109,12 +121,13 @@ type storedName struct {
 	Type bool   `json:"type,omitempty"`
 }
 
-// listIDs appends the ids that field of changes holds, as lists, in From and To.
-func listIDs(changes map[string]Change, field string, dst []uuid.UUID) ([]uuid.UUID, error) {
+// listIDs returns the ids that field of changes holds, as lists, in From and To.
+func listIDs(changes map[string]Change, field string) ([]uuid.UUID, error) {
 	c, ok := changes[field]
 	if !ok {
-		return dst, nil
+		return nil, nil
 	}
+	var dst []uuid.UUID
 	for _, v := range []any{c.From, c.To} {
 		var ids []uuid.UUID
 		if err := recode(v, &ids); err != nil {
@@ -125,13 +138,14 @@ func listIDs(changes map[string]Change, field string, dst []uuid.UUID) ([]uuid.U
 	return dst, nil
 }
 
-// singleIDs appends the ids that field of changes holds, one each, in From and
+// singleIDs returns the ids that field of changes holds, one each, in From and
 // To; nil is skipped.
-func singleIDs(changes map[string]Change, field string, dst []uuid.UUID) ([]uuid.UUID, error) {
+func singleIDs(changes map[string]Change, field string) ([]uuid.UUID, error) {
 	c, ok := changes[field]
 	if !ok {
-		return dst, nil
+		return nil, nil
 	}
+	var dst []uuid.UUID
 	for _, v := range []any{c.From, c.To} {
 		var id *uuid.UUID
 		if err := recode(v, &id); err != nil {
@@ -149,16 +163,16 @@ func singleIDs(changes map[string]Change, field string, dst []uuid.UUID) ([]uuid
 func namedIDs(changes map[string]Change) (q.AuditNamesParams, error) {
 	var ids q.AuditNamesParams
 	var err error
-	if ids.LabelIds, err = listIDs(changes, "labelIds", nil); err != nil {
+	if ids.LabelIds, err = listIDs(changes, "labelIds"); err != nil {
 		return ids, err
 	}
-	if ids.MilestoneIds, err = singleIDs(changes, "milestoneId", nil); err != nil {
+	if ids.MilestoneIds, err = singleIDs(changes, "milestoneId"); err != nil {
 		return ids, err
 	}
-	if ids.StateIds, err = singleIDs(changes, "stateId", nil); err != nil {
+	if ids.StateIds, err = singleIDs(changes, "stateId"); err != nil {
 		return ids, err
 	}
-	ids.ProjectIds, err = singleIDs(changes, "projectId", nil)
+	ids.ProjectIds, err = singleIDs(changes, "projectId")
 	return ids, err
 }
 
