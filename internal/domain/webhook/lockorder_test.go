@@ -17,12 +17,13 @@ import (
 
 // Domain writers hold their project row (FOR UPDATE) when they emit an event,
 // and key-share the webhook rows already when they match them (the delivery
-// insert takes the same lock). A webhook edit must therefore not lock the
-// webhook row harder than FOR NO KEY UPDATE, or an edit
-// that moves the webhook to a project (a key share on the project row) and an
-// event write in that project wait for each other. Record locks the webhook row
-// before the delivery row, the order Delete uses, so the two cannot deadlock.
-// Cleanup locks delivery rows only and skips those another transaction holds.
+// insert takes the same lock). Label events are workspace-wide and hold no
+// project row. A webhook edit must therefore not lock the webhook row harder
+// than FOR NO KEY UPDATE, or an edit that moves the webhook to a project (a key
+// share on the project row) and an event write in that project wait for each
+// other. Record locks the webhook row before the delivery row, the order
+// Delete uses, so the two cannot deadlock. Cleanup locks delivery rows only
+// and skips those another transaction holds.
 
 // writer is a transaction that behaves like a domain write: it holds a project
 // row lock and emits an event before it commits.
@@ -183,6 +184,50 @@ func TestEmitSkipsWebhookBeingDeleted(t *testing.T) {
 	}
 	if n := e.count(t, `SELECT count(*) FROM river_job`); n != 1 {
 		t.Errorf("jobs = %d, want 1", n)
+	}
+}
+
+// A test send reads the webhook without a lock; a deletion that commits
+// while the send runs makes Test answer not found, not an internal error. The
+// rolled-back deletion is the control.
+func TestTestSendRacesWithDelete(t *testing.T) {
+	for _, commit := range []bool{true, false} {
+		e := newEmitEnv(t)
+		e.svc.SetSender(&fakeSender{res: okResult})
+		w := e.create(t, webhook.CreateInput{Enabled: true})
+
+		tx := beginTx(t, e)
+		if _, err := tx.Exec(context.Background(), `SELECT id FROM webhooks WHERE id = $1 FOR UPDATE`, w.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(context.Background(), `DELETE FROM webhooks WHERE id = $1`, w.ID); err != nil {
+			t.Fatal(err)
+		}
+		done := make(chan error, 1)
+		go func() {
+			_, err := e.svc.Test(context.Background(), e.users.Admin, w.ID)
+			done <- err
+		}()
+		// The send is done; logging it waits for the deletion.
+		waitForWaiters(t, e, 1)
+		end := tx.Commit
+		if !commit {
+			end = tx.Rollback
+		}
+		if err := end(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		err := result(t, done, "test send")
+		var nf kit.NotFoundError
+		switch {
+		case commit && (!errors.As(err, &nf) || nf.Entity != "Webhook"):
+			t.Fatalf("deleted during the send: err = %v, want Webhook not found", err)
+		case !commit && err != nil:
+			t.Fatalf("deletion rolled back: err = %v, want the test logged", err)
+		}
+		if n := e.count(t, `SELECT count(*) FROM webhook_deliveries WHERE resource = 'test'`); (n == 1) == commit {
+			t.Fatalf("commit %v: test deliveries = %d", commit, n)
+		}
 	}
 }
 

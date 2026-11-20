@@ -26,7 +26,9 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
-    # Longer than the app's own 10 s graceful shutdown.
+    # Longer than the app's own shutdown: 10 s for the server and the delivery
+    # queue, plus up to 3 s to record the outcome of an attempt that finished
+    # as the queue stopped (about 13 s at worst).
     stop_grace_period: 15s
 
   db:

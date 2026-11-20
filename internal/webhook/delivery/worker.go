@@ -26,6 +26,13 @@ const (
 	recordTimeout = 3 * time.Second
 )
 
+// RescueAfter is how long a job may stay running before River's rescuer
+// takes it back: an attempt never runs longer than jobTimeout plus
+// recordTimeout, so a job running longer was stranded by a killed process.
+// River's default (1 h) would leave its delivery retrying for hours; River
+// also requires a value above the client's job timeout (1 min by default).
+const RescueAfter = 2 * time.Minute
+
 // Worker works delivery jobs: one send per job run.
 type Worker struct {
 	river.WorkerDefaults[webhook.DeliveryArgs]
@@ -106,9 +113,10 @@ func NewClient(pool *pgxpool.Pool, w *Worker, testOnly bool) (*river.Client[pgx.
 		return nil, fmt.Errorf("add delivery worker: %w", err)
 	}
 	c, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Queues:   map[string]river.QueueConfig{webhook.QueueDeliveries: {MaxWorkers: workers}},
-		Workers:  ws,
-		TestOnly: testOnly,
+		Queues:               map[string]river.QueueConfig{webhook.QueueDeliveries: {MaxWorkers: workers}},
+		Workers:              ws,
+		RescueStuckJobsAfter: RescueAfter,
+		TestOnly:             testOnly,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("river client: %w", err)

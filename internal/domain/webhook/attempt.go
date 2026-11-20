@@ -223,7 +223,8 @@ type testData struct {
 // Test sends a test event to a webhook at once, without the queue and without
 // retries, and logs it as a delivery. It works for a disabled webhook and
 // never affects automatic disabling. The returned delivery is succeeded or
-// failed.
+// failed. The webhook is read without a lock, so a slow send does not hold up
+// its deletion; a webhook deleted during the send is not found.
 func (s *Service) Test(ctx context.Context, actor account.User, webhookID uuid.UUID) (Delivery, error) {
 	if err := authorize(actor); err != nil {
 		return Delivery{}, err
@@ -267,6 +268,10 @@ func (s *Service) Test(ctx context.Context, actor account.User, webhookID uuid.U
 		ID: id, WebhookID: w.ID, Payload: payload, Status: st, ResponseStatus: status, LastError: lastErr,
 		DurationMs: durMS, CreatedAt: now, LastAttemptAt: &res.At, FinishedAt: &end,
 	})
+	if webhookGone(err) {
+		// Deleted while the test was sent: nothing is left to log it under.
+		return Delivery{}, errNotFound
+	}
 	if err != nil {
 		return Delivery{}, fmt.Errorf("log test delivery: %w", err)
 	}
@@ -349,6 +354,31 @@ func (s *Service) RunCleanup(ctx context.Context, every time.Duration, logger *s
 		case <-ctx.Done():
 			return
 		case <-t.C:
+		}
+	}
+}
+
+// RunRecovery fails deliveries whose job is gone (see recoverInterrupted)
+// every interval until ctx is done, logging how many. It runs much more often
+// than RunCleanup: River rescues a job stranded by a crash within minutes
+// (delivery.RescueAfter), and its delivery should end soon after, not at the
+// next hourly cleanup. Both may recover at the same time; a delivery is
+// failed once.
+func (s *Service) RunRecovery(ctx context.Context, every time.Duration, logger *slog.Logger) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		n, err := s.recoverInterrupted(ctx)
+		if err != nil && ctx.Err() == nil {
+			logger.Error("webhook delivery recovery failed", slog.String("error", err.Error()))
+		}
+		if n > 0 {
+			logger.Info("webhook delivery recovery", slog.Int64("interrupted", n))
 		}
 	}
 }
