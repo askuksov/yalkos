@@ -533,6 +533,14 @@ func TestLatestDeliveriesPerWebhook(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("webhooks with deliveries = %d, want 2", len(got))
 	}
+	// A repeated id is read once: its deliveries are not listed twice.
+	again, err := e.svc.LatestDeliveries(ctx, e.users.Admin, []uuid.UUID{w.ID, w.ID, other.ID, w.ID}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again[w.ID]) != 2 || len(again[other.ID]) != 1 {
+		t.Fatalf("repeated ids: deliveries = %d and %d, want 2 and 1", len(again[w.ID]), len(again[other.ID]))
+	}
 	for _, n := range []int{0, 51, -1} {
 		_, err := e.svc.LatestDeliveries(ctx, e.users.Admin, ids, n)
 		wantInput(t, err, "first", kit.ReasonOutOfRange, "must be 1–50")

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
-	"sync/atomic"
+	"slices"
 	"testing"
 	"time"
 
@@ -158,29 +158,13 @@ func TestByIDs(t *testing.T) {
 	}
 }
 
-// stmtCounter is a pgx tracer that counts SQL statements.
-type stmtCounter struct{ n atomic.Int64 }
-
-func (c *stmtCounter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
-	c.n.Add(1)
-	return ctx
-}
-
-func (c *stmtCounter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
-
 // Record reads the names of every kind in one statement, however many ids
 // each kind has, and none when the changes name nothing.
 func TestRecordNamesOneStatement(t *testing.T) {
 	base, users, clock := testfx.New(t)
 	ctx := context.Background()
-	cfg := base.Config()
-	counter := &stmtCounter{}
-	cfg.ConnConfig.Tracer = counter
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
+	counter := &testfx.StmtCounter{}
+	pool := testfx.TracedPool(t, base, counter)
 
 	ids := func(n int) []uuid.UUID {
 		out := make([]uuid.UUID, n)
@@ -194,8 +178,8 @@ func TestRecordNamesOneStatement(t *testing.T) {
 		for range 3 {
 			var used int64
 			err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-				before := counter.n.Load()
-				defer func() { used = counter.n.Load() - before }()
+				before := counter.N()
+				defer func() { used = counter.N() - before }()
 				return audit.Record(ctx, q.New(pool).WithTx(tx), audit.Event{
 					EntityType: "issue", EntityID: uuid.New(), ActorID: &users.Member.ID, Action: "update", Changes: changes, At: clock(),
 				})
@@ -376,6 +360,29 @@ func TestRecordManyStoresNullProjectAndActor(t *testing.T) {
 		if nullProject != tc.nullProject || nullActor != tc.nullActor {
 			t.Errorf("%s: project_id NULL %v, actor_id NULL %v, want %v, %v",
 				name, nullProject, nullActor, tc.nullProject, tc.nullActor)
+		}
+	}
+}
+
+// The names lookup asks for each id once, however many events and fields
+// repeat it.
+func TestRecordManyLooksUpEachIDOnce(t *testing.T) {
+	l1, l2, st, p := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	ev := func(changes map[string]audit.Change) audit.Event {
+		return audit.Event{EntityType: "issue", EntityID: uuid.New(), Action: "update", Changes: changes}
+	}
+	got, err := audit.LookupIDs([]audit.Event{
+		ev(map[string]audit.Change{"labelIds": {From: []uuid.UUID{l1}, To: []uuid.UUID{l1, l2}}, "stateId": {From: st, To: st}}),
+		ev(map[string]audit.Change{"labelIds": {From: nil, To: []uuid.UUID{l2, l1}}, "projectId": {From: p, To: p}}),
+		ev(map[string]audit.Change{"stateId": {From: nil, To: st}, "projectId": {From: nil, To: p}}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := [4][]uuid.UUID{{l1, l2}, nil, {st}, {p}}
+	for i := range want {
+		if !slices.Equal(got[i], want[i]) {
+			t.Errorf("kind %d: ids %v, want %v", i, got[i], want[i])
 		}
 	}
 }

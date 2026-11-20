@@ -3,24 +3,11 @@ package project_test
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/askuksov/yalkos/internal/domain/project"
+	"github.com/askuksov/yalkos/internal/testfx"
 )
-
-// stmtCounter is a pgx tracer that counts SQL statements.
-type stmtCounter struct{ n atomic.Int64 }
-
-func (c *stmtCounter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
-	c.n.Add(1)
-	return ctx
-}
-
-func (c *stmtCounter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
 
 // Deleting a state that issues are moved out of costs the same number of
 // statements whatever the number of issues: their history names are read
@@ -28,14 +15,8 @@ func (c *stmtCounter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEn
 func TestDeleteStateStatementsDoNotGrowWithIssues(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
-	cfg := e.pool.Config()
-	counter := &stmtCounter{}
-	cfg.ConnConfig.Tracer = counter
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
+	counter := &testfx.StmtCounter{}
+	pool := testfx.TracedPool(t, e.pool, counter)
 	svc := project.New(pool, e.clock)
 
 	p := e.create(t, "YLK")
@@ -54,11 +35,11 @@ func TestDeleteStateStatementsDoNotGrowWithIssues(t *testing.T) {
 				number++
 				insertIssue(t, e, p.ID, st.ID, number, false)
 			}
-			before := counter.n.Load()
+			before := counter.N()
 			if err := svc.DeleteState(ctx, e.users.Admin, st.ID, &done.ID); err != nil {
 				t.Fatal(err)
 			}
-			if used := counter.n.Load() - before; least < 0 || used < least {
+			if used := counter.N() - before; least < 0 || used < least {
 				least = used
 			}
 		}

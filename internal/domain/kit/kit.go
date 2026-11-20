@@ -109,3 +109,17 @@ type Opt[T any] struct {
 	Set   bool
 	Value *T
 }
+
+// Distinct returns the values of s without repeats, in the order of their
+// first occurrence.
+func Distinct[T comparable](s []T) []T {
+	seen := make(map[T]struct{}, len(s))
+	out := make([]T, 0, len(s))
+	for _, v := range s {
+		if _, ok := seen[v]; !ok {
+			seen[v] = struct{}{}
+			out = append(out, v)
+		}
+	}
+	return out
+}
