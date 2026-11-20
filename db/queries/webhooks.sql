@@ -59,42 +59,25 @@ INSERT INTO webhook_deliveries (webhook_id, resource, action, entity_id, payload
 VALUES (@webhook_id, @resource, @action, @entity_id, @payload, 'pending', @created_at)
 RETURNING id;
 
--- name: ListDeliveries :many
-SELECT id, webhook_id, resource, action, entity_id, status, attempts, response_status, last_error, duration_ms,
-       created_at, last_attempt_at, next_attempt_at, finished_at
-FROM webhook_deliveries
-WHERE webhook_id = @webhook_id
-ORDER BY created_at DESC, id DESC
-LIMIT @max_rows;
-
 -- name: LatestDeliveries :many
--- The newest deliveries of each given webhook, in ListDeliveries order,
--- webhooks in the order of the given ids.
+-- The newest deliveries of each given webhook, webhooks in the order of the
+-- given ids (which must be distinct). All deliveries newest first; with
+-- failures_only, only retrying and failed ones, the newest failure first: a
+-- delivery is one entry, its last attempt, or the moment it was failed as
+-- interrupted. The payload is left out.
 SELECT d.id, d.webhook_id, d.resource, d.action, d.entity_id, d.status, d.attempts, d.response_status,
        d.last_error, d.duration_ms, d.created_at, d.last_attempt_at, d.next_attempt_at, d.finished_at
 FROM unnest(@webhook_ids::uuid[]) WITH ORDINALITY AS w (id, ord)
 CROSS JOIN LATERAL (
-    SELECT * FROM webhook_deliveries
-    WHERE webhook_id = w.id
-    ORDER BY created_at DESC, id DESC
+    SELECT *,
+           CASE WHEN @failures_only::boolean THEN coalesce(finished_at, last_attempt_at, created_at)
+                ELSE created_at END AS sort_at
+    FROM webhook_deliveries
+    WHERE webhook_id = w.id AND (NOT @failures_only::boolean OR status IN ('retrying', 'failed'))
+    ORDER BY sort_at DESC, id DESC
     LIMIT @max_rows
 ) d
-ORDER BY w.ord, d.created_at DESC, d.id DESC;
-
--- name: LatestFailures :many
--- The newest failed deliveries (retrying or failed) of each given webhook,
--- newest failure first, webhooks in the order of the given ids. A delivery is
--- one entry: its last attempt, or the moment it was failed as interrupted.
-SELECT d.id, d.webhook_id, d.resource, d.action, d.entity_id, d.status, d.attempts, d.response_status,
-       d.last_error, d.duration_ms, d.created_at, d.last_attempt_at, d.next_attempt_at, d.finished_at
-FROM unnest(@webhook_ids::uuid[]) WITH ORDINALITY AS w (id, ord)
-CROSS JOIN LATERAL (
-    SELECT * FROM webhook_deliveries
-    WHERE webhook_id = w.id AND status IN ('retrying', 'failed')
-    ORDER BY coalesce(finished_at, last_attempt_at, created_at) DESC, id DESC
-    LIMIT @max_rows
-) d
-ORDER BY w.ord, coalesce(d.finished_at, d.last_attempt_at, d.created_at) DESC, d.id DESC;
+ORDER BY w.ord, d.sort_at DESC, d.id DESC;
 
 -- name: GetAttempt :one
 -- The delivery with what an attempt needs from its webhook, read at attempt time.

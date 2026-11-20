@@ -65,21 +65,11 @@ func intPtr(v *int32) *int {
 // Deliveries returns the newest deliveries of a webhook, newest first.
 // limit is 1–50.
 func (s *Service) Deliveries(ctx context.Context, actor account.User, webhookID uuid.UUID, limit int) ([]Delivery, error) {
-	if err := authorize(actor); err != nil {
-		return nil, err
-	}
-	if err := validDeliveryLimit(limit); err != nil {
-		return nil, err
-	}
-	rows, err := s.q.ListDeliveries(ctx, q.ListDeliveriesParams{WebhookID: webhookID, MaxRows: int32(limit)})
+	byWebhook, err := s.LatestDeliveries(ctx, actor, []uuid.UUID{webhookID}, limit)
 	if err != nil {
-		return nil, fmt.Errorf("list deliveries: %w", err)
+		return nil, err
 	}
-	out := make([]Delivery, len(rows))
-	for i, r := range rows {
-		out[i] = deliveryFromRow(r)
-	}
-	return out, nil
+	return byWebhook[webhookID], nil
 }
 
 // LatestDeliveries returns the newest deliveries of each given webhook, newest
@@ -92,32 +82,30 @@ func (s *Service) LatestDeliveries(ctx context.Context, actor account.User, webh
 	if err := validDeliveryLimit(limit); err != nil {
 		return nil, err
 	}
-	rows, err := s.q.LatestDeliveries(ctx, q.LatestDeliveriesParams{WebhookIds: webhookIDs, MaxRows: int32(limit)})
-	if err != nil {
-		return nil, fmt.Errorf("latest deliveries: %w", err)
-	}
-	out := make(map[uuid.UUID][]Delivery, len(webhookIDs))
-	for _, r := range rows {
-		d := deliveryFromRow(q.ListDeliveriesRow(r))
-		out[d.WebhookID] = append(out[d.WebhookID], d)
-	}
-	return out, nil
+	return s.latest(ctx, actor, webhookIDs, limit, false)
 }
 
 // LatestFailures returns up to 50 retrying or failed deliveries of each given
 // webhook, the newest failure first (see FailedAt). A webhook without failures
 // (or one that does not exist) has no entry.
 func (s *Service) LatestFailures(ctx context.Context, actor account.User, webhookIDs []uuid.UUID) (map[uuid.UUID][]Delivery, error) {
+	return s.latest(ctx, actor, webhookIDs, maxDeliveries, true)
+}
+
+// latest reads the newest deliveries (or failures) of each webhook in one
+// statement; a repeated id is read once.
+func (s *Service) latest(ctx context.Context, actor account.User, webhookIDs []uuid.UUID, limit int, failuresOnly bool) (map[uuid.UUID][]Delivery, error) {
 	if err := authorize(actor); err != nil {
 		return nil, err
 	}
-	rows, err := s.q.LatestFailures(ctx, q.LatestFailuresParams{WebhookIds: webhookIDs, MaxRows: maxDeliveries})
+	ids := kit.Distinct(webhookIDs)
+	rows, err := s.q.LatestDeliveries(ctx, q.LatestDeliveriesParams{WebhookIds: ids, FailuresOnly: failuresOnly, MaxRows: int32(limit)})
 	if err != nil {
-		return nil, fmt.Errorf("latest failures: %w", err)
+		return nil, fmt.Errorf("latest deliveries: %w", err)
 	}
-	out := make(map[uuid.UUID][]Delivery, len(webhookIDs))
+	out := make(map[uuid.UUID][]Delivery, len(ids))
 	for _, r := range rows {
-		d := deliveryFromRow(q.ListDeliveriesRow(r))
+		d := deliveryFromRow(r)
 		out[d.WebhookID] = append(out[d.WebhookID], d)
 	}
 	return out, nil
@@ -143,7 +131,7 @@ func validDeliveryLimit(limit int) error {
 	return nil
 }
 
-func deliveryFromRow(r q.ListDeliveriesRow) Delivery {
+func deliveryFromRow(r q.LatestDeliveriesRow) Delivery {
 	return Delivery{
 		ID: r.ID, WebhookID: r.WebhookID, Resource: r.Resource, Action: r.Action, EntityID: r.EntityID,
 		Status: r.Status, Attempts: int(r.Attempts), ResponseStatus: intPtr(r.ResponseStatus), LastError: r.LastError,

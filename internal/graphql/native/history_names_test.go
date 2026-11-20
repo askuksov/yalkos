@@ -140,3 +140,39 @@ func TestIssueHistoryKeepsNameBeforeRename(t *testing.T) {
 		t.Fatalf("history = %+v", h)
 	}
 }
+
+// Deleting a state that several issues are in keeps the names of both states
+// in each issue's history entry for the move.
+func TestStateDeleteKeepsNamesForSeveralIssues(t *testing.T) {
+	s := newServer(t)
+	owner := ownerBrowser(t, s)
+	p := createProject(t, owner, "YLK", "Yalkos")
+	var review struct {
+		ID string `json:"id"`
+	}
+	owner.do(`mutation($p: ID!) { createState(projectId: $p, input: {name: "Review", type: STARTED, color: "#123456"}) { id } }`,
+		map[string]any{"p": p.ID}).decode(t, "createState", &review)
+	done := stateID(p, "Done")
+	ids := make([]string, 3)
+	for i := range ids {
+		ids[i] = createIssue(t, owner, map[string]any{"projectId": p.ID, "title": fmt.Sprintf("in review %d", i), "stateId": review.ID}).ID
+	}
+	if r := owner.do(`mutation($id: ID!, $to: ID) { deleteState(id: $id, moveIssuesTo: $to) }`,
+		map[string]any{"id": review.ID, "to": done}); len(r.Errors) > 0 {
+		t.Fatalf("delete state: %s", r.raw)
+	}
+	for _, id := range ids {
+		h := namedHistory(t, owner, id)
+		last := h[len(h)-1]
+		if !strings.Contains(fields(last), "stateId") || names(last) != "Done,Review" {
+			t.Fatalf("issue %s: last entry fields %q names %q, want stateId with Done,Review", id, fields(last), names(last))
+		}
+		byID := map[string]string{}
+		for _, n := range last.Names {
+			byID[n.ID] = n.Name
+		}
+		if byID[review.ID] != "Review" || byID[done] != "Done" {
+			t.Fatalf("issue %s: names by id = %v", id, byID)
+		}
+	}
+}

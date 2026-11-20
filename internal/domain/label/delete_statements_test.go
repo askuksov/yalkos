@@ -3,39 +3,19 @@ package label_test
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/internal/domain/label"
 	"github.com/askuksov/yalkos/internal/testfx"
 )
 
-// stmtCounter is a pgx tracer that counts SQL statements.
-type stmtCounter struct{ n atomic.Int64 }
-
-func (c *stmtCounter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
-	c.n.Add(1)
-	return ctx
-}
-
-func (c *stmtCounter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
-
 // tracedLabels returns a label service on a second pool over the same
 // database that counts its statements.
-func tracedLabels(t *testing.T, e env) (*label.Service, *stmtCounter) {
+func tracedLabels(t *testing.T, e env) (*label.Service, *testfx.StmtCounter) {
 	t.Helper()
-	cfg := e.pool.Config()
-	counter := &stmtCounter{}
-	cfg.ConnConfig.Tracer = counter
-	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
+	counter := &testfx.StmtCounter{}
+	pool := testfx.TracedPool(t, e.pool, counter)
 	clock := testfx.Clock(time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC))
 	return label.New(pool, clock), counter
 }
@@ -54,11 +34,11 @@ func TestDeleteLabelStatementsDoNotGrowWithIssues(t *testing.T) {
 			for range issues {
 				e.issueWith(t, l)
 			}
-			before := counter.n.Load()
+			before := counter.N()
 			if err := svc.Delete(ctx, e.users.Admin, l.ID); err != nil {
 				t.Fatal(err)
 			}
-			if used := counter.n.Load() - before; least < 0 || used < least {
+			if used := counter.N() - before; least < 0 || used < least {
 				least = used
 			}
 		}

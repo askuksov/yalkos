@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,28 +16,8 @@ import (
 	"github.com/askuksov/yalkos/internal/blob"
 	"github.com/askuksov/yalkos/internal/domain/attachment"
 	"github.com/askuksov/yalkos/internal/domain/issue"
+	"github.com/askuksov/yalkos/internal/testfx"
 )
-
-// stmtTracer is a pgx tracer that counts SQL statements and reports each
-// finished statement's SQL to ended, when set.
-type stmtTracer struct {
-	n     atomic.Int64
-	ended func(sql string)
-}
-
-type sqlKey struct{}
-
-func (c *stmtTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
-	c.n.Add(1)
-	return context.WithValue(ctx, sqlKey{}, data.SQL)
-}
-
-func (c *stmtTracer) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryEndData) {
-	if c.ended != nil {
-		sql, _ := ctx.Value(sqlKey{}).(string)
-		c.ended(sql)
-	}
-}
 
 // tracedAttachments returns an attachment service on a second pool over the
 // same database and store whose statements go through tracer.
@@ -62,7 +41,7 @@ func TestCleanupChecksStoredFilesInBatches(t *testing.T) {
 	extra := func(n int) int64 {
 		e := newEnv(t)
 		ctx := context.Background()
-		counter := &stmtTracer{}
+		counter := &testfx.StmtCounter{}
 		svc := e.tracedAttachments(t, counter, &blob.Locks{})
 		var least int64 = -1
 		for run := range 3 {
@@ -78,12 +57,12 @@ func TestCleanupChecksStoredFilesInBatches(t *testing.T) {
 			for _, path := range slices.Concat(referenced, orphans) {
 				touch(t, path, old)
 			}
-			before := counter.n.Load()
+			before := counter.N()
 			r, err := svc.Cleanup(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if used := counter.n.Load() - before; least < 0 || used < least {
+			if used := counter.N() - before; least < 0 || used < least {
 				least = used
 			}
 			if r.Files != n {
@@ -150,7 +129,7 @@ func TestCleanupKeepsFileWhoseRowAppearsBeforeTheLock(t *testing.T) {
 	sum := sha256.Sum256([]byte(data))
 
 	read := make(chan struct{}, 1)
-	tracer := &stmtTracer{ended: func(sql string) {
+	tracer := &testfx.StmtCounter{Ended: func(sql string) {
 		if strings.Contains(sql, "-- name: ExistingBlobs ") {
 			select {
 			case read <- struct{}{}:

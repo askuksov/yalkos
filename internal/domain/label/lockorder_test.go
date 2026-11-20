@@ -344,17 +344,6 @@ func waitWaiting(t *testing.T, e env, n int) {
 	t.Fatalf("fewer than %d sessions wait for a lock", n)
 }
 
-func within(t *testing.T, name string, done <-chan error) error {
-	t.Helper()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(10 * time.Second):
-		t.Fatalf("%s did not finish", name)
-		return nil
-	}
-}
-
 // groupRace queues first and then second behind a session holding the group
 // and returns their errors in that order.
 func groupRace(t *testing.T, e env, g label.Label, first, second func() error) [2]error {
@@ -370,7 +359,7 @@ func groupRace(t *testing.T, e env, g label.Label, first, second func() error) [
 	go func() { b <- second() }()
 	waitWaiting(t, e, 2)
 	h.commit()
-	return [2]error{within(t, "first", a), within(t, "second", b)}
+	return [2]error{outcome(t, a, "first"), outcome(t, b, "second")}
 }
 
 // A label created in a group that is being deleted sees the delete and

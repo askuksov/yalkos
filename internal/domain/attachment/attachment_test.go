@@ -774,6 +774,38 @@ func TestCleanupWarnsAgainAfterKeptFilesWentAway(t *testing.T) {
 	}
 }
 
+// A run without a workspace (setup not done yet) keeps nothing to warn about
+// and forgets the last warned number, so the same kept files warn again once
+// the workspace is there.
+func TestCleanupWarnsAgainAfterWorkspaceWentAway(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	logs := captureDefaultLog(t)
+	touch(t, e.orphanPath("e"), e.clock.now().Add(-72*time.Hour))
+	if _, err := e.attachments.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := keptWarnings(logs); n != 1 {
+		t.Fatalf("warnings = %d, want 1; log %q", n, logs.String())
+	}
+	if _, err := e.pool.Exec(ctx, `TRUNCATE workspaces CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := e.attachments.Cleanup(ctx); err != nil || r.Files != 0 {
+		t.Fatalf("cleanup without a workspace = %+v, %v", r, err)
+	}
+	if _, err := e.pool.Exec(ctx, `INSERT INTO workspaces (name, created_at) VALUES ('Again', $1)`,
+		e.clock.now().Add(-100*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.attachments.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := keptWarnings(logs); n != 2 {
+		t.Errorf("warnings = %d, want 2; log %q", n, logs.String())
+	}
+}
+
 // A run with blob rows forgets the last warned number, so the same state
 // warns again when it comes back.
 func TestCleanupWarnsAgainAfterBlobRowsCameAndWent(t *testing.T) {
@@ -970,6 +1002,36 @@ func TestUsedInTextMatchesLinking(t *testing.T) {
 					t.Errorf("UsedInText(%q) = %v, want only %s: %v", text, got, a.ID, c.want)
 				}
 			})
+		}
+	}
+}
+
+// In a chained link only the first id counts, for linking and for UsedInText
+// alike: the second one is part of the first link's file name.
+func TestUsedInTextChainedLink(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	for _, inComment := range []bool{false, true} {
+		i := e.issue(t, issue.CreateInput{})
+		a := e.upload(t, e.users.Member, "a.png", png, &i.ID)
+		b := e.upload(t, e.users.Member, "b.png", png, &i.ID)
+		text := "![x](/api/attachments/" + a.ID.String() + "/api/attachments/" + b.ID.String() + "/x.png)"
+		if got := attachment.IDsInMarkdown(text); !slices.Equal(got, []uuid.UUID{a.ID}) {
+			t.Fatalf("IDsInMarkdown(%q) = %v, want only %s", text, got, a.ID)
+		}
+		if inComment {
+			if _, err := e.comments.Create(ctx, e.users.Member, i.ID, text, nil); err != nil {
+				t.Fatal(err)
+			}
+		} else if _, err := e.issues.Update(ctx, e.users.Member, i.ID, issue.Patch{Description: ptr(text)}); err != nil {
+			t.Fatal(err)
+		}
+		got, err := e.attachments.UsedInText(ctx, []uuid.UUID{i.ID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !got[a.ID] || got[b.ID] {
+			t.Errorf("in comment %v: UsedInText = %v, want %s only", inComment, got, a.ID)
 		}
 	}
 }
