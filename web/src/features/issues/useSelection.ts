@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { isInteractive, useEscape, useHotkey } from '../../lib/hotkeys'
 import { usePalette } from '../command/palette'
 import { sharedProject, targetsFrom } from '../command/targets'
+import { useIssuesDeleted } from './deleteIssues'
 
 /**
  * Keyboard selection over the rows rendered in container ([data-row-id],
@@ -38,6 +39,10 @@ export function useSelection(
     })
   }, [])
   const clear = useCallback(() => setChecked(new Set()), [])
+  // Deleted issues leave the checked set, whichever deletion removed them.
+  useIssuesDeleted((ids) =>
+    setChecked((prev) => (ids.some((id) => prev.has(id)) ? new Set([...prev].filter((id) => !ids.includes(id))) : prev)),
+  )
 
   useHotkey('j', () => move(1))
   useHotkey('k', () => move(-1))

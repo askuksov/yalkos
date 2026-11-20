@@ -200,6 +200,51 @@ describe('issue list', () => {
     await waitFor(() => expect(callsOf('IssueGroup').length).toBeGreaterThan(before))
   })
 
+  async function confirmToolbarDelete(deleteIssue: (v: Vars) => unknown) {
+    serve(withGroups({ 's-todo': [todo(1), todo(2)] }, {}, { DeleteIssue: deleteIssue }))
+    renderAt('/p/YLK')
+    await screen.findByText('Issue 2')
+    fireEvent.keyDown(document.body, { key: 'j', code: 'KeyJ' })
+    fireEvent.keyDown(document.body, { key: 'x', code: 'KeyX' })
+    fireEvent.keyDown(document.body, { key: 'j', code: 'KeyJ' })
+    fireEvent.keyDown(document.body, { key: 'x', code: 'KeyX' })
+    const bar = await screen.findByRole('toolbar', { name: '2 selected' })
+    await userEvent.click(within(bar).getByRole('button', { name: 'Delete' }))
+    return screen.findByRole('dialog', { name: 'Delete issues' })
+  }
+
+  it('keeps only the issue left checked after a partial failure and retries it alone', async () => {
+    let failOnce = true
+    const dialog = await confirmToolbarDelete((v) => {
+      if (v?.id === 'i1' && failOnce) {
+        failOnce = false
+        throw new GraphQLRequestError('INTERNAL_ERROR', 'boom')
+      }
+      return { deleteIssue: true }
+    })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(await screen.findByRole('toolbar', { name: '1 selected' })).toBeInTheDocument()
+    expect(within(dialog).getByText(/1 issue/)).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    expect(await screen.findByText('1 issue deleted')).toBeInTheDocument()
+    expect(callsOf('DeleteIssue').map((v) => v.id).sort()).toEqual(['i1', 'i1', 'i2'])
+    await waitFor(() => expect(screen.queryByRole('toolbar')).not.toBeInTheDocument())
+  })
+
+  it('sends each toolbar deletion once for two confirmations in the same tick', async () => {
+    const late = deferred<{ deleteIssue: boolean }>()
+    const dialog = await confirmToolbarDelete(() => late.promise)
+    const confirm = within(dialog).getByRole('button', { name: 'Delete' })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    await waitFor(() => expect(callsOf('DeleteIssue')).toHaveLength(2))
+    late.resolve({ deleteIssue: true })
+    expect(await screen.findByText('2 issues deleted')).toBeInTheDocument()
+    expect(callsOf('DeleteIssue')).toHaveLength(2)
+  })
+
   it('shows archived banner and no create button', async () => {
     const archived = project({ archivedAt: '2026-10-30T10:00:00Z' })
     serve({ ...withGroups({ 's-todo': [todo(1)] }), ...signedInAs(owner, [archived]) , IssueGroup: (v: Vars) => conn(stateEq(v) === 's-todo' ? [todo(1)] : []) })

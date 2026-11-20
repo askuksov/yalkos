@@ -1,8 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { errorMessage } from '../../api/client'
 import { useIssueMutation } from '../../lib/issueCache'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Dialog'
@@ -11,7 +9,7 @@ import { useToast } from '../../ui/useToast'
 import { AssigneePicker, type PickerUser } from '../pickers/AssigneePicker'
 import { PriorityPicker } from '../pickers/PriorityPicker'
 import { type PickerState, StatePicker } from '../pickers/StatePicker'
-import { deleteIssues } from './deleteIssues'
+import { useDeleteIssues } from './deleteIssues'
 import s from './issues.module.css'
 
 type Props = {
@@ -28,7 +26,6 @@ type Open = 'state' | 'assignee' | 'priority' | null
 /** Actions for the checked issues: state, assignee, priority, delete. */
 export function BulkBar({ ids, states, users, viewerId, onDone }: Props) {
   const { t } = useTranslation(['issues', 'common'])
-  const qc = useQueryClient()
   const toast = useToast()
   const update = useIssueMutation()
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
@@ -39,15 +36,14 @@ export function BulkBar({ ids, states, users, viewerId, onDone }: Props) {
     close()
     onDone()
   }
-  const remove = useMutation({
-    mutationFn: () => deleteIssues(ids),
-    onSuccess: () => {
-      toast.show(t('bulk.deleted', { count: ids.length }))
+  // A partial failure unchecks the deleted issues (useSelection), so ids then
+  // holds only the ones left and a retry targets them.
+  const remove = useDeleteIssues({
+    onSuccess: (count) => {
+      toast.show(t('bulk.deleted', { count }))
       setConfirm(false)
       onDone()
     },
-    onError: (err) => toast.show(errorMessage(err), { kind: 'error' }),
-    onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: ['issues'] }), qc.invalidateQueries({ queryKey: ['children'] })]),
   })
 
   const opener = (which: Open) => (e: { currentTarget: HTMLElement }) => {
@@ -116,7 +112,7 @@ export function BulkBar({ ids, states, users, viewerId, onDone }: Props) {
         <p>{t('bulk.deleteConfirm', { count: ids.length })}</p>
         <div className={s.dialogActions}>
           <Button onClick={() => setConfirm(false)}>{t('common:actions.cancel')}</Button>
-          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
+          <Button variant="danger" disabled={remove.isPending} onClick={() => remove.run(ids)}>
             {t('bulk.delete')}
           </Button>
         </div>

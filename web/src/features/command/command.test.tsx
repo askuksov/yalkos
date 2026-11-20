@@ -187,6 +187,65 @@ describe('palette deletion of checked issues', () => {
     await waitFor(() => expect(callsOf('IssueGroup').length).toBeGreaterThan(before))
   })
 
+  it('retries only the issue that was not deleted and then reports success', async () => {
+    let failOnce = true
+    const { dialog } = await confirmDeleteOfTwo({
+      DeleteIssue: (v: Vars) => {
+        if (v?.id === 'i1' && failOnce) {
+          failOnce = false
+          throw new GraphQLRequestError('INTERNAL_ERROR', 'boom')
+        }
+        return { deleteIssue: true }
+      },
+    })
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(callsOf('DeleteIssue').map((v) => v.id).sort()).toEqual(['i1', 'i2'])
+
+    await userEvent.click(within(dialog).getByRole('option', { name: 'Delete 2 issues' }))
+    expect(await screen.findByText('2 issues deleted')).toBeInTheDocument()
+    expect(callsOf('DeleteIssue').map((v) => v.id).sort()).toEqual(['i1', 'i1', 'i2'])
+  })
+
+  it('unchecks the issues it deleted', async () => {
+    const { dialog } = await confirmDeleteOfTwo({
+      DeleteIssue: (v: Vars) => {
+        if (v?.id === 'i1') throw new GraphQLRequestError('INTERNAL_ERROR', 'boom')
+        return { deleteIssue: true }
+      },
+    })
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(await screen.findByRole('toolbar', { name: '1 selected' })).toBeInTheDocument()
+  })
+
+  it('sends each deletion once for two confirmations in the same tick', async () => {
+    const late = deferred<{ deleteIssue: boolean }>()
+    serve(
+      handlers({
+        IssueCount: () => ({ issues: { totalCount: 2 } }),
+        IssueGroup: (v: Vars) => conn((v?.filter as { stateType?: { eq?: string } } | undefined)?.stateType?.eq === 'UNSTARTED' ? [row(1), row(2)] : []),
+        DeleteIssue: () => late.promise,
+      }),
+    )
+    renderAt('/my-issues')
+    await screen.findByText('Issue 2')
+    key('j')
+    key('x')
+    key('j')
+    key('x')
+    await screen.findByRole('toolbar', { name: '2 selected' })
+    modK()
+    const dialog = await screen.findByRole('dialog', { name: 'Command palette' })
+    await userEvent.click(await within(dialog).findByRole('option', { name: 'Delete' }))
+    const confirm = await within(dialog).findByRole('option', { name: 'Delete 2 issues' })
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    await waitFor(() => expect(callsOf('DeleteIssue')).toHaveLength(2))
+    late.resolve({ deleteIssue: true })
+    expect(await screen.findByText('2 issues deleted')).toBeInTheDocument()
+    expect(callsOf('DeleteIssue')).toHaveLength(2)
+  })
+
   it('ignores a repeated confirmation while a deletion is running', async () => {
     const late = deferred<{ deleteIssue: boolean }>()
     const { dialog } = await confirmDeleteOfTwo({ DeleteIssue: () => late.promise })
