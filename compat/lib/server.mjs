@@ -83,10 +83,24 @@ export function psqlTarget(url) {
     }
     u.password = "";
   }
-  if (u.searchParams.has("password")) {
-    password = u.searchParams.get("password");
-    u.searchParams.delete("password");
+  // The query is split by hand: URLSearchParams decodes "+" as a space and
+  // re-encodes the pairs it keeps, while libpq reads "+" literally.
+  const decode = (text) => {
+    try {
+      return decodeURIComponent(text);
+    } catch {
+      return text;
+    }
+  };
+  const kept = [];
+  for (const pair of u.search.slice(1).split("&")) {
+    if (pair === "") continue;
+    const eq = pair.indexOf("=");
+    const name = eq < 0 ? pair : pair.slice(0, eq);
+    if (decode(name) === "password") password = decode(eq < 0 ? "" : pair.slice(eq + 1));
+    else kept.push(pair);
   }
+  u.search = kept.length > 0 ? `?${kept.join("&")}` : "";
   // The same length rule as maskUrlPassword: the short local password stays readable.
   if (password !== null && password.length >= 8) mask(password);
   return { url: u.toString(), password };
