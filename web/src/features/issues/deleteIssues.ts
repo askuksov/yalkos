@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 
-import { errorMessage, request } from '../../api/client'
+import { errorMessage, GraphQLRequestError, request } from '../../api/client'
 import { useToast } from '../../ui/useToast'
 import { DeleteIssueMutation } from './fragments'
 
@@ -24,15 +24,21 @@ export function useIssuesDeleted(listener: DeletedListener) {
   }, [])
 }
 
+/** An issue the server no longer has: deleted by an earlier attempt whose answer was lost, or by someone else. */
+const gone = (r: PromiseSettledResult<unknown>) =>
+  r.status === 'rejected' && r.reason instanceof GraphQLRequestError && r.reason.code === 'NOT_FOUND'
+
 /**
  * Deletes ids and settles only after every request finished, so a refresh that
  * follows sees the final state even when one request fails early. Returns the
- * ids deleted and the first failure in id order, if any.
+ * ids deleted and the first failure in id order, if any. NOT_FOUND counts as
+ * deleted: the issue is gone either way, and a retry after a timed-out
+ * deletion that did go through must not fail on it forever.
  */
 async function deleteAll(ids: string[]): Promise<{ deleted: string[]; failure?: unknown }> {
   const results = await Promise.allSettled(ids.map((id) => request(DeleteIssueMutation, { id })))
-  const deleted = ids.filter((_, i) => results[i].status === 'fulfilled')
-  const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+  const deleted = ids.filter((_, i) => results[i].status === 'fulfilled' || gone(results[i]))
+  const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected' && !gone(r))
   return { deleted, failure: failed?.reason }
 }
 
