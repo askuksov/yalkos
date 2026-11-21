@@ -245,3 +245,39 @@ func remarshal(t *testing.T, v any, dst any) {
 		t.Fatal(err)
 	}
 }
+
+// Mutation fields run one after another; a history or sub-issue page read
+// after a write in the same request shows that write.
+func TestChildrenAndHistoryAfterWritesInOneRequest(t *testing.T) {
+	s := newServer(t)
+	owner := ownerBrowser(t, s)
+	parent := seedParents(t, owner, "YLK", 1)[0]
+	type pages struct {
+		History  idPage `json:"history"`
+		Children idPage `json:"children"`
+	}
+	out := map[string]pages{}
+	r := owner.do(`mutation($id: ID!) {
+		a: updateIssue(id: $id, input: {priority: 1}) { history(last: 1) { `+pageFields+` } children(first: 10) { `+pageFields+` } }
+		b: updateIssue(id: $id, input: {priority: 4}) { history(last: 1) { `+pageFields+` } children(first: 10) { `+pageFields+` } }
+		c: createIssue(input: {parentId: $id, title: "Late child"}) { id }
+		d: updateIssue(id: $id, input: {priority: 2}) { history(last: 1) { `+pageFields+` } children(first: 10) { `+pageFields+` } }
+	}`, map[string]any{"id": parent})
+	if len(r.Errors) > 0 {
+		t.Fatalf("mutation: %s", r.raw)
+	}
+	for _, k := range []string{"a", "b", "d"} {
+		var p pages
+		if err := json.Unmarshal(r.Data[k], &p); err != nil {
+			t.Fatal(err)
+		}
+		out[k] = p
+	}
+	a, b, d := out["a"], out["b"], out["d"]
+	if len(a.History.Nodes) != 1 || len(b.History.Nodes) != 1 || a.History.ids()[0] == b.History.ids()[0] {
+		t.Errorf("history after the second update = %v, after the first %v; want a newer entry", b.History.ids(), a.History.ids())
+	}
+	if len(a.Children.Nodes) != 3 || len(d.Children.Nodes) != 4 {
+		t.Errorf("children before and after the new sub-issue = %d and %d, want 3 and 4", len(a.Children.Nodes), len(d.Children.Nodes))
+	}
+}

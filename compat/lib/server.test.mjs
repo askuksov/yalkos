@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mask, scrub, resetMasks } from "./mask.mjs";
-import { parseSetupCode, databaseName, assertPsql, startInstance, createDatabase, maskUrlPassword } from "./server.mjs";
+import { parseSetupCode, databaseName, assertPsql, startInstance, createDatabase, maskUrlPassword, psqlTarget } from "./server.mjs";
 import { bootstrap } from "./bootstrap.mjs";
 
 // The exact shape slog's JSON handler writes (see the Go test for the setup log).
@@ -251,6 +251,19 @@ test("psql gets the password in PGPASSWORD, never in its arguments", async () =>
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("a password given as a query parameter goes to PGPASSWORD too, and wins over the userinfo one as in libpq", () => {
+  resetMasks();
+  const t = psqlTarget("postgres://admin:old-pass-1@127.0.0.1:1/postgres?sslmode=disable&password=Qu3ry%2FPass");
+  assert.equal(t.password, "Qu3ry/Pass");
+  assert.equal(t.url, "postgres://admin@127.0.0.1:1/postgres?sslmode=disable");
+  assert.equal(scrub("x Qu3ry/Pass y"), "x *** y");
+  const only = psqlTarget("postgres://admin@127.0.0.1:1/postgres?password=Only%20Query");
+  assert.equal(only.password, "Only Query");
+  assert.ok(!only.url.includes("Only"), only.url);
+  assert.deepEqual(psqlTarget("postgres://admin@127.0.0.1:1/postgres"), { url: "postgres://admin@127.0.0.1:1/postgres", password: null });
+  resetMasks();
 });
 
 test("a hung psql is killed after the timeout and the error names the statement, not the URL", async () => {
