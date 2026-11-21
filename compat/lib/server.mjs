@@ -62,12 +62,60 @@ export function maskUrlPassword(url) {
   }
 }
 
+// Splits the password off a database URL: psql gets it in PGPASSWORD, so it
+// never shows in the process list. libpq takes a password from the userinfo
+// part or from a password query parameter, the latter winning when both are
+// given; both are removed from the URL. A URL that does not parse is passed as is.
+export function psqlTarget(url) {
+  let u;
+  try {
+    u = new URL(url);
+  } catch {
+    return { url, password: null };
+  }
+  let password = null;
+  if (u.password) {
+    password = u.password;
+    try {
+      password = decodeURIComponent(u.password);
+    } catch {
+      // malformed escape: the raw form is the best guess
+    }
+    u.password = "";
+  }
+  // The query is split by hand: URLSearchParams decodes "+" as a space and
+  // re-encodes the pairs it keeps, while libpq reads "+" literally.
+  const decode = (text) => {
+    try {
+      return decodeURIComponent(text);
+    } catch {
+      return text;
+    }
+  };
+  const kept = [];
+  for (const pair of u.search.slice(1).split("&")) {
+    if (pair === "") continue;
+    const eq = pair.indexOf("=");
+    const name = eq < 0 ? pair : pair.slice(0, eq);
+    if (decode(name) === "password") password = decode(eq < 0 ? "" : pair.slice(eq + 1));
+    else kept.push(pair);
+  }
+  u.search = kept.length > 0 ? `?${kept.join("&")}` : "";
+  // The same length rule as maskUrlPassword: the short local password stays readable.
+  if (password !== null && password.length >= 8) mask(password);
+  return { url: u.toString(), password };
+}
+
 function psql(url, sql, timeoutMs) {
   maskUrlPassword(url);
-  const r = spawnSync("psql", [url, "-v", "ON_ERROR_STOP=1", "-X", "-q", "-c", sql], {
+  const target = psqlTarget(url);
+  const env = { ...process.env };
+  if (target.password !== null) env.PGPASSWORD = target.password;
+  const r = spawnSync("psql", [target.url, "-v", "ON_ERROR_STOP=1", "-X", "-q", "-c", sql], {
     encoding: "utf8",
     timeout: timeoutMs,
     killSignal: "SIGKILL",
+    env,
   });
   if (r.error?.code === "ETIMEDOUT") {
     // Name the statement, never the URL.

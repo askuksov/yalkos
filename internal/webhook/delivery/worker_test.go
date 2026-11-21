@@ -3,6 +3,8 @@ package delivery_test
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -653,10 +655,50 @@ func TestLateOutcomeIsRecorded(t *testing.T) {
 // client that died two hours ago, past River's rescue threshold.
 func (f finalAttempt) crash(t *testing.T, attempt int) {
 	t.Helper()
+	f.crashAgo(t, attempt, 2*time.Hour)
+}
+
+// crashAgo leaves the job running attempt as if its process was killed ago.
+func (f finalAttempt) crashAgo(t *testing.T, attempt int, ago time.Duration) {
+	t.Helper()
 	if _, err := f.pool.Exec(context.Background(), `UPDATE river_job SET state = 'running', attempt = $2,
-		attempted_at = now() - interval '2 hours', attempted_by = ARRAY['crashed-client'] WHERE args ->> 'deliveryId' = $1`,
-		f.id.String(), attempt); err != nil {
+		attempted_at = now() - make_interval(secs => $3), attempted_by = ARRAY['crashed-client'] WHERE args ->> 'deliveryId' = $1`,
+		f.id.String(), attempt, ago.Seconds()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestStrandedFinalAttemptEndsWithinMinutes: River rescues a job left running
+// by a killed process once it is RescueAfter old, not after its default hour,
+// and RunRecovery then fails the delivery without waiting for the hourly
+// cleanup.
+func TestStrandedFinalAttemptEndsWithinMinutes(t *testing.T) {
+	if delivery.RescueAfter <= delivery.LongestAttempt || delivery.RescueAfter > 5*time.Minute {
+		t.Fatalf("RescueAfter = %v, want above the longest attempt (%v) and at most 5 min", delivery.RescueAfter, delivery.LongestAttempt)
+	}
+	f := retryingDelivery(t, 3)
+	// Older than RescueAfter, far younger than River's default hour.
+	f.crashAgo(t, 4, delivery.RescueAfter+30*time.Second)
+	f.start(t, failingSender{t}, nil)
+	waitFor(t, "the job to leave running", func() bool {
+		s, _ := f.job(t)
+		return s != "running"
+	})
+	if state, attempt := f.job(t); state != "discarded" || attempt != 4 {
+		t.Fatalf("job state = %s, attempt = %d, want discarded after attempt 4", state, attempt)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		f.svc.RunRecovery(ctx, 10*time.Millisecond, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		close(done)
+	}()
+	waitFor(t, "the delivery to fail", func() bool { return f.deliveries(t)[0].Status == "failed" })
+	cancel()
+	<-done
+	if d := f.deliveries(t)[0]; d.LastError == nil || *d.LastError != webhook.ErrorInterrupted || d.Attempts != 3 {
+		t.Fatalf("delivery = %+v, want failed with %q after 3 attempts", d, webhook.ErrorInterrupted)
 	}
 }
 

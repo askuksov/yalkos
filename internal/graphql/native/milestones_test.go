@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/askuksov/yalkos/internal/graphql/native"
+	"github.com/askuksov/yalkos/internal/testfx"
 )
 
 type gqlMilestone struct {
@@ -181,14 +182,14 @@ type projectMilestones struct {
 
 // countProjectMilestones runs a page of the project list with selection
 // once and returns the SQL statements it ran and the projects of the page.
-func countProjectMilestones(t *testing.T, owner *client, queries *counter, selection string, first int) (int64, []projectMilestones) {
+func countProjectMilestones(t *testing.T, owner *client, queries *testfx.StmtCounter, selection string, first int) (int64, []projectMilestones) {
 	t.Helper()
-	queries.n.Store(0)
+	queries.Reset()
 	var conn struct {
 		Nodes []projectMilestones `json:"nodes"`
 	}
 	owner.do(fmt.Sprintf(`{ projects(first: %d) { nodes { id key isMember %s } } }`, first, selection), nil).decode(t, "projects", &conn)
-	n := queries.n.Load()
+	n := queries.N()
 	t.Logf("%d projects, %s: %d SQL statements", len(conn.Nodes), selection, n)
 	return n, conn.Nodes
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/askuksov/yalkos/internal/graphql/native"
+	"github.com/askuksov/yalkos/internal/testfx"
 )
 
 type gqlWebhook struct {
@@ -419,15 +420,15 @@ func seedWebhookDeliveries(t *testing.T, owner *client, recvURL string, from, n 
 
 // listWebhookDeliveries runs the webhook list with deliveries(first) once
 // and returns the delivery ids per webhook and the SQL statements it ran.
-func listWebhookDeliveries(t *testing.T, owner *client, queries *counter, first int) (map[string][]string, int64) {
+func listWebhookDeliveries(t *testing.T, owner *client, queries *testfx.StmtCounter, first int) (map[string][]string, int64) {
 	t.Helper()
-	queries.n.Store(0)
+	queries.Reset()
 	var list []struct {
 		ID         string        `json:"id"`
 		Deliveries []gqlDelivery `json:"deliveries"`
 	}
 	owner.do(fmt.Sprintf(`{ webhooks { id deliveries(first: %d) { id } } }`, first), nil).decode(t, "webhooks", &list)
-	n := queries.n.Load()
+	n := queries.N()
 	t.Logf("deliveries(first: %d) of %d webhooks: %d SQL statements", first, len(list), n)
 	got := map[string][]string{}
 	for _, w := range list {
@@ -491,5 +492,46 @@ func TestWebhookListDeliveriesMemberForbidden(t *testing.T) {
 	}
 	if r := member.do(query, nil); r.code() != "FORBIDDEN" {
 		t.Fatalf("member: %s", r.raw)
+	}
+}
+
+// Two deliveries(first) selections in one request are batched apart, each
+// with its own page size, and an Admin reads them in a browser session and
+// through an API key alike.
+func TestWebhookListDeliveriesAliasesAndActors(t *testing.T) {
+	s := newServer(t)
+	owner := ownerBrowser(t, s)
+	admin := userBrowser(t, s, owner, "ADMIN")
+	adminKey := s.apiClient(t, admin.do(`mutation { createApiKey(name: "hooks") { key } }`, nil).str(t, "createApiKey", "key"))
+	recv := receiver(t, 200)
+	want := seedWebhookDeliveries(t, owner, recv.URL, 0, 3)
+
+	const query = `{ webhooks { id one: deliveries(first: 1) { id } three: deliveries(first: 3) { id } } }`
+	for name, c := range map[string]*client{"owner": owner, "admin": admin, "admin key": adminKey} {
+		var list []struct {
+			ID    string        `json:"id"`
+			One   []gqlDelivery `json:"one"`
+			Three []gqlDelivery `json:"three"`
+		}
+		c.do(query, nil).decode(t, "webhooks", &list)
+		if len(list) != len(want) {
+			t.Fatalf("%s: webhooks = %d, want %d", name, len(list), len(want))
+		}
+		ids := func(ds []gqlDelivery) []string {
+			out := []string{}
+			for _, d := range ds {
+				out = append(out, d.ID)
+			}
+			return out
+		}
+		for _, w := range list {
+			all := want[w.ID]
+			if got := ids(w.One); !slices.Equal(got, all[:1]) {
+				t.Errorf("%s: webhook %s one = %v, want %v", name, w.ID, got, all[:1])
+			}
+			if got := ids(w.Three); !slices.Equal(got, all[:min(3, len(all))]) {
+				t.Errorf("%s: webhook %s three = %v, want %v", name, w.ID, got, all[:min(3, len(all))])
+			}
+		}
 	}
 }

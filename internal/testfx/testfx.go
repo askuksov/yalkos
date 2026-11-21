@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/db"
@@ -95,4 +96,50 @@ func DisabledUser(t *testing.T, pool *pgxpool.Pool, owner account.User) account.
 	}
 	u.Disabled = true
 	return u
+}
+
+// StmtCounter is a pgx tracer that counts SQL statements. Ended, when set,
+// gets the SQL of each finished statement.
+type StmtCounter struct {
+	n     atomic.Int64
+	Ended func(sql string)
+}
+
+type sqlKey struct{}
+
+// N is the number of statements started so far.
+func (c *StmtCounter) N() int64 { return c.n.Load() }
+
+// Reset sets the count back to zero.
+func (c *StmtCounter) Reset() { c.n.Store(0) }
+
+// TraceQueryStart implements pgx.QueryTracer.
+func (c *StmtCounter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	c.n.Add(1)
+	if c.Ended != nil {
+		return context.WithValue(ctx, sqlKey{}, data.SQL)
+	}
+	return ctx
+}
+
+// TraceQueryEnd implements pgx.QueryTracer.
+func (c *StmtCounter) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryEndData) {
+	if c.Ended != nil {
+		sql, _ := ctx.Value(sqlKey{}).(string)
+		c.Ended(sql)
+	}
+}
+
+// TracedPool returns a second pool over the database of base whose
+// statements go through tracer; it is closed with the test.
+func TracedPool(t *testing.T, base *pgxpool.Pool, tracer pgx.QueryTracer) *pgxpool.Pool {
+	t.Helper()
+	cfg := base.Config()
+	cfg.ConnConfig.Tracer = tracer
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("testfx: traced pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
 }

@@ -7,12 +7,10 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/askuksov/yalkos/internal/domain/account"
@@ -20,6 +18,7 @@ import (
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/graphql/linear"
 	"github.com/askuksov/yalkos/internal/testdb"
+	"github.com/askuksov/yalkos/internal/testfx"
 )
 
 // issueFix: YLK and WEB, member Mia, five issues created in this order
@@ -542,16 +541,6 @@ func TestIssuesCostSDKSelection(t *testing.T) {
 	}
 }
 
-// counter is a pgx tracer that counts SQL statements.
-type counter struct{ n atomic.Int64 }
-
-func (c *counter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
-	c.n.Add(1)
-	return ctx
-}
-
-func (c *counter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
-
 func TestIssuesQueryCount(t *testing.T) {
 	linear.SetLoaderWait(t, 250*time.Millisecond)
 	ctx := context.Background()
@@ -560,7 +549,7 @@ func TestIssuesQueryCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	queries := &counter{}
+	queries := &testfx.StmtCounter{}
 	cfg.ConnConfig.Tracer = queries
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
@@ -579,14 +568,14 @@ func TestIssuesQueryCount(t *testing.T) {
 		}
 	}
 	count := func(first int) int64 {
-		queries.n.Store(0)
+		queries.Reset()
 		var out struct{ Issues issueConn }
 		f.gql(t, f.ownerKey, fmt.Sprintf(`{ issues(first: %d) { nodes { id team { id } state { id } assignee { id } creator { id }
 			parent { id } project { id } labelIds attachments { nodes { id } } } } }`, first), nil).ok(t, &out)
 		if len(out.Issues.Nodes) != first {
 			t.Fatalf("first %d: %d nodes", first, len(out.Issues.Nodes))
 		}
-		return queries.n.Load()
+		return queries.N()
 	}
 	// Every loader runs one batch per page, so 50 issues cost what 5 do.
 	small, large := count(5), count(50)

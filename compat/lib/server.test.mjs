@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mask, scrub, resetMasks } from "./mask.mjs";
-import { parseSetupCode, databaseName, assertPsql, startInstance, createDatabase, maskUrlPassword } from "./server.mjs";
+import { parseSetupCode, databaseName, assertPsql, startInstance, createDatabase, maskUrlPassword, psqlTarget } from "./server.mjs";
 import { bootstrap } from "./bootstrap.mjs";
 
 // The exact shape slog's JSON handler writes (see the Go test for the setup log).
@@ -72,6 +72,23 @@ test("scrub removes a registered secret from a server log line", () => {
   assert.ok(!cleaned.includes("7EV2RUJH"));
   assert.ok(cleaned.includes("***"));
   resetMasks();
+});
+
+test("add-mask values are escaped and split by line, so the runner hides exactly them", async () => {
+  resetMasks();
+  const prev = process.env.GITHUB_ACTIONS;
+  process.env.GITHUB_ACTIONS = "true";
+  try {
+    const out = await capture(() => {
+      mask("pa%41ss%word");
+      mask("first line\r\nsecond%0Aline");
+    });
+    assert.deepEqual(out, ["::add-mask::pa%2541ss%25word", "::add-mask::first line", "::add-mask::second%250Aline"]);
+  } finally {
+    if (prev === undefined) delete process.env.GITHUB_ACTIONS;
+    else process.env.GITHUB_ACTIONS = prev;
+    resetMasks();
+  }
 });
 
 test("mask ignores empty and non-string values", () => {
@@ -214,6 +231,50 @@ test("a psql error that echoes the URL never carries the password", async () => 
       },
     );
   });
+});
+
+test("psql gets the password in PGPASSWORD, never in its arguments", async () => {
+  resetMasks();
+  const password = "Sup3r/S3cret Pw";
+  const url = `postgres://admin:${encodeURIComponent(password)}@127.0.0.1:1/postgres?sslmode=disable`;
+  const dir = mkdtempSync(join(tmpdir(), "yalkos-compat-psqlargs-"));
+  const out = join(dir, "seen");
+  try {
+    await withFakePsql(`printf '%s\\n' "$@" > "${out}"; printf 'PGPASSWORD=%s\\n' "$PGPASSWORD" >> "${out}"`, async () => {
+      createDatabase(url);
+    });
+    const seen = readFileSync(out, "utf8");
+    const [args, env] = [seen.slice(0, seen.indexOf("PGPASSWORD=")), seen.slice(seen.indexOf("PGPASSWORD="))];
+    assert.ok(!args.includes(password) && !args.includes(encodeURIComponent(password)), `password in argv: ${args}`);
+    assert.match(args, /^postgres:\/\/admin@127\.0\.0\.1:1\/postgres\?sslmode=disable$/m);
+    assert.equal(env.trim(), `PGPASSWORD=${password}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a password given as a query parameter goes to PGPASSWORD too, and wins over the userinfo one as in libpq", () => {
+  resetMasks();
+  const t = psqlTarget("postgres://admin:old-pass-1@127.0.0.1:1/postgres?sslmode=disable&password=Qu3ry%2FPass");
+  assert.equal(t.password, "Qu3ry/Pass");
+  assert.equal(t.url, "postgres://admin@127.0.0.1:1/postgres?sslmode=disable");
+  assert.equal(scrub("x Qu3ry/Pass y"), "x *** y");
+  const only = psqlTarget("postgres://admin@127.0.0.1:1/postgres?password=Only%20Query");
+  assert.equal(only.password, "Only Query");
+  assert.ok(!only.url.includes("Only"), only.url);
+  assert.deepEqual(psqlTarget("postgres://admin@127.0.0.1:1/postgres"), { url: "postgres://admin@127.0.0.1:1/postgres", password: null });
+  resetMasks();
+});
+
+test("a query password keeps a literal + and the other parameters keep their encoding", () => {
+  resetMasks();
+  const t = psqlTarget("postgres://admin@127.0.0.1:1/postgres?sslrootcert=/tmp/compat%20ca.pem&password=Abcd+1234&sslmode=verify-full");
+  assert.equal(t.password, "Abcd+1234");
+  assert.equal(t.url, "postgres://admin@127.0.0.1:1/postgres?sslrootcert=/tmp/compat%20ca.pem&sslmode=verify-full");
+  const only = psqlTarget("postgres://admin@127.0.0.1:1/postgres?password=a%2Bb%20c%2Fd");
+  assert.equal(only.password, "a+b c/d");
+  assert.equal(only.url, "postgres://admin@127.0.0.1:1/postgres");
+  resetMasks();
 });
 
 test("a hung psql is killed after the timeout and the error names the statement, not the URL", async () => {

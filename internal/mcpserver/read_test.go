@@ -193,12 +193,12 @@ func TestSearchQueryCount(t *testing.T) {
 		})
 	}
 	count := func(limit int) int64 {
-		before := queries.n.Load()
+		before := queries.N()
 		out := e.search(t, map[string]any{"limit": limit, "orderBy": "updated"})
 		if len(out.Issues) != limit {
 			t.Fatalf("limit %d: %d issues", limit, len(out.Issues))
 		}
-		return queries.n.Load() - before
+		return queries.N() - before
 	}
 	count(5) // warm up: API key lookup, connections
 	small, large := count(5), count(50)

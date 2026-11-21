@@ -230,8 +230,9 @@ SELECT id, workspace_id, name, url, secret, project_id, resources, enabled, disa
 `
 
 // For edits, which never change the key. Unlike FOR UPDATE it does not wait for
-// (or block) the key share a delivery insert takes on the row, so an edit and a
-// domain write that emits an event cannot deadlock.
+// (or block) the key share that matching webhooks for an event (MatchWebhooks)
+// and the delivery insert take on the row, so an edit and a domain write that
+// emits an event cannot deadlock.
 func (q *Queries) GetWebhookForNoKeyUpdate(ctx context.Context, id uuid.UUID) (Webhook, error) {
 	row := q.db.QueryRow(ctx, getWebhookForNoKeyUpdate, id)
 	var i Webhook
@@ -257,7 +258,8 @@ const getWebhookForUpdate = `-- name: GetWebhookForUpdate :one
 SELECT id, workspace_id, name, url, secret, project_id, resources, enabled, disabled_reason, disabled_at, created_by, created_at, updated_at FROM webhooks WHERE id = $1 FOR UPDATE
 `
 
-// For deleting: conflicts with the key share a delivery insert takes.
+// For deleting: conflicts with the key share that matching webhooks for an
+// event (MatchWebhooks) and the delivery insert take.
 func (q *Queries) GetWebhookForUpdate(ctx context.Context, id uuid.UUID) (Webhook, error) {
 	row := q.db.QueryRow(ctx, getWebhookForUpdate, id)
 	var i Webhook
@@ -349,17 +351,21 @@ SELECT d.id, d.webhook_id, d.resource, d.action, d.entity_id, d.status, d.attemp
        d.last_error, d.duration_ms, d.created_at, d.last_attempt_at, d.next_attempt_at, d.finished_at
 FROM unnest($1::uuid[]) WITH ORDINALITY AS w (id, ord)
 CROSS JOIN LATERAL (
-    SELECT id, webhook_id, resource, action, entity_id, payload, status, attempts, response_status, last_error, duration_ms, created_at, last_attempt_at, next_attempt_at, finished_at FROM webhook_deliveries
-    WHERE webhook_id = w.id
-    ORDER BY created_at DESC, id DESC
-    LIMIT $2
+    SELECT id, webhook_id, resource, action, entity_id, payload, status, attempts, response_status, last_error, duration_ms, created_at, last_attempt_at, next_attempt_at, finished_at,
+           CASE WHEN $2::boolean THEN coalesce(finished_at, last_attempt_at, created_at)
+                ELSE created_at END AS sort_at
+    FROM webhook_deliveries
+    WHERE webhook_id = w.id AND (NOT $2::boolean OR status IN ('retrying', 'failed'))
+    ORDER BY sort_at DESC, id DESC
+    LIMIT $3
 ) d
-ORDER BY w.ord, d.created_at DESC, d.id DESC
+ORDER BY w.ord, d.sort_at DESC, d.id DESC
 `
 
 type LatestDeliveriesParams struct {
-	WebhookIds []uuid.UUID
-	MaxRows    int32
+	WebhookIds   []uuid.UUID
+	FailuresOnly bool
+	MaxRows      int32
 }
 
 type LatestDeliveriesRow struct {
@@ -379,10 +385,13 @@ type LatestDeliveriesRow struct {
 	FinishedAt     *time.Time
 }
 
-// The newest deliveries of each given webhook, in ListDeliveries order,
-// webhooks in the order of the given ids.
+// The newest deliveries of each given webhook, webhooks in the order of the
+// given ids (which must be distinct). All deliveries newest first; with
+// failures_only, only retrying and failed ones, the newest failure first: a
+// delivery is one entry, its last attempt, or the moment it was failed as
+// interrupted. The payload is left out.
 func (q *Queries) LatestDeliveries(ctx context.Context, arg LatestDeliveriesParams) ([]LatestDeliveriesRow, error) {
-	rows, err := q.db.Query(ctx, latestDeliveries, arg.WebhookIds, arg.MaxRows)
+	rows, err := q.db.Query(ctx, latestDeliveries, arg.WebhookIds, arg.FailuresOnly, arg.MaxRows)
 	if err != nil {
 		return nil, err
 	}
@@ -390,145 +399,6 @@ func (q *Queries) LatestDeliveries(ctx context.Context, arg LatestDeliveriesPara
 	var items []LatestDeliveriesRow
 	for rows.Next() {
 		var i LatestDeliveriesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.WebhookID,
-			&i.Resource,
-			&i.Action,
-			&i.EntityID,
-			&i.Status,
-			&i.Attempts,
-			&i.ResponseStatus,
-			&i.LastError,
-			&i.DurationMs,
-			&i.CreatedAt,
-			&i.LastAttemptAt,
-			&i.NextAttemptAt,
-			&i.FinishedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const latestFailures = `-- name: LatestFailures :many
-SELECT d.id, d.webhook_id, d.resource, d.action, d.entity_id, d.status, d.attempts, d.response_status,
-       d.last_error, d.duration_ms, d.created_at, d.last_attempt_at, d.next_attempt_at, d.finished_at
-FROM unnest($1::uuid[]) WITH ORDINALITY AS w (id, ord)
-CROSS JOIN LATERAL (
-    SELECT id, webhook_id, resource, action, entity_id, payload, status, attempts, response_status, last_error, duration_ms, created_at, last_attempt_at, next_attempt_at, finished_at FROM webhook_deliveries
-    WHERE webhook_id = w.id AND status IN ('retrying', 'failed')
-    ORDER BY coalesce(finished_at, last_attempt_at, created_at) DESC, id DESC
-    LIMIT $2
-) d
-ORDER BY w.ord, coalesce(d.finished_at, d.last_attempt_at, d.created_at) DESC, d.id DESC
-`
-
-type LatestFailuresParams struct {
-	WebhookIds []uuid.UUID
-	MaxRows    int32
-}
-
-type LatestFailuresRow struct {
-	ID             uuid.UUID
-	WebhookID      uuid.UUID
-	Resource       string
-	Action         string
-	EntityID       *uuid.UUID
-	Status         string
-	Attempts       int32
-	ResponseStatus *int32
-	LastError      *string
-	DurationMs     *int32
-	CreatedAt      time.Time
-	LastAttemptAt  *time.Time
-	NextAttemptAt  *time.Time
-	FinishedAt     *time.Time
-}
-
-// The newest failed deliveries (retrying or failed) of each given webhook,
-// newest failure first, webhooks in the order of the given ids. A delivery is
-// one entry: its last attempt, or the moment it was failed as interrupted.
-func (q *Queries) LatestFailures(ctx context.Context, arg LatestFailuresParams) ([]LatestFailuresRow, error) {
-	rows, err := q.db.Query(ctx, latestFailures, arg.WebhookIds, arg.MaxRows)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []LatestFailuresRow
-	for rows.Next() {
-		var i LatestFailuresRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.WebhookID,
-			&i.Resource,
-			&i.Action,
-			&i.EntityID,
-			&i.Status,
-			&i.Attempts,
-			&i.ResponseStatus,
-			&i.LastError,
-			&i.DurationMs,
-			&i.CreatedAt,
-			&i.LastAttemptAt,
-			&i.NextAttemptAt,
-			&i.FinishedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listDeliveries = `-- name: ListDeliveries :many
-SELECT id, webhook_id, resource, action, entity_id, status, attempts, response_status, last_error, duration_ms,
-       created_at, last_attempt_at, next_attempt_at, finished_at
-FROM webhook_deliveries
-WHERE webhook_id = $1
-ORDER BY created_at DESC, id DESC
-LIMIT $2
-`
-
-type ListDeliveriesParams struct {
-	WebhookID uuid.UUID
-	MaxRows   int32
-}
-
-type ListDeliveriesRow struct {
-	ID             uuid.UUID
-	WebhookID      uuid.UUID
-	Resource       string
-	Action         string
-	EntityID       *uuid.UUID
-	Status         string
-	Attempts       int32
-	ResponseStatus *int32
-	LastError      *string
-	DurationMs     *int32
-	CreatedAt      time.Time
-	LastAttemptAt  *time.Time
-	NextAttemptAt  *time.Time
-	FinishedAt     *time.Time
-}
-
-func (q *Queries) ListDeliveries(ctx context.Context, arg ListDeliveriesParams) ([]ListDeliveriesRow, error) {
-	rows, err := q.db.Query(ctx, listDeliveries, arg.WebhookID, arg.MaxRows)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListDeliveriesRow
-	for rows.Next() {
-		var i ListDeliveriesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WebhookID,

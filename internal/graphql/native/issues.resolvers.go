@@ -60,8 +60,10 @@ func (r *issueResolver) Parent(ctx context.Context, obj *Issue) (*Issue, error) 
 
 // Children is the resolver for the children field.
 func (r *issueResolver) Children(ctx context.Context, obj *Issue, first *int, after *string, last *int, before *string, orderBy *IssueOrder) (*IssueConnection, error) {
+	// The filter is kept for totalCount, which counts the same sub-issues.
 	f := issue.Filter{Parent: &issue.IDCond{Eq: &obj.uid}, IncludeArchived: true}
-	res, err := r.Issues.List(ctx, f, issueOrderIn(orderBy), pageArgs(first, after, last, before))
+	g := childrenGroup{page: pageKeyOf(pageArgs(first, after, last, before)), order: issueOrderIn(orderBy)}
+	res, err := loadersFrom(ctx).children.Load(ctx, childrenKey{parent: obj.uid, childrenGroup: g})
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +81,7 @@ func (r *issueResolver) SubIssueProgress(ctx context.Context, obj *Issue) (*Prog
 
 // History is the resolver for the history field.
 func (r *issueResolver) History(ctx context.Context, obj *Issue, first *int, after *string, last *int, before *string) (*HistoryConnection, error) {
-	res, err := r.Audit.List(ctx, obj.uid, pageArgs(first, after, last, before))
+	res, err := loadersFrom(ctx).history.Load(ctx, historyKey{entity: obj.uid, page: pageKeyOf(pageArgs(first, after, last, before))})
 	if err != nil {
 		return nil, err
 	}
