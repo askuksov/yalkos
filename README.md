@@ -287,7 +287,7 @@ Yalkos serves a Linear-compatible API at `/graphql` and sends webhooks in the Li
 | Checked | When | Blocks pull requests |
 | :--- | :--- | :--- |
 | `@linear/sdk` 103.0.0 (pinned in `compat/package.json`) | every pull request and push to `main` (job `compat`) | yes |
-| the newest `@linear/sdk` on npm | every day (workflow *Compat (latest SDK)*) | no; opens an issue |
+| the newest `@linear/sdk` on npm | every day (workflow *Compat (latest SDK)*, in a container that gets no runner token) | no; opens an issue, closes the issues of older versions |
 
 Older SDK versions are not tested: the pinned and the newest version are the whole policy.
 
@@ -300,7 +300,7 @@ make compat         # the pinned SDK
 make compat-latest  # the newest SDK, installed in a throwaway copy; the lockfile is never touched
 ```
 
-It needs Go, Node.js 24, pnpm and the `psql` client. Each run builds `bin/yalkos-host`, starts it on a private database that is dropped afterwards, and prints one line per step and a result. `COMPAT_PNPM` sets the pnpm command (default `pnpm`), `COMPAT_SDK_VERSION` the version for `make compat-latest` (default `latest`), `COMPAT_KEEP=1` keeps the database.
+It needs Go, Node.js 24, pnpm and the `psql` client. Each run builds `bin/yalkos-host`, starts it on a private database that is dropped afterwards, and prints one line per step and a result. `COMPAT_PNPM` sets the pnpm command (default `pnpm`), `COMPAT_SDK_VERSION` the version for `make compat-latest` (default `latest`), `COMPAT_KEEP=1` keeps the database, `COMPAT_DEADLINE_MINUTES` bounds the whole run (default 12; a run past it ends as `TOOLING`), and `COMPAT_REPORT_DIR` sets where the report goes (default: a new temporary directory, printed at the end).
 
 Results:
 

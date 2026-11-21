@@ -5,7 +5,8 @@
 //   node run.mjs [--mode pinned|latest] [--stages a,b] [--sdk-version <v|latest>]
 //
 // Environment: COMPAT_DATABASE_URL (required), COMPAT_BIN, COMPAT_KEEP,
-// COMPAT_REPORT_DIR, COMPAT_SDK_VERSION, COMPAT_PNPM (latest mode, default pnpm).
+// COMPAT_REPORT_DIR, COMPAT_SDK_VERSION, COMPAT_PNPM (latest mode, default pnpm),
+// COMPAT_DEADLINE_MINUTES (default 12).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -41,7 +42,8 @@ function parseArgs(argv, env) {
     bin: env.COMPAT_BIN || null,
     databaseUrl: env.COMPAT_DATABASE_URL || "",
     keep: env.COMPAT_KEEP === "1" || env.COMPAT_KEEP === "true",
-    reportDir: env.COMPAT_REPORT_DIR || path.join(os.tmpdir(), "yalkos-compat-report"),
+    // Unset: a fresh directory with an unpredictable name (see main).
+    reportDir: env.COMPAT_REPORT_DIR || null,
     pnpm: (env.COMPAT_PNPM || "pnpm").trim().split(/\s+/),
     baselineModules: env.COMPAT_BASELINE_MODULES || null,
   };
@@ -242,11 +244,14 @@ function pnpm(opts, args, cwd) {
   if (r.status !== 0) throw new Error(`${opts.pnpm.join(" ")} ${args.join(" ")} exited with ${r.status}`);
 }
 
+// The inner run in progress, for the deadline to stop it.
+let innerChild = null;
+
 // Starts the inner run and resolves with its exit code.
 function spawnInner(opts, checked, copy) {
   const args = [path.join(copy, "run.mjs"), "--mode", "latest-inner"];
   if (opts.stages) args.push("--stages", opts.stages.join(","));
-  const child = spawn(process.execPath, args, {
+  const child = (innerChild = spawn(process.execPath, args, {
     stdio: "inherit",
     env: {
       ...process.env,
@@ -254,7 +259,7 @@ function spawnInner(opts, checked, copy) {
       COMPAT_BIN: checked.bin,
       COMPAT_REPORT_DIR: opts.reportDir,
     },
-  });
+  }));
   return new Promise((resolve) => {
     child.once("error", (err) => {
       console.error(scrub(`cannot start the inner run: ${err.message}`));
@@ -329,14 +334,49 @@ export async function runLatest(opts, checked, deps = {}) {
   }
 }
 
+// --- deadline ---
+
+// How long a whole run may take (COMPAT_DEADLINE_MINUTES), below the CI job
+// timeout so that a stuck run still leaves a report.
+export const DEFAULT_DEADLINE_MINUTES = 12;
+
+export function deadlineMinutes(env) {
+  const n = Number(env.COMPAT_DEADLINE_MINUTES);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_DEADLINE_MINUTES;
+}
+
+// Arms the overall deadline: when it passes, a TOOLING report is written, the
+// inner run is stopped, and this process gets SIGTERM, which runs the cleanup
+// (instance, database, temporary copy) of whatever is in progress. Returns a
+// function that disarms it.
+export function armDeadline(opts, minutes, { kill = (pid, sig) => process.kill(pid, sig), exit = (code) => process.exit(code) } = {}) {
+  const timer = setTimeout(() => {
+    const text = `the run did not finish within ${minutes} min (COMPAT_DEADLINE_MINUTES)`;
+    console.error(text);
+    writeReport(opts.reportDir, buildReport({ candidate: null, baseline: null, staticResult: emptyStatic([text]), stages: [] }));
+    if (innerChild && innerChild.exitCode === null) innerChild.kill("SIGTERM");
+    kill(process.pid, "SIGTERM");
+    // The cleanup exits on its own; this only catches a cleanup that hangs.
+    setTimeout(() => exit(1), 60_000).unref();
+  }, minutes * 60_000);
+  timer.unref();
+  return () => clearTimeout(timer);
+}
+
 // --- main ---
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2), process.env);
+  // Without COMPAT_REPORT_DIR the report goes to a new directory with an
+  // unpredictable name, never to a fixed path another user could prepare.
+  opts.reportDir ??= fs.mkdtempSync(path.join(os.tmpdir(), "yalkos-compat-report-"));
   // A report of an earlier run must never be mistaken for this run's result.
   clearReport(opts.reportDir);
   const checked = preflight(opts);
+  // The inner run of the latest mode is bounded by the outer one.
+  const disarm = opts.mode === "latest-inner" ? () => {} : armDeadline(opts, deadlineMinutes(process.env));
   const code = opts.mode === "latest" ? await runLatest(opts, checked) : await runChecks(opts, checked);
+  disarm();
   // Let buffered output drain; the unref'd timer only forces the exit if a handle lingers.
   process.exitCode = code;
   setTimeout(() => process.exit(code), 3000).unref();
