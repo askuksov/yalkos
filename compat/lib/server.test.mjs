@@ -266,6 +266,17 @@ test("a password given as a query parameter goes to PGPASSWORD too, and wins ove
   resetMasks();
 });
 
+test("a query password keeps a literal + and the other parameters keep their encoding", () => {
+  resetMasks();
+  const t = psqlTarget("postgres://admin@127.0.0.1:1/postgres?sslrootcert=/tmp/compat%20ca.pem&password=Abcd+1234&sslmode=verify-full");
+  assert.equal(t.password, "Abcd+1234");
+  assert.equal(t.url, "postgres://admin@127.0.0.1:1/postgres?sslrootcert=/tmp/compat%20ca.pem&sslmode=verify-full");
+  const only = psqlTarget("postgres://admin@127.0.0.1:1/postgres?password=a%2Bb%20c%2Fd");
+  assert.equal(only.password, "a+b c/d");
+  assert.equal(only.url, "postgres://admin@127.0.0.1:1/postgres");
+  resetMasks();
+});
+
 test("a hung psql is killed after the timeout and the error names the statement, not the URL", async () => {
   resetMasks();
   const password = "Sup3rS3cretPw";
