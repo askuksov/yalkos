@@ -174,6 +174,68 @@ func (q *Queries) ListAuditEventsBackward(ctx context.Context, arg ListAuditEven
 	return items, nil
 }
 
+const listAuditEventsBackwardBatch = `-- name: ListAuditEventsBackwardBatch :many
+SELECT a.id, a.entity_type, a.entity_id, a.project_id, a.actor_id, a.action, a.changes, a.created_at, a.names
+FROM unnest($1::uuid[]) AS ent (id)
+CROSS JOIN LATERAL (
+    SELECT id FROM audit_events
+    WHERE entity_id = ent.id
+      AND ($2::timestamptz IS NULL OR (created_at, id) < ($2::timestamptz, $3::uuid))
+    ORDER BY created_at DESC, id DESC
+    LIMIT $4
+) pick
+JOIN audit_events a ON a.id = pick.id
+ORDER BY a.entity_id, a.created_at DESC, a.id DESC
+`
+
+type ListAuditEventsBackwardBatchParams struct {
+	EntityIds []uuid.UUID
+	BeforeAt  *time.Time
+	BeforeID  *uuid.UUID
+	Lim       int32
+}
+
+type ListAuditEventsBackwardBatchRow struct {
+	AuditEvent AuditEvent
+}
+
+// ListAuditEventsBackward for each of the given entities; newest first within
+// each entity.
+func (q *Queries) ListAuditEventsBackwardBatch(ctx context.Context, arg ListAuditEventsBackwardBatchParams) ([]ListAuditEventsBackwardBatchRow, error) {
+	rows, err := q.db.Query(ctx, listAuditEventsBackwardBatch,
+		arg.EntityIds,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAuditEventsBackwardBatchRow
+	for rows.Next() {
+		var i ListAuditEventsBackwardBatchRow
+		if err := rows.Scan(
+			&i.AuditEvent.ID,
+			&i.AuditEvent.EntityType,
+			&i.AuditEvent.EntityID,
+			&i.AuditEvent.ProjectID,
+			&i.AuditEvent.ActorID,
+			&i.AuditEvent.Action,
+			&i.AuditEvent.Changes,
+			&i.AuditEvent.CreatedAt,
+			&i.AuditEvent.Names,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAuditEventsByIDs = `-- name: ListAuditEventsByIDs :many
 SELECT id, entity_type, entity_id, project_id, actor_id, action, changes, created_at, names FROM audit_events WHERE id = ANY($1::uuid[])
 `
@@ -248,6 +310,69 @@ func (q *Queries) ListAuditEventsForward(ctx context.Context, arg ListAuditEvent
 			&i.Changes,
 			&i.CreatedAt,
 			&i.Names,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuditEventsForwardBatch = `-- name: ListAuditEventsForwardBatch :many
+SELECT a.id, a.entity_type, a.entity_id, a.project_id, a.actor_id, a.action, a.changes, a.created_at, a.names
+FROM unnest($1::uuid[]) AS ent (id)
+CROSS JOIN LATERAL (
+    SELECT id FROM audit_events
+    WHERE entity_id = ent.id
+      AND ($2::timestamptz IS NULL OR (created_at, id) > ($2::timestamptz, $3::uuid))
+    ORDER BY created_at, id
+    LIMIT $4
+) pick
+JOIN audit_events a ON a.id = pick.id
+ORDER BY a.entity_id, a.created_at, a.id
+`
+
+type ListAuditEventsForwardBatchParams struct {
+	EntityIds []uuid.UUID
+	AfterAt   *time.Time
+	AfterID   *uuid.UUID
+	Lim       int32
+}
+
+type ListAuditEventsForwardBatchRow struct {
+	AuditEvent AuditEvent
+}
+
+// ListAuditEventsForward for each of the given entities (distinct ids) in one
+// statement: the cursor and the limit apply to each entity on its own. Rows
+// come grouped by entity, oldest first.
+func (q *Queries) ListAuditEventsForwardBatch(ctx context.Context, arg ListAuditEventsForwardBatchParams) ([]ListAuditEventsForwardBatchRow, error) {
+	rows, err := q.db.Query(ctx, listAuditEventsForwardBatch,
+		arg.EntityIds,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAuditEventsForwardBatchRow
+	for rows.Next() {
+		var i ListAuditEventsForwardBatchRow
+		if err := rows.Scan(
+			&i.AuditEvent.ID,
+			&i.AuditEvent.EntityType,
+			&i.AuditEvent.EntityID,
+			&i.AuditEvent.ProjectID,
+			&i.AuditEvent.ActorID,
+			&i.AuditEvent.Action,
+			&i.AuditEvent.Changes,
+			&i.AuditEvent.CreatedAt,
+			&i.AuditEvent.Names,
 		); err != nil {
 			return nil, err
 		}

@@ -10,9 +10,11 @@ import (
 
 	"github.com/askuksov/yalkos/internal/domain/account"
 	"github.com/askuksov/yalkos/internal/domain/attachment"
+	"github.com/askuksov/yalkos/internal/domain/audit"
 	"github.com/askuksov/yalkos/internal/domain/issue"
 	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/domain/milestone"
+	"github.com/askuksov/yalkos/internal/domain/page"
 	"github.com/askuksov/yalkos/internal/domain/project"
 	"github.com/askuksov/yalkos/internal/domain/webhook"
 )
@@ -48,6 +50,95 @@ type loaders struct {
 	attachmentsUsed *dataloadgen.Loader[uuid.UUID, map[uuid.UUID]bool]
 	// By webhook id and page size: its newest deliveries.
 	webhookDeliveries *dataloadgen.Loader[deliveriesKey, []webhook.Delivery]
+
+	// One page of sub-issues per parent and of history entries per issue, for
+	// the page arguments (and order) of the selection.
+	children *dataloadgen.Loader[childrenKey, page.Result[issue.Issue]]
+	history  *dataloadgen.Loader[historyKey, page.Result[audit.Entry]]
+}
+
+// pageKey is page.Args in a comparable form, for loader keys: two selections
+// share a batch only when their arguments are equal.
+type pageKey struct {
+	first, last         int
+	hasFirst, hasLast   bool
+	after, before       string
+	hasAfter, hasBefore bool
+}
+
+func pageKeyOf(a page.Args) pageKey {
+	var k pageKey
+	if a.First != nil {
+		k.first, k.hasFirst = *a.First, true
+	}
+	if a.Last != nil {
+		k.last, k.hasLast = *a.Last, true
+	}
+	if a.After != nil {
+		k.after, k.hasAfter = *a.After, true
+	}
+	if a.Before != nil {
+		k.before, k.hasBefore = *a.Before, true
+	}
+	return k
+}
+
+func (k pageKey) args() page.Args {
+	var a page.Args
+	if k.hasFirst {
+		a.First = &k.first
+	}
+	if k.hasLast {
+		a.Last = &k.last
+	}
+	if k.hasAfter {
+		a.After = &k.after
+	}
+	if k.hasBefore {
+		a.Before = &k.before
+	}
+	return a
+}
+
+type childrenGroup struct {
+	page  pageKey
+	order issue.Order
+}
+
+type childrenKey struct {
+	parent uuid.UUID
+	childrenGroup
+}
+
+type historyKey struct {
+	entity uuid.UUID
+	page   pageKey
+}
+
+// pagedBatch adapts a fetch of one page per owner id to a loader fetch: keys
+// are grouped by everything but their owner, one fetch runs per group, and an
+// error fails only the keys of its group.
+func pagedBatch[K comparable, G comparable, V any](owner func(K) uuid.UUID, group func(K) G,
+	fetch func(context.Context, []uuid.UUID, G) (map[uuid.UUID]V, error)) func(context.Context, []K) ([]V, []error) {
+	return func(ctx context.Context, keys []K) ([]V, []error) {
+		values := make([]V, len(keys))
+		errs := make([]error, len(keys))
+		owners := map[G][]uuid.UUID{}
+		for _, k := range keys {
+			owners[group(k)] = append(owners[group(k)], owner(k))
+		}
+		found := make(map[G]map[uuid.UUID]V, len(owners))
+		failed := make(map[G]error, len(owners))
+		for g, ids := range owners {
+			found[g], failed[g] = fetch(ctx, ids, g)
+		}
+		for i, k := range keys {
+			g := group(k)
+			errs[i] = failed[g]
+			values[i] = found[g][owner(k)]
+		}
+		return values, errs
+	}
 }
 
 // deliveriesKey is a webhook and how many of its newest deliveries to load.
@@ -109,6 +200,18 @@ func newLoaders(d Deps) *loaders {
 		issueAttachments:  dataloadgen.NewLoader(grouped(d.Attachments.ByIssues), opt),
 		attachmentsUsed:   dataloadgen.NewLoader(shared(d.Attachments.UsedInText), opt),
 		webhookDeliveries: dataloadgen.NewLoader(webhookDeliveries(d), opt),
+		children: dataloadgen.NewLoader(pagedBatch(
+			func(k childrenKey) uuid.UUID { return k.parent },
+			func(k childrenKey) childrenGroup { return k.childrenGroup },
+			func(ctx context.Context, ids []uuid.UUID, g childrenGroup) (map[uuid.UUID]page.Result[issue.Issue], error) {
+				return d.Issues.ChildrenOf(ctx, ids, g.order, g.page.args())
+			}), opt),
+		history: dataloadgen.NewLoader(pagedBatch(
+			func(k historyKey) uuid.UUID { return k.entity },
+			func(k historyKey) pageKey { return k.page },
+			func(ctx context.Context, ids []uuid.UUID, p pageKey) (map[uuid.UUID]page.Result[audit.Entry], error) {
+				return d.Audit.ListMany(ctx, ids, p.args())
+			}), opt),
 	}
 }
 

@@ -37,6 +37,37 @@ WHERE entity_id = @entity_id
 ORDER BY created_at DESC, id DESC
 LIMIT @lim;
 
+-- name: ListAuditEventsForwardBatch :many
+-- ListAuditEventsForward for each of the given entities (distinct ids) in one
+-- statement: the cursor and the limit apply to each entity on its own. Rows
+-- come grouped by entity, oldest first.
+SELECT sqlc.embed(a)
+FROM unnest(@entity_ids::uuid[]) AS ent (id)
+CROSS JOIN LATERAL (
+    SELECT id FROM audit_events
+    WHERE entity_id = ent.id
+      AND (sqlc.narg(after_at)::timestamptz IS NULL OR (created_at, id) > (sqlc.narg(after_at)::timestamptz, sqlc.narg(after_id)::uuid))
+    ORDER BY created_at, id
+    LIMIT @lim
+) pick
+JOIN audit_events a ON a.id = pick.id
+ORDER BY a.entity_id, a.created_at, a.id;
+
+-- name: ListAuditEventsBackwardBatch :many
+-- ListAuditEventsBackward for each of the given entities; newest first within
+-- each entity.
+SELECT sqlc.embed(a)
+FROM unnest(@entity_ids::uuid[]) AS ent (id)
+CROSS JOIN LATERAL (
+    SELECT id FROM audit_events
+    WHERE entity_id = ent.id
+      AND (sqlc.narg(before_at)::timestamptz IS NULL OR (created_at, id) < (sqlc.narg(before_at)::timestamptz, sqlc.narg(before_id)::uuid))
+    ORDER BY created_at DESC, id DESC
+    LIMIT @lim
+) pick
+JOIN audit_events a ON a.id = pick.id
+ORDER BY a.entity_id, a.created_at DESC, a.id DESC;
+
 -- name: DeleteProjectAudit :exec
 -- Events of the project, its states and milestones, the issues currently in
 -- it and their comments and attachments; all events of a deleted comment or
