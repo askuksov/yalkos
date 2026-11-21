@@ -149,31 +149,39 @@ type listedIssue struct {
 	key   any
 }
 
-// List returns live issues matching f in order o, one Relay page at a time.
-func (s *Service) List(ctx context.Context, f Filter, o Order, a page.Args) (page.Result[Issue], error) {
+// listPlan is a checked list request: its order, sort key and page window,
+// with the cursor (if any) decoded.
+type listPlan struct {
+	o      Order
+	spec   orderSpec
+	dir    string // "asc" or "desc": the order's direction, kept in cursors
+	w      page.Window
+	key    string
+	sqlDir string // the query's direction: backward pages read the order in reverse
+	cmp    string
+	// The cursor's sort key and id, when the page starts at a cursor.
+	cursorKey any
+	cursorID  *uuid.UUID
+}
+
+func planList(o Order, a page.Args) (listPlan, error) {
 	w, err := a.Window()
 	if err != nil {
-		return page.Result[Issue]{}, err
+		return listPlan{}, err
 	}
 	if o.Field == "" {
 		o.Field = SortOrder
 	}
 	spec, ok := orders[o.Field]
 	if !ok {
-		return page.Result[Issue]{}, kit.Input("orderBy", kit.ReasonInvalidFormat, "unknown order field")
+		return listPlan{}, kit.Input("orderBy", kit.ReasonInvalidFormat, "unknown order field")
 	}
-	dir := "asc"
+	p := listPlan{o: o, spec: spec, dir: "asc", w: w, key: spec.key(o.Desc), sqlDir: "ASC", cmp: ">"}
 	if o.Desc {
-		dir = "desc"
+		p.dir = "desc"
 	}
-	var wh where
-	f.build(&wh)
-	key := spec.key(o.Desc)
-	// Query direction: backward pages read the order in reverse.
-	asc := w.Forward != o.Desc
-	sqlDir, cmp := "ASC", ">"
-	if !asc {
-		sqlDir, cmp = "DESC", "<"
+	if w.Forward == o.Desc {
+		p.sqlDir, p.cmp = "DESC", "<"
 	}
 	if w.Cursor != nil {
 		field := "after"
@@ -182,47 +190,125 @@ func (s *Service) List(ctx context.Context, f Filter, o Order, a page.Args) (pag
 		}
 		c, err := page.Decode(*w.Cursor, field)
 		if err != nil {
-			return page.Result[Issue]{}, err
+			return listPlan{}, err
 		}
 		bad := kit.Input(field, kit.ReasonInvalidFormat, "cursor belongs to another order")
-		if c.F != string(o.Field) || c.D != dir {
-			return page.Result[Issue]{}, bad
+		if c.F != string(o.Field) || c.D != p.dir {
+			return listPlan{}, bad
 		}
 		v, err := spec.decode(c.V)
 		if err != nil {
-			return page.Result[Issue]{}, bad
+			return listPlan{}, bad
 		}
-		wh.add(fmt.Sprintf("(%s, i.id) %s (%%s::%s, %%s::uuid)", key, cmp, spec.cast), v, c.ID)
+		p.cursorKey, p.cursorID = v, &c.ID
 	}
-	sql := fmt.Sprintf(`SELECT %s, %s
+	return p, nil
+}
+
+// cursorCond adds the condition that starts the page after (or before) the cursor.
+func (p listPlan) cursorCond(wh *where) {
+	if p.cursorID != nil {
+		wh.add(fmt.Sprintf("(%s, i.id) %s (%%s::%s, %%s::uuid)", p.key, p.cmp, p.spec.cast), p.cursorKey, *p.cursorID)
+	}
+}
+
+// selectSQL is the query of one page of the issues that wh matches, with the
+// sort key last.
+func (p listPlan) selectSQL(wh *where) string {
+	return fmt.Sprintf(`SELECT %s, %s
 FROM issues i JOIN projects p ON p.id = i.project_id JOIN states st ON st.id = i.state_id
 WHERE %s
 ORDER BY %s %s, i.id %s
-LIMIT %s`, issueColumns, spec.out(o.Desc), wh.sql(), key, sqlDir, sqlDir, wh.arg(w.Limit+1))
+LIMIT %s`, issueColumns, p.spec.out(p.o.Desc), wh.sql(), p.key, p.sqlDir, p.sqlDir, wh.arg(p.w.Limit+1))
+}
 
-	rows, err := s.pool.Query(ctx, sql, wh.args...)
-	if err != nil {
-		return page.Result[Issue]{}, fmt.Errorf("list issues: %w", err)
-	}
-	listed, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (listedIssue, error) {
-		var i q.Issue
-		var projectKey string
-		var k any
-		err := r.Scan(&i.ID, &i.ProjectID, &i.Number, &i.Title, &i.Description, &i.StateID, &i.Priority,
-			&i.AssigneeID, &i.CreatorID, &i.ParentID, &i.DueDate, &i.SortOrder, &i.CreatedAt, &i.UpdatedAt,
-			&i.CompletedAt, &i.CanceledAt, &i.DeletedAt, &i.MilestoneID, &projectKey, &k)
-		return listedIssue{issue: toIssue(i, projectKey), key: k}, err
-	})
-	if err != nil {
-		return page.Result[Issue]{}, fmt.Errorf("list issues: %w", err)
-	}
-	res := page.Finish(listed, w, func(l listedIssue) string {
+// finish turns the rows of one page (read with one row extra) into the result.
+func (p listPlan) finish(listed []listedIssue) page.Result[Issue] {
+	res := page.Finish(listed, p.w, func(l listedIssue) string {
 		v, _ := json.Marshal(l.key)
-		return page.Encode(page.Cursor{F: string(o.Field), D: dir, V: v, ID: l.issue.ID})
+		return page.Encode(page.Cursor{F: string(p.o.Field), D: p.dir, V: v, ID: l.issue.ID})
 	})
 	out := page.Result[Issue]{Cursors: res.Cursors, Info: res.Info, Items: make([]Issue, len(res.Items))}
 	for i, l := range res.Items {
 		out.Items[i] = l.issue
+	}
+	return out
+}
+
+// scanListed reads an issue and its sort key, after the columns in lead.
+func scanListed(r pgx.CollectableRow, lead ...any) (listedIssue, error) {
+	var i q.Issue
+	var projectKey string
+	var k any
+	dst := make([]any, 0, len(lead)+20)
+	dst = append(dst, lead...)
+	dst = append(dst, &i.ID, &i.ProjectID, &i.Number, &i.Title, &i.Description, &i.StateID, &i.Priority,
+		&i.AssigneeID, &i.CreatorID, &i.ParentID, &i.DueDate, &i.SortOrder, &i.CreatedAt, &i.UpdatedAt,
+		&i.CompletedAt, &i.CanceledAt, &i.DeletedAt, &i.MilestoneID, &projectKey, &k)
+	err := r.Scan(dst...)
+	return listedIssue{issue: toIssue(i, projectKey), key: k}, err
+}
+
+// List returns live issues matching f in order o, one Relay page at a time.
+func (s *Service) List(ctx context.Context, f Filter, o Order, a page.Args) (page.Result[Issue], error) {
+	p, err := planList(o, a)
+	if err != nil {
+		return page.Result[Issue]{}, err
+	}
+	var wh where
+	f.build(&wh)
+	p.cursorCond(&wh)
+	rows, err := s.pool.Query(ctx, p.selectSQL(&wh), wh.args...)
+	if err != nil {
+		return page.Result[Issue]{}, fmt.Errorf("list issues: %w", err)
+	}
+	listed, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (listedIssue, error) { return scanListed(r) })
+	if err != nil {
+		return page.Result[Issue]{}, fmt.Errorf("list issues: %w", err)
+	}
+	return p.finish(listed), nil
+}
+
+// ChildrenOf returns one page of the live sub-issues of each parent (archived
+// projects included), as List does for a Parent filter, in one statement: the
+// order, the page size and the cursor apply to each parent on its own. Every
+// given parent has an entry, empty when it has no sub-issues.
+func (s *Service) ChildrenOf(ctx context.Context, parents []uuid.UUID, o Order, a page.Args) (map[uuid.UUID]page.Result[Issue], error) {
+	p, err := planList(o, a)
+	if err != nil {
+		return nil, err
+	}
+	ids := kit.Distinct(parents)
+	var wh where
+	parentsArg := wh.arg(ids)
+	Filter{IncludeArchived: true}.build(&wh)
+	wh.conds = append(wh.conds, "i.parent_id = par.id")
+	p.cursorCond(&wh)
+	sql := fmt.Sprintf("SELECT par.id, x.* FROM unnest(%s::uuid[]) AS par (id) CROSS JOIN LATERAL (%s) x", parentsArg, p.selectSQL(&wh))
+	rows, err := s.pool.Query(ctx, sql, wh.args...)
+	if err != nil {
+		return nil, fmt.Errorf("list sub-issues: %w", err)
+	}
+	type parented struct {
+		parent uuid.UUID
+		listed listedIssue
+	}
+	all, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (parented, error) {
+		var out parented
+		var err error
+		out.listed, err = scanListed(r, &out.parent)
+		return out, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list sub-issues: %w", err)
+	}
+	byParent := make(map[uuid.UUID][]listedIssue, len(ids))
+	for _, r := range all {
+		byParent[r.parent] = append(byParent[r.parent], r.listed)
+	}
+	out := make(map[uuid.UUID]page.Result[Issue], len(ids))
+	for _, id := range ids {
+		out[id] = p.finish(byParent[id])
 	}
 	return out, nil
 }

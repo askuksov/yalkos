@@ -288,26 +288,9 @@ const cursorField = "createdAt"
 
 // List returns the events of one entity, oldest first.
 func (s *Service) List(ctx context.Context, entityID uuid.UUID, a page.Args) (page.Result[Entry], error) {
-	w, err := a.Window()
+	w, at, id, err := window(a)
 	if err != nil {
 		return page.Result[Entry]{}, err
-	}
-	var at *time.Time
-	var id *uuid.UUID
-	if w.Cursor != nil {
-		field := "after"
-		if !w.Forward {
-			field = "before"
-		}
-		c, err := page.Decode(*w.Cursor, field)
-		if err != nil {
-			return page.Result[Entry]{}, err
-		}
-		var t time.Time
-		if c.F != cursorField || c.D != "asc" || json.Unmarshal(c.V, &t) != nil {
-			return page.Result[Entry]{}, kit.Input(field, kit.ReasonInvalidFormat, "invalid cursor")
-		}
-		at, id = &t, &c.ID
 	}
 	var rows []q.AuditEvent
 	if w.Forward {
@@ -322,15 +305,93 @@ func (s *Service) List(ctx context.Context, entityID uuid.UUID, a page.Args) (pa
 	if err != nil {
 		return page.Result[Entry]{}, fmt.Errorf("audit: list: %w", err)
 	}
+	entries, err := toEntries(rows)
+	if err != nil {
+		return page.Result[Entry]{}, err
+	}
+	return page.Finish(entries, w, entryCursor), nil
+}
+
+// ListMany is List for each of the given entities in one statement: the page
+// size and the cursor apply to each entity on its own. Every given entity has
+// an entry, empty when it has no events.
+func (s *Service) ListMany(ctx context.Context, entityIDs []uuid.UUID, a page.Args) (map[uuid.UUID]page.Result[Entry], error) {
+	w, at, id, err := window(a)
+	if err != nil {
+		return nil, err
+	}
+	ids := kit.Distinct(entityIDs)
+	var rows []q.AuditEvent
+	if w.Forward {
+		batch, err := s.q.ListAuditEventsForwardBatch(ctx, q.ListAuditEventsForwardBatchParams{
+			EntityIds: ids, AfterAt: at, AfterID: id, Lim: int32(w.Limit + 1),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("audit: list many: %w", err)
+		}
+		for _, r := range batch {
+			rows = append(rows, r.AuditEvent)
+		}
+	} else {
+		batch, err := s.q.ListAuditEventsBackwardBatch(ctx, q.ListAuditEventsBackwardBatchParams{
+			EntityIds: ids, BeforeAt: at, BeforeID: id, Lim: int32(w.Limit + 1),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("audit: list many: %w", err)
+		}
+		for _, r := range batch {
+			rows = append(rows, r.AuditEvent)
+		}
+	}
+	byEntity := make(map[uuid.UUID][]q.AuditEvent, len(ids))
+	for _, r := range rows {
+		byEntity[r.EntityID] = append(byEntity[r.EntityID], r)
+	}
+	out := make(map[uuid.UUID]page.Result[Entry], len(ids))
+	for _, e := range ids {
+		entries, err := toEntries(byEntity[e])
+		if err != nil {
+			return nil, err
+		}
+		out[e] = page.Finish(entries, w, entryCursor)
+	}
+	return out, nil
+}
+
+// window checks the page arguments and decodes the cursor, if any.
+func window(a page.Args) (page.Window, *time.Time, *uuid.UUID, error) {
+	w, err := a.Window()
+	if err != nil {
+		return w, nil, nil, err
+	}
+	if w.Cursor == nil {
+		return w, nil, nil, nil
+	}
+	field := "after"
+	if !w.Forward {
+		field = "before"
+	}
+	c, err := page.Decode(*w.Cursor, field)
+	if err != nil {
+		return w, nil, nil, err
+	}
+	var t time.Time
+	if c.F != cursorField || c.D != "asc" || json.Unmarshal(c.V, &t) != nil {
+		return w, nil, nil, kit.Input(field, kit.ReasonInvalidFormat, "invalid cursor")
+	}
+	return w, &t, &c.ID, nil
+}
+
+func toEntries(rows []q.AuditEvent) ([]Entry, error) {
 	entries := make([]Entry, 0, len(rows))
 	for _, r := range rows {
 		e, err := toEntry(r)
 		if err != nil {
-			return page.Result[Entry]{}, err
+			return nil, err
 		}
 		entries = append(entries, e)
 	}
-	return page.Finish(entries, w, entryCursor), nil
+	return entries, nil
 }
 
 func entryCursor(e Entry) string {
