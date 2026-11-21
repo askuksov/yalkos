@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -72,6 +72,23 @@ test("scrub removes a registered secret from a server log line", () => {
   assert.ok(!cleaned.includes("7EV2RUJH"));
   assert.ok(cleaned.includes("***"));
   resetMasks();
+});
+
+test("add-mask values are escaped and split by line, so the runner hides exactly them", async () => {
+  resetMasks();
+  const prev = process.env.GITHUB_ACTIONS;
+  process.env.GITHUB_ACTIONS = "true";
+  try {
+    const out = await capture(() => {
+      mask("pa%41ss%word");
+      mask("first line\r\nsecond%0Aline");
+    });
+    assert.deepEqual(out, ["::add-mask::pa%2541ss%25word", "::add-mask::first line", "::add-mask::second%250Aline"]);
+  } finally {
+    if (prev === undefined) delete process.env.GITHUB_ACTIONS;
+    else process.env.GITHUB_ACTIONS = prev;
+    resetMasks();
+  }
 });
 
 test("mask ignores empty and non-string values", () => {
@@ -214,6 +231,26 @@ test("a psql error that echoes the URL never carries the password", async () => 
       },
     );
   });
+});
+
+test("psql gets the password in PGPASSWORD, never in its arguments", async () => {
+  resetMasks();
+  const password = "Sup3r/S3cret Pw";
+  const url = `postgres://admin:${encodeURIComponent(password)}@127.0.0.1:1/postgres?sslmode=disable`;
+  const dir = mkdtempSync(join(tmpdir(), "yalkos-compat-psqlargs-"));
+  const out = join(dir, "seen");
+  try {
+    await withFakePsql(`printf '%s\\n' "$@" > "${out}"; printf 'PGPASSWORD=%s\\n' "$PGPASSWORD" >> "${out}"`, async () => {
+      createDatabase(url);
+    });
+    const seen = readFileSync(out, "utf8");
+    const [args, env] = [seen.slice(0, seen.indexOf("PGPASSWORD=")), seen.slice(seen.indexOf("PGPASSWORD="))];
+    assert.ok(!args.includes(password) && !args.includes(encodeURIComponent(password)), `password in argv: ${args}`);
+    assert.match(args, /^postgres:\/\/admin@127\.0\.0\.1:1\/postgres\?sslmode=disable$/m);
+    assert.equal(env.trim(), `PGPASSWORD=${password}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("a hung psql is killed after the timeout and the error names the statement, not the URL", async () => {

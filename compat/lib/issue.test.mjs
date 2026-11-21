@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { decide, issueBody, issueTitle, findOpen, manageIssue, main } from "./issue.mjs";
+import { compareVersions } from "./version.mjs";
 import { buildReport } from "./report.mjs";
 import { mask, resetMasks } from "./mask.mjs";
 
@@ -257,7 +258,7 @@ test("an invalid expected version is refused without gh", async () => {
   }
 });
 
-test("main reads the report file and fails on a missing or broken one", async (t) => {
+test("main reads the report file and files a TOOLING issue for a missing or broken one", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "compat-issue-test-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, "compat-report.json");
@@ -268,9 +269,14 @@ test("main reads the report file and fails on a missing or broken one", async (t
   assert.equal(mutations(calls).length, 0);
   assert.ok(logs.some((l) => l.includes("none")));
 
-  assert.equal(await main(args(path.join(dir, "missing.json")), MAIN_OPTS(gh)), 1);
-  fs.writeFileSync(file, "{ not json");
-  assert.equal(await main(args(file), MAIN_OPTS(gh)), 1);
+  for (const [what, target] of [["no report file", path.join(dir, "missing.json")], ["the report is not valid JSON", file]]) {
+    if (target === file) fs.writeFileSync(file, "{ not json");
+    const filed = fakeGh([]);
+    assert.equal(await main(args(target), MAIN_OPTS(filed.gh)), 0);
+    const [create] = mutations(filed.calls);
+    assert.deepEqual(create.args.slice(0, 4), ["issue", "create", "--title", `[compat] @linear/sdk ${EXPECTED}: TOOLING`]);
+    assert.ok(create.input.includes(what), create.input);
+  }
   // The expected version is required.
   assert.equal(await main([file, RUN_URL], MAIN_OPTS(gh)), 1);
   assert.equal(await main([file], MAIN_OPTS(gh)), 1);
@@ -425,4 +431,29 @@ test("an oversized summary is cut below the GitHub limit, inside the one fence, 
   // A small summary is left whole.
   const small = issueBody({ ...clean, steps: [] }, "101.2.0", RUN_URL);
   assert.ok(!small.includes("truncated"));
+});
+
+test("the issues of older versions are closed as superseded, newer ones and others' stay", async () => {
+  const open = [
+    { number: 1, title: "[compat] @linear/sdk 101.1.0: BREAK" },
+    { number: 2, title: "[compat] @linear/sdk 102.0.0-beta.3: DRIFT" },
+    { number: 3, title: "[compat] @linear/sdk 103.0.0: TOOLING" },
+    { number: 4, title: "[compat] @linear/sdk 99.0.0: BREAK", author: { login: "someone" } },
+    { number: 5, title: "[compat] @linear/sdk not-a-version: BREAK" },
+  ];
+  const { gh, calls } = fakeGh(open);
+  const outcome = await manageIssue({ report: reportOf("OK", "102.0.0"), runUrl: RUN_URL, gh, expectedVersion: "102.0.0" });
+  assert.deepEqual(outcome.closedOutdated, [1, 2]);
+  const closed = mutations(calls).map((c) => c.args.slice(0, 3));
+  assert.deepEqual(closed, [["issue", "close", "1"], ["issue", "close", "2"]]);
+  assert.ok(mutations(calls).every((c) => c.args.at(-1).includes("Superseded") && c.args.at(-1).includes("102.0.0")));
+});
+
+test("compareVersions orders releases and pre-releases", () => {
+  const sorted = ["101.0.0-alpha", "101.0.0-alpha.1", "101.0.0-alpha.beta", "101.0.0-beta.2", "101.0.0-beta.11", "101.0.0", "101.0.1", "101.1.0", "102.0.0"];
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = 0; j < sorted.length; j++) {
+      assert.equal(Math.sign(compareVersions(sorted[i], sorted[j])), Math.sign(i - j), `${sorted[i]} vs ${sorted[j]}`);
+    }
+  }
 });

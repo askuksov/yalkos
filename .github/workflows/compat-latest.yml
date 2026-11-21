@@ -22,7 +22,10 @@ env:
 
 jobs:
   # The newest SDK is code we do not control: it runs here, without a token
-  # that can write, and hands over nothing but the report artifact.
+  # that can write, and hands over nothing but the report artifact. It runs in
+  # a container that sees only a read-only copy of the repository, the report
+  # directory and the variables passed below, so neither the SDK nor its
+  # install scripts can reach the runner, its tokens or the Actions cache.
   latest:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -53,18 +56,31 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      - uses: pnpm/action-setup@v6
-        with:
-          package_json_file: compat/package.json
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
       # The runner context is not available in the job env, so the report
       # directory is set from the step environment.
       - name: Choose the report directory
-        run: echo "COMPAT_REPORT_DIR=$RUNNER_TEMP/compat-report" >> "$GITHUB_ENV"
+        run: |
+          echo "COMPAT_REPORT_DIR=$RUNNER_TEMP/compat-report" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/compat-report"
+      # Our own code: built on the runner, started by the checks in the container.
+      - name: Build the binary
+        run: make compat-bin
+      # Variables are passed by name, so their values never become part of a
+      # script. The container works on its own copy of the repository and uses
+      # the runner's Go (read-only) for the static check of the SDK documents.
       - id: check
-        run: make compat-latest
+        run: >-
+          docker run --rm --network host
+          -e COMPAT_DATABASE_URL -e COMPAT_SDK_VERSION -e GITHUB_ACTIONS -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+          -e COMPAT_REPORT_DIR=/report -e COMPAT_BIN=/work/bin/yalkos-host
+          -v "$GITHUB_WORKSPACE:/src:ro" -v "$COMPAT_REPORT_DIR:/report" -v "$(go env GOROOT):/opt/go:ro"
+          node:24-bookworm sh -ec '
+          export PATH=/opt/go/bin:$PATH;
+          apt-get update -qq && apt-get install -y -qq postgresql-client > /dev/null;
+          cp -r /src /work && cd /work/compat;
+          corepack enable && pnpm install --frozen-lockfile;
+          node run.mjs --mode latest'
+
       - name: Upload the report
         if: always()
         uses: actions/upload-artifact@v7
@@ -89,7 +105,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      # A run that crashed, timed out or was canceled may have left no report:
+      # the next step then opens a TOOLING issue instead of failing here.
       - uses: actions/download-artifact@v8
+        continue-on-error: true
         with:
           name: compat-report
           path: ${{ runner.temp }}/compat-report
@@ -102,8 +121,9 @@ jobs:
           if [ "$version" = latest ]; then
             version="$(npm view @linear/sdk version)"
           fi
-          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-            echo "not a plain version: $version" >&2
+          # The whole value must match, not just one of its lines.
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "not a plain version" >&2
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"

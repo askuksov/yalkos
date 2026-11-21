@@ -120,22 +120,41 @@ export async function run(ctx) {
     must(mine.length > 0 && mine.every((e) => wanted.every((k) => (e.updatedFromKeys ?? []).includes(k))), `${what}: expected updatedFrom keys including ${wanted.join(", ")}, got ${JSON.stringify(keys(mine))}`);
   };
 
+  // Registers a webhook through the SDK. Its mutation answers with the id only;
+  // the SDK then reads the webhook back with every field it knows. A newer SDK
+  // may ask for a field Yalkos lacks, which fails only that read-back: the
+  // webhook exists, so its secret is read through the native API instead and
+  // returned with the read error. The step still fails with that error, but the
+  // receiver gets the real secret, so later steps check deliveries rather than
+  // repeat this one additive failure as rejected signatures.
+  async function createViaSdk(input) {
+    const payload = await client.createWebhook(input);
+    assertEqual(payload.success, true, "success");
+    try {
+      return { webhook: await payload.webhook, readError: null };
+    } catch (e) {
+      const id = payload.webhookId;
+      if (!id) throw e;
+      const { webhook } = await natRead("query($id:ID!){webhook(id:$id){secret}}", { id });
+      return { webhook: { id, secret: webhook.secret }, readError: e };
+    }
+  }
+
   // State the steps hand to each other.
   const s = {};
 
   try {
     // ---------------------------------------------------------------- W1 registration
     await step("W1 A: createWebhook through the SDK for all projects, secret generated", async () => {
-      const payload = await client.createWebhook({
+      const { webhook, readError } = await createViaSdk({
         url: rx.A.url,
         allPublicTeams: true,
         resourceTypes: ["Issue", "Comment", "IssueLabel", "Project"],
       });
-      assertEqual(payload.success, true, "success");
-      const webhook = await payload.webhook;
       webhookIds.A = found(webhook?.id, "webhook id");
       secrets.A = mask(webhook.secret);
       rx.A.setSecret(secrets.A);
+      if (readError) throw readError;
       assertEqual(isShape(secrets.A), true, "secret has the generated shape (yal_wh_ + 40 base62)");
       assertEqual(webhook.allPublicTeams, true, "allPublicTeams");
       assertEqual(webhook.team ?? null, null, "team");
@@ -611,13 +630,10 @@ export async function run(ctx) {
 
     // ------------------------------------------------------------------------ W7 SDK reads
     await step("W7 A and B are registered again (their webhooks were removed by W6)", async () => {
-      const payload = await client.createWebhook({ url: rx.A.url, allPublicTeams: true, resourceTypes: ["Issue", "Comment", "IssueLabel", "Project"] });
-      assertEqual(payload.success, true, "success");
-      const webhook = await payload.webhook;
+      const { webhook, readError } = await createViaSdk({ url: rx.A.url, allPublicTeams: true, resourceTypes: ["Issue", "Comment", "IssueLabel", "Project"] });
       webhookIds.A = found(webhook?.id, "webhook id");
       secrets.A = mask(webhook.secret);
       rx.A.setSecret(secrets.A);
-      assertEqual(isShape(secrets.A), true, "secret of A has the generated shape");
       const own = mask(`compat-b-${randomBytes(12).toString("hex")}`);
       const data = await nat(
         "mutation($i:CreateWebhookInput!){createWebhook(input:$i){id}}",
@@ -626,6 +642,8 @@ export async function run(ctx) {
       webhookIds.B = found(data.createWebhook?.id, "webhook id");
       secrets.B = own;
       rx.B.setSecret(own);
+      if (readError) throw readError;
+      assertEqual(isShape(secrets.A), true, "secret of A has the generated shape");
     });
     await step("W7 client.webhooks() returns the three webhooks with their resource types", async () => {
       const list = await client.webhooks();
@@ -683,11 +701,10 @@ export async function run(ctx) {
 
     // ---------------------------------------------------------------------- W8 /graphql CRUD
     await step("W8 createWebhook with a team key, a label and enabled false", async () => {
-      const payload = await client.createWebhook({ url: rx.C.url, teamId: alp.key, resourceTypes: ["Issue"], label: "compat tmp", enabled: false });
-      assertEqual(payload.success, true, "success");
-      const webhook = await payload.webhook;
+      const { webhook, readError } = await createViaSdk({ url: rx.C.url, teamId: alp.key, resourceTypes: ["Issue"], label: "compat tmp", enabled: false });
       s.crud = found(webhook?.id, "webhook id");
       mask(webhook.secret);
+      if (readError) throw readError;
       assertEqual((await webhook.team)?.id, alp.id, "team");
       assertEqual(webhook.label, "compat tmp", "label");
       assertEqual(webhook.enabled, false, "enabled");
