@@ -7,7 +7,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { armDeadline, deadlineMinutes, DEFAULT_DEADLINE_MINUTES, isValidSdkVersion, runChecks, runLatest } from "./run.mjs";
+import { armDeadline, deadlineMinutes, DEFAULT_DEADLINE_MINUTES, isValidSdkVersion, pnpm, runChecks, runLatest, timeLeft } from "./run.mjs";
 import { createRunner } from "./lib/check.mjs";
 import { clearReport } from "./lib/report.mjs";
 
@@ -253,4 +253,18 @@ test("the deadline comes from COMPAT_DEADLINE_MINUTES, with a default below the 
   assert.equal(deadlineMinutes({ COMPAT_DEADLINE_MINUTES: "3" }), 3);
   for (const bad of ["0", "-1", "soon", ""]) assert.equal(deadlineMinutes({ COMPAT_DEADLINE_MINUTES: bad }), DEFAULT_DEADLINE_MINUTES);
   assert.ok(DEFAULT_DEADLINE_MINUTES < 15);
+});
+
+test("a synchronous pnpm that outlives the deadline is killed and fails with a deadline error", (t) => {
+  const reportDir = tmpDir(t);
+  assert.equal(timeLeft(), undefined);
+  const disarm = armDeadline({ reportDir }, 0.02, { kill: () => {}, exit: () => {} });
+  t.after(disarm);
+  const left = timeLeft();
+  assert.ok(Number.isInteger(left) && left > 0 && left <= 1200, `time left ${left}`);
+  const started = Date.now();
+  assert.throws(() => pnpm({ pnpm: ["sh", "-c", "sleep 30"] }, ["install"], reportDir), /did not finish before the run deadline/);
+  assert.ok(Date.now() - started < 10_000, "the hung install was not killed");
+  disarm();
+  assert.equal(timeLeft(), undefined);
 });

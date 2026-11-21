@@ -237,9 +237,13 @@ async function runStage(stage, ctx) {
 
 // --- latest: a throwaway copy with the newest SDK, then the inner run ---
 
-function pnpm(opts, args, cwd) {
+// Runs pnpm synchronously. A synchronous child blocks the deadline timer, so
+// it gets the time left before the deadline as its own timeout; one that runs
+// out of it is killed and reported like any failed install (TOOLING).
+export function pnpm(opts, args, cwd) {
   const [cmd, ...pre] = opts.pnpm;
-  const r = spawnSync(cmd, [...pre, ...args], { cwd, stdio: "inherit", env: process.env });
+  const r = spawnSync(cmd, [...pre, ...args], { cwd, stdio: "inherit", env: process.env, timeout: timeLeft(), killSignal: "SIGKILL" });
+  if (r.error?.code === "ETIMEDOUT") throw new Error(`${opts.pnpm.join(" ")} ${args.join(" ")} did not finish before the run deadline`);
   if (r.error) throw new Error(`cannot run ${opts.pnpm.join(" ")}: ${r.error.message}`);
   if (r.status !== 0) throw new Error(`${opts.pnpm.join(" ")} ${args.join(" ")} exited with ${r.status}`);
 }
@@ -349,7 +353,17 @@ export function deadlineMinutes(env) {
 // inner run is stopped, and this process gets SIGTERM, which runs the cleanup
 // (instance, database, temporary copy) of whatever is in progress. Returns a
 // function that disarms it.
+// When the armed deadline passes (ms since the epoch), or null.
+let deadlineAt = null;
+
+// The milliseconds left before the deadline (at least 1), or undefined when
+// none is armed.
+export function timeLeft() {
+  return deadlineAt === null ? undefined : Math.max(1, Math.floor(deadlineAt - Date.now()));
+}
+
 export function armDeadline(opts, minutes, { kill = (pid, sig) => process.kill(pid, sig), exit = (code) => process.exit(code) } = {}) {
+  deadlineAt = Date.now() + minutes * 60_000;
   const timer = setTimeout(() => {
     const text = `the run did not finish within ${minutes} min (COMPAT_DEADLINE_MINUTES)`;
     console.error(text);
@@ -360,7 +374,10 @@ export function armDeadline(opts, minutes, { kill = (pid, sig) => process.kill(p
     setTimeout(() => exit(1), 60_000).unref();
   }, minutes * 60_000);
   timer.unref();
-  return () => clearTimeout(timer);
+  return () => {
+    clearTimeout(timer);
+    deadlineAt = null;
+  };
 }
 
 // --- main ---

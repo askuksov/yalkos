@@ -175,7 +175,7 @@ describe('issue list', () => {
     serve(
       withGroups({ 's-todo': [todo(1), todo(2)] }, {}, {
         DeleteIssue: (v: Vars) => {
-          if (v?.id === 'i1') throw new GraphQLRequestError('NOT_FOUND', 'Issue not found')
+          if (v?.id === 'i1') throw new GraphQLRequestError('INTERNAL_ERROR', 'boom')
           return late.promise
         },
       }),
@@ -195,7 +195,7 @@ describe('issue list', () => {
     expect(callsOf('IssueGroup')).toHaveLength(before)
 
     late.resolve({ deleteIssue: true })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Not found.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong on the server. Try again.')
     expect(screen.queryByText('2 issues deleted')).not.toBeInTheDocument()
     await waitFor(() => expect(callsOf('IssueGroup').length).toBeGreaterThan(before))
   })
@@ -230,6 +230,25 @@ describe('issue list', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
     expect(await screen.findByText('1 issue deleted')).toBeInTheDocument()
     expect(callsOf('DeleteIssue').map((v) => v.id).sort()).toEqual(['i1', 'i1', 'i2'])
+    await waitFor(() => expect(screen.queryByRole('toolbar')).not.toBeInTheDocument())
+  })
+
+  it('counts a retry answered with NOT_FOUND as deleted: the timed-out first attempt went through', async () => {
+    let first = true
+    const dialog = await confirmToolbarDelete((v) => {
+      if (v?.id === 'i1') {
+        if (first) {
+          first = false
+          throw new GraphQLRequestError('TIMEOUT', 'Request timed out')
+        }
+        throw new GraphQLRequestError('NOT_FOUND', 'Issue not found')
+      }
+      return { deleteIssue: true }
+    })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('The server took too long to answer. Try again.')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    expect(await screen.findByText('1 issue deleted')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('toolbar')).not.toBeInTheDocument())
   })
 

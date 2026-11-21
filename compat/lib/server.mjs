@@ -63,7 +63,9 @@ export function maskUrlPassword(url) {
 }
 
 // Splits the password off a database URL: psql gets it in PGPASSWORD, so it
-// never shows in the process list. A URL that does not parse is passed as is.
+// never shows in the process list. libpq takes a password from the userinfo
+// part or from a password query parameter, the latter winning when both are
+// given; both are removed from the URL. A URL that does not parse is passed as is.
 export function psqlTarget(url) {
   let u;
   try {
@@ -71,14 +73,22 @@ export function psqlTarget(url) {
   } catch {
     return { url, password: null };
   }
-  if (!u.password) return { url, password: null };
-  let password = u.password;
-  try {
-    password = decodeURIComponent(u.password);
-  } catch {
-    // malformed escape: the raw form is the best guess
+  let password = null;
+  if (u.password) {
+    password = u.password;
+    try {
+      password = decodeURIComponent(u.password);
+    } catch {
+      // malformed escape: the raw form is the best guess
+    }
+    u.password = "";
   }
-  u.password = "";
+  if (u.searchParams.has("password")) {
+    password = u.searchParams.get("password");
+    u.searchParams.delete("password");
+  }
+  // The same length rule as maskUrlPassword: the short local password stays readable.
+  if (password !== null && password.length >= 8) mask(password);
   return { url: u.toString(), password };
 }
 

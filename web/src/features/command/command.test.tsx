@@ -165,7 +165,7 @@ describe('palette deletion of checked issues', () => {
     const late = deferred<{ deleteIssue: boolean }>()
     const { dialog, before } = await confirmDeleteOfTwo({
       DeleteIssue: (v: Vars) => {
-        if (v?.id === 'i1') throw new GraphQLRequestError('NOT_FOUND', 'Issue not found')
+        if (v?.id === 'i1') throw new GraphQLRequestError('INTERNAL_ERROR', 'boom')
         return late.promise
       },
     })
@@ -173,7 +173,7 @@ describe('palette deletion of checked issues', () => {
     expect(callsOf('IssueGroup')).toHaveLength(before)
 
     late.resolve({ deleteIssue: true })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Not found.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong on the server. Try again.')
     expect(screen.queryByText('2 issues deleted')).not.toBeInTheDocument()
     expect(dialog).toBeVisible()
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/my-issues$/)

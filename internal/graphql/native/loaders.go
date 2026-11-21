@@ -156,6 +156,10 @@ var loaderWait = time.Millisecond
 
 func newLoaders(d Deps) *loaders {
 	opt := dataloadgen.WithWait(loaderWait)
+	// Sub-issues and history change with the mutations of the same request
+	// (two updateIssue fields, each selecting its history): these loaders batch
+	// but keep no results, so a read after a write sees it.
+	fresh := dataloadgen.WithoutCache()
 	return &loaders{
 		users: dataloadgen.NewLoader(byID("User", func(ctx context.Context, ids []uuid.UUID) ([]account.User, error) {
 			return d.Accounts.UsersByIDs(ctx, ids)
@@ -205,13 +209,13 @@ func newLoaders(d Deps) *loaders {
 			func(k childrenKey) childrenGroup { return k.childrenGroup },
 			func(ctx context.Context, ids []uuid.UUID, g childrenGroup) (map[uuid.UUID]page.Result[issue.Issue], error) {
 				return d.Issues.ChildrenOf(ctx, ids, g.order, g.page.args())
-			}), opt),
+			}), opt, fresh),
 		history: dataloadgen.NewLoader(pagedBatch(
 			func(k historyKey) uuid.UUID { return k.entity },
 			func(k historyKey) pageKey { return k.page },
 			func(ctx context.Context, ids []uuid.UUID, p pageKey) (map[uuid.UUID]page.Result[audit.Entry], error) {
 				return d.Audit.ListMany(ctx, ids, p.args())
-			}), opt),
+			}), opt, fresh),
 	}
 }
 
