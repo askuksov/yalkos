@@ -62,12 +62,36 @@ export function maskUrlPassword(url) {
   }
 }
 
+// Splits the password off a database URL: psql gets it in PGPASSWORD, so it
+// never shows in the process list. A URL that does not parse is passed as is.
+export function psqlTarget(url) {
+  let u;
+  try {
+    u = new URL(url);
+  } catch {
+    return { url, password: null };
+  }
+  if (!u.password) return { url, password: null };
+  let password = u.password;
+  try {
+    password = decodeURIComponent(u.password);
+  } catch {
+    // malformed escape: the raw form is the best guess
+  }
+  u.password = "";
+  return { url: u.toString(), password };
+}
+
 function psql(url, sql, timeoutMs) {
   maskUrlPassword(url);
-  const r = spawnSync("psql", [url, "-v", "ON_ERROR_STOP=1", "-X", "-q", "-c", sql], {
+  const target = psqlTarget(url);
+  const env = { ...process.env };
+  if (target.password !== null) env.PGPASSWORD = target.password;
+  const r = spawnSync("psql", [target.url, "-v", "ON_ERROR_STOP=1", "-X", "-q", "-c", sql], {
     encoding: "utf8",
     timeout: timeoutMs,
     killSignal: "SIGKILL",
+    env,
   });
   if (r.error?.code === "ETIMEDOUT") {
     // Name the statement, never the URL.

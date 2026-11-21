@@ -3,12 +3,27 @@
 
 const secrets = new Set();
 
+// Escapes a value for a workflow command: the runner decodes %25, %0D and %0A,
+// so a raw % (say, in a password) would otherwise hide a different value.
+export function escapeCommandValue(value) {
+  return value.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A");
+}
+
+// The ::add-mask:: lines for value: one per line of it, since the runner
+// matches a masked value within a single log line.
+export function maskCommands(value) {
+  return value
+    .split(/\r?\n/)
+    .filter((line) => line !== "")
+    .map((line) => `::add-mask::${escapeCommandValue(line)}`);
+}
+
 // Registers a secret for scrubbing. In GitHub Actions it also asks the runner
 // to hide the value in all later log output (once per value).
 export function mask(value) {
   if (typeof value !== "string" || value === "" || secrets.has(value)) return value;
   secrets.add(value);
-  if (process.env.GITHUB_ACTIONS === "true") console.log(`::add-mask::${value}`);
+  if (process.env.GITHUB_ACTIONS === "true") for (const line of maskCommands(value)) console.log(line);
   return value;
 }
 

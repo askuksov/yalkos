@@ -6,16 +6,17 @@
 //
 // There is one issue per SDK version, titled "[compat] @linear/sdk <version>:
 // <RESULT>". A result that needs attention opens it, a changed result adds a
-// comment and renames it, and a passing result closes it. The gh CLI does the
-// work (in CI it uses the job's token); texts go in through stdin, never through
-// a shell.
+// comment and renames it, and a passing result closes it. A run that left no
+// report opens a TOOLING issue, and the issues of older versions are closed as
+// superseded. The gh CLI does the work (in CI it uses the job's token); texts
+// go in through stdin, never through a shell.
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { render } from "./report.mjs";
 import { scrub } from "./mask.mjs";
-import { isSemver } from "./version.mjs";
+import { compareVersions, isSemver } from "./version.mjs";
 
 const PASSING = new Set(["OK", "INFO"]);
 const ATTENTION = new Set(["DRIFT", "BREAK", "TOOLING"]);
@@ -78,6 +79,43 @@ export function findOpen(version, gh = runGh) {
   const exact = `${PREFIX} ${version}:`;
   const found = issues.find((i) => i?.author?.login === BOT_LOGIN && typeof i.title === "string" && i.title.startsWith(exact));
   return found ? { number: found.number, title: found.title } : null;
+}
+
+// The open issues the workflow opened for versions older than version, which a
+// newer check makes outdated: the daily run checks only the newest SDK.
+export function findOutdated(version, gh = runGh) {
+  const out = gh([
+    "issue",
+    "list",
+    "--state",
+    "open",
+    "--search",
+    `"${PREFIX}" in:title author:${BOT_LOGIN}`,
+    "--json",
+    "number,title,author",
+    "--limit",
+    "100",
+  ]);
+  const issues = JSON.parse(out || "[]");
+  const pattern = /^\[compat\] @linear\/sdk (\S+): /;
+  return issues
+    .filter((i) => i?.author?.login === BOT_LOGIN && typeof i.title === "string")
+    .map((i) => ({ number: i.number, title: i.title, version: pattern.exec(i.title)?.[1] }))
+    .filter((i) => isSemver(i.version) && compareVersions(i.version, version) < 0)
+    .map(({ number, title }) => ({ number, title }));
+}
+
+// A report for a run that left none (it crashed, timed out or was canceled):
+// a TOOLING result with a fixed text, nothing taken from the run.
+export function missingReport(why) {
+  return {
+    candidate: null,
+    baseline: null,
+    result: "TOOLING",
+    documents: { extracted: 0, valid: 0 },
+    steps: [],
+    errors: [`the check finished without a usable report (${why}); see the run log`],
+  };
 }
 
 // A bounded text without backticks (so it cannot end a code block early).
@@ -173,7 +211,11 @@ export async function manageIssue({ report, runUrl, gh = runGh, expectedVersion 
       gh(["issue", "close", String(open.number), "--comment", `\`@linear/sdk\` ${version} now passes. Run: ${runUrl}`]);
       break;
   }
-  return { ...decision, number: open?.number ?? null };
+  const outdated = findOutdated(version, gh);
+  for (const old of outdated) {
+    gh(["issue", "close", String(old.number), "--comment", `Superseded: the daily check now runs \`@linear/sdk\` ${version}. Run: ${runUrl}`]);
+  }
+  return { ...decision, number: open?.number ?? null, closedOutdated: outdated.map((o) => o.number) };
 }
 
 // Returns the exit code.
@@ -183,12 +225,15 @@ export async function main(argv, { gh = runGh, log = console.log } = {}) {
     console.error("usage: node issue.mjs <compat-report.json> <run-url> --expected-version <version>");
     return 1;
   }
+  // No report, or one that is not JSON: the run broke before it could write
+  // one, which still needs an issue.
   let report;
   try {
     report = JSON.parse(fs.readFileSync(reportFile, "utf8"));
   } catch (err) {
+    const why = err?.code === "ENOENT" ? "no report file" : "the report is not valid JSON";
     console.error(scrub(`cannot read the report ${reportFile}: ${err.message}`));
-    return 1;
+    report = missingReport(why);
   }
   try {
     const out = await manageIssue({ report, runUrl, gh, expectedVersion });

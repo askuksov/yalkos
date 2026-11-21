@@ -62,7 +62,7 @@ warn = @printf '$(YELLOW)! %s$(NC)\n' '$(1)'
 	shell web-shell db-up db-down db-shell db-logs migrate-up migrate-down migrate-status \
 	build web-deps build-web build-go docker \
 	generate check-generated fmt lint check \
-	test test-go test-web compat compat-latest \
+	test test-go test-web compat-bin compat compat-latest \
 	clean clean-all
 
 # =============================================================================
@@ -250,18 +250,18 @@ COMPAT_DATABASE_URL ?= postgres://yalkos:$(YALKOS_DB_PASSWORD)@localhost:$(YALKO
 COMPAT_PNPM         ?= pnpm
 export COMPAT_DATABASE_URL
 
-compat: $(if $(filter host,$(TOOLS)),,db-up) ## Run the SDK and webhook compatibility checks against a local build
+compat-bin: ## Build bin/yalkos-host, the binary the compatibility checks start
 	$(call step,Building bin/yalkos-host)
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/yalkos-host ./cmd/yalkos
+
+compat: $(if $(filter host,$(TOOLS)),,db-up) compat-bin ## Run the SDK and webhook compatibility checks against a local build
 	$(call step,Installing compatibility check dependencies)
 	cd compat && $(COMPAT_PNPM) install --frozen-lockfile
 	$(call step,Running compatibility checks)
 	cd compat && COMPAT_BIN=../bin/yalkos-host node run.mjs
 	$(call done,Compatibility checks passed)
 
-compat-latest: $(if $(filter host,$(TOOLS)),,db-up) ## Run the compatibility checks with the newest SDK version (never touches the lockfile)
-	$(call step,Building bin/yalkos-host)
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/yalkos-host ./cmd/yalkos
+compat-latest: $(if $(filter host,$(TOOLS)),,db-up) compat-bin ## Run the compatibility checks with the newest SDK version (never touches the lockfile)
 	$(call step,Installing compatibility check dependencies)
 	cd compat && $(COMPAT_PNPM) install --frozen-lockfile
 	$(call step,Running compatibility checks with the newest SDK)

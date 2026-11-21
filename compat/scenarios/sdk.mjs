@@ -152,14 +152,14 @@ export async function run(ctx) {
       issue.project,
       issue.creator,
     ]);
-    assertEqual(state?.id, todo.id, "state");
-    assertEqual(team?.id, alpTeam.id, "team");
-    assertEqual(assignee?.id, me.id, "assignee");
+    assertEqual(state?.id, need(todo, "state Todo", "team.states").id, "state");
+    assertEqual(team?.id, need(alpTeam, "team", "teams").id, "team");
+    assertEqual(assignee?.id, need(me, "viewer", "viewer").id, "assignee");
     assertEqual(project?.id, milestone.id, "project");
-    assertEqual(creator?.id, me.id, "creator");
+    assertEqual(creator?.id, need(me, "viewer", "viewer").id, "creator");
     const viaPayload = await need(createPayload, "create payload", "createIssue with labels, assignee, project, due date").issue;
     assertEqual(viaPayload?.id, issue.id, "payload.issue");
-    assertEqual((await viaPayload.team)?.id, alpTeam.id, "payload.issue team");
+    assertEqual((await viaPayload.team)?.id, need(alpTeam, "team", "teams").id, "payload.issue team");
   });
 
   await runner.step("issue by lower-cased identifier", async () => {
@@ -169,39 +169,39 @@ export async function run(ctx) {
 
   await runner.step("updateIssue state, assignee, removed label", async () => {
     const payload = await client.updateIssue(need(created, "issue", "createIssue with labels, assignee, project, due date").id, {
-      stateId: inProgress.id,
-      assigneeId: memberUser.id,
+      stateId: need(inProgress, "started state", "team.states").id,
+      assigneeId: need(memberUser, "member", "users").id,
       addedLabelIds: [],
-      removedLabelIds: [bug.id],
+      removedLabelIds: [need(bug, "label", "createIssueLabel, updateIssueLabel").id],
     });
     const issue = await payload.issue;
     const [state, assignee] = await Promise.all([issue.state, issue.assignee]);
     assertEqual(state?.type, "started", "state type");
-    assertEqual(assignee?.id, memberUser.id, "assignee");
+    assertEqual(assignee?.id, need(memberUser, "member", "users").id, "assignee");
     assertEqual(issue.labelIds.includes(bug.id), false, "label removed");
   });
 
   await runner.step("issues filters", async () => {
     need(child, "sub-issue", "sub-issue with parentId");
-    await client.updateIssue(child.id, { labelIds: [bug.id], assigneeId: me.id });
+    await client.updateIssue(child.id, { labelIds: [need(bug, "label", "createIssueLabel, updateIssueLabel").id], assigneeId: need(me, "viewer", "viewer").id });
     const childFresh = await client.issue(child.id);
     const childState = await childFresh.state;
     // What each issue of this run looks like now; the expected sets follow from it.
     const model = [
-      { identifier: createdIdentifier, title: titles.created, priority: 2, assigneeId: memberUser.id, stateType: "started", labelIds: [] },
+      { identifier: createdIdentifier, title: titles.created, priority: 2, assigneeId: need(memberUser, "member", "users").id, stateType: "started", labelIds: [] },
       {
         identifier: childIdentifier,
         title: titles.child,
         priority: childFresh.priority,
-        assigneeId: me.id,
+        assigneeId: need(me, "viewer", "viewer").id,
         stateType: childState.type,
-        labelIds: [bug.id],
+        labelIds: [need(bug, "label", "createIssueLabel, updateIssueLabel").id],
       },
     ];
     const expected = (pred) => ids(model.filter(pred));
     const got = async (filter) => ids((await client.issues({ filter })).nodes);
 
-    assertMultiset(await got({ assignee: { isMe: { eq: true } } }), expected((i) => i.assigneeId === me.id), "isMe");
+    assertMultiset(await got({ assignee: { isMe: { eq: true } } }), expected((i) => i.assigneeId === need(me, "viewer", "viewer").id), "isMe");
     assertMultiset(await got({ state: { type: { eq: "started" } } }), expected((i) => i.stateType === "started"), "state type");
     assertMultiset(await got({ labels: { name: { eq: bug.name } } }), expected((i) => i.labelIds.includes(bug.id)), "label name");
     assertMultiset(
@@ -239,7 +239,7 @@ export async function run(ctx) {
 
   await runner.step("move to the other team", async () => {
     need(createdIdentifier, "identifier", "createIssue with labels, assignee, project, due date");
-    const payload = await client.updateIssue(created.id, { teamId: betTeam.id, stateId: betDone.id });
+    const payload = await client.updateIssue(created.id, { teamId: need(betTeam, "team", "teams").id, stateId: need(betDone, "completed state", "team.states").id });
     const issue = await payload.issue;
     movedIdentifier = issue.identifier;
     assertMatch(movedIdentifier, new RegExp(`^${bet.key}-\\d+$`), "new identifier");
@@ -252,7 +252,7 @@ export async function run(ctx) {
     // A sub-issue follows its parent to the other team, so the target is whichever
     // team the sub-issue is not in now.
     const current = await (await client.issue(need(child, "sub-issue", "sub-issue with parentId").id)).team;
-    const target = current?.id === alpTeam.id ? betTeam : alpTeam;
+    const target = need(current?.id === need(alpTeam, "team", "teams").id ? betTeam : alpTeam, "team", "teams");
     const e = await rejection(() => client.updateIssue(child.id, { teamId: target.id, title: "x" }), "move with a title");
     if (!(e instanceof InvalidInputLinearError)) {
       throw new StepFailure(`expected InvalidInputLinearError, got ${describeError(e)}`);
