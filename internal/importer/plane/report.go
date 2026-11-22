@@ -235,6 +235,11 @@ func (r *Report) WriteText(w io.Writer) {
 		tw.line("Import from %s.", src)
 	}
 
+	if len(r.Projects) == 0 && len(r.Conflicts) == 0 {
+		tw.line("")
+		tw.line("Nothing to import.")
+	}
+
 	if len(r.Conflicts) > 0 {
 		tw.line("")
 		tw.line("Conflicts, nothing can be written until they are resolved:")

@@ -30,28 +30,31 @@ const maxTitle = 255
 // files into store (at most maxUpload bytes each), and then writes the issue
 // with its comments and attachments in one transaction, so a stop leaves no
 // half issue. A Plane number taken in Yalkos gets the project's next free
-// one. progress (may be nil) is called every 50 issues and at the end of
-// each project with the project key and the issues done and planned.
+// one. progress (may be nil) is called at the start and the end of each
+// project and every 50 issues, with the project key and the issues done and
+// planned.
 func (w *Writer) Issues(ctx context.Context, c *Client, store blob.Store, maxUpload int64, p Plan, ex *Existing,
 	progress func(key string, done, total int)) error {
+	if progress == nil {
+		progress = func(string, int, int) {}
+	}
+	pw := w.newProjectWriter(c, store, maxUpload, p, ex)
+	for i := range p.Projects {
+		if err := pw.write(ctx, &p.Projects[i], progress); err != nil {
+			return fmt.Errorf("project %s: %w", p.Projects[i].Key, err)
+		}
+	}
+	return nil
+}
+
+// newProjectWriter prepares the writing of issues and comments: ex gets its
+// empty maps, and the labels of the import get their names for the report.
+func (w *Writer) newProjectWriter(c *Client, store blob.Store, maxUpload int64, p Plan, ex *Existing) *projectWriter {
 	r := p.Report
 	if r == nil {
 		r = &Report{}
 	}
-	if ex.Map == nil {
-		ex.Map = map[string]map[string]uuid.UUID{}
-	}
-	for _, kind := range mapKinds {
-		if ex.Map[kind] == nil {
-			ex.Map[kind] = map[string]uuid.UUID{}
-		}
-	}
-	if ex.Updated == nil {
-		ex.Updated = map[string]time.Time{}
-	}
-	if progress == nil {
-		progress = func(string, int, int) {}
-	}
+	ex.ready()
 	pw := &projectWriter{
 		w: w, c: c, store: store, limit: maxUpload, ex: ex, r: r, names: newIssueNamer(c, w.q, ex, p),
 		labelNames: map[uuid.UUID]string{}, labelsGone: map[uuid.UUID]bool{},
@@ -64,12 +67,7 @@ func (w *Writer) Issues(ctx context.Context, c *Client, store blob.Store, maxUpl
 			pw.labelNames[id] = l.Name
 		}
 	}
-	for i := range p.Projects {
-		if err := pw.write(ctx, &p.Projects[i], progress); err != nil {
-			return fmt.Errorf("project %s: %w", p.Projects[i].Key, err)
-		}
-	}
-	return nil
+	return pw
 }
 
 // projectWriter writes the issues of one project at a time.
@@ -134,6 +132,7 @@ func (pw *projectWriter) write(ctx context.Context, pp *ProjectPlan, progress fu
 		}
 	}
 	total := len(pp.Issues)
+	progress(pp.Key, 0, total)
 	for n := range pp.Issues {
 		is := &pp.Issues[n]
 		if _, done := pw.ex.mapped(kindIssue, is.Item.ID); !done {
@@ -183,23 +182,11 @@ func (pw *projectWriter) read(ctx context.Context, is *IssuePlan, out *issueOutc
 	}
 	out.unresolved = unresolved
 
-	var live []Comment
-	for _, cm := range comments {
-		if cm.DeletedAt != nil {
-			out.deletedCmts++
-			continue
-		}
-		live = append(live, cm)
-	}
-	slices.SortStableFunc(live, func(a, b Comment) int {
-		return cmp.Or(a.CreatedAt.Compare(b.CreatedAt), cmp.Compare(a.ID, b.ID))
-	})
+	live, deleted := liveComments(comments)
+	out.deletedCmts = deleted
 
 	created := orTime(it.CreatedAt, pw.w.now())
-	files := &issueFiles{
-		c: pw.c, store: pw.store, limit: pw.limit, pid: pid, iid: it.ID, key: is.Key, ex: pw.ex, out: out,
-		byPlane: map[string]*storedFile{},
-	}
+	files := pw.newFiles(it.ID, is.Key, out)
 	for _, a := range atts {
 		if !a.IsUploaded {
 			files.notUploaded(a.ID, a.Name)
@@ -214,12 +201,8 @@ func (pw *projectWriter) read(ctx context.Context, is *IssuePlan, out *issueOutc
 			return issueText{}, err
 		}
 	}
-	for _, cm := range live {
-		for _, id := range imagesOf(cm.CommentHTML) {
-			if err := files.fetch(ctx, id, "", 0, *pw.w.creator(cm.Actor), orTime(cm.CreatedAt, created)); err != nil {
-				return issueText{}, err
-			}
-		}
+	if err := pw.commentImages(ctx, files, live, created); err != nil {
+		return issueText{}, err
 	}
 
 	t := issueText{comments: live, files: files}
@@ -240,20 +223,68 @@ func (pw *projectWriter) read(ctx context.Context, is *IssuePlan, out *issueOutc
 	if t.description, cut = describe(body, linkLines(links), relLines); cut {
 		out.cutTexts = append(out.cutTexts, is.Key+" (description)")
 	}
-	for _, cm := range live {
+	if t.bodies, err = pw.commentBodies(ctx, live, files, out); err != nil {
+		return issueText{}, err
+	}
+	return t, nil
+}
+
+// liveComments returns the comments Plane has not deleted, oldest first, and
+// the number of deleted ones.
+func liveComments(comments []Comment) (live []Comment, deleted int) {
+	for _, cm := range comments {
+		if cm.DeletedAt != nil {
+			deleted++
+			continue
+		}
+		live = append(live, cm)
+	}
+	slices.SortStableFunc(live, func(a, b Comment) int {
+		return cmp.Or(a.CreatedAt.Compare(b.CreatedAt), cmp.Compare(a.ID, b.ID))
+	})
+	return live, deleted
+}
+
+// newFiles starts copying the files of the work item iid of the current
+// project; key names it in the report.
+func (pw *projectWriter) newFiles(iid, key string, out *issueOutcome) *issueFiles {
+	return &issueFiles{
+		c: pw.c, store: pw.store, limit: pw.limit, pid: pw.pp.Data.ID, iid: iid, key: key, ex: pw.ex, out: out,
+		byPlane: map[string]*storedFile{},
+	}
+}
+
+// commentImages copies the images of comments; fallback is the time of a
+// comment Plane gives none (the issue's creation).
+func (pw *projectWriter) commentImages(ctx context.Context, files *issueFiles, comments []Comment, fallback time.Time) error {
+	for _, cm := range comments {
+		for _, id := range imagesOf(cm.CommentHTML) {
+			if err := files.fetch(ctx, id, "", 0, *pw.w.creator(cm.Actor), orTime(cm.CreatedAt, fallback)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// commentBodies converts comments to Markdown, after their images are copied.
+func (pw *projectWriter) commentBodies(ctx context.Context, comments []Comment, files *issueFiles, out *issueOutcome) ([]string, error) {
+	bodies := make([]string, 0, len(comments))
+	for _, cm := range comments {
 		body, err := pw.w.convert(ctx, cm.CommentHTML, pw.names, files, out)
 		if err != nil {
-			return issueText{}, err
+			return nil, err
 		}
 		if body == "" {
 			body = emptyComment
 		}
-		if body, cut = cutText(body); cut {
-			out.cutTexts = append(out.cutTexts, is.Key+" (comment)")
+		body, cut := cutText(body)
+		if cut {
+			out.cutTexts = append(out.cutTexts, out.key+" (comment)")
 		}
-		t.bodies = append(t.bodies, body)
+		bodies = append(bodies, body)
 	}
-	return t, nil
+	return bodies, nil
 }
 
 func (pw *projectWriter) writeIssue(ctx context.Context, is *IssuePlan) error {
@@ -331,20 +362,11 @@ func (pw *projectWriter) writeIssue(ctx context.Context, is *IssuePlan) error {
 			return fmt.Errorf("import map issue %s: %w", it.ID, err)
 		}
 		events := []audit.Event{issue.CreatedEvent(row, pw.pp.Key, labelIDs, creator)}
-		for i, cm := range t.comments {
-			at := orTime(cm.CreatedAt, created)
-			c, err := tx.ImportCreateComment(ctx, q.ImportCreateCommentParams{
-				IssueID: row.ID, AuthorID: *pw.w.creator(cm.Actor), Body: t.bodies[i],
-				CreatedAt: at, UpdatedAt: laterOf(orTime(cm.UpdatedAt, at), at), EditedAt: cm.EditedAt,
-			})
-			if err != nil {
-				return fmt.Errorf("create comment: %w", err)
-			}
-			if err := mapTo(kindComment, cm.ID, c.ID); err != nil {
-				return err
-			}
-			events = append(events, comment.CreatedEvent(c, pw.target, &c.AuthorID))
+		cmEvents, err := pw.insertComments(ctx, tx, mapTo, row.ID, pw.target, t.comments, t.bodies, created)
+		if err != nil {
+			return err
 		}
+		events = append(events, cmEvents...)
 		if err := pw.insertFiles(ctx, tx, mapTo, row.ID, t.files.files); err != nil {
 			return err
 		}
@@ -413,6 +435,29 @@ func (pw *projectWriter) parent(ctx context.Context, tx *q.Queries, is *IssuePla
 		return nil, fmt.Errorf("parent: %w", err)
 	}
 	return &id, nil
+}
+
+// insertComments creates the comments of an issue in project projectID with
+// their converted bodies and import map rows, and returns their create
+// events. fallback is the time of a comment Plane gives none.
+func (pw *projectWriter) insertComments(ctx context.Context, tx *q.Queries, mapTo mapFunc, issueID, projectID uuid.UUID,
+	comments []Comment, bodies []string, fallback time.Time) ([]audit.Event, error) {
+	events := make([]audit.Event, 0, len(comments))
+	for i, cm := range comments {
+		at := orTime(cm.CreatedAt, fallback)
+		c, err := tx.ImportCreateComment(ctx, q.ImportCreateCommentParams{
+			IssueID: issueID, AuthorID: *pw.w.creator(cm.Actor), Body: bodies[i],
+			CreatedAt: at, UpdatedAt: laterOf(orTime(cm.UpdatedAt, at), at), EditedAt: cm.EditedAt,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("create comment: %w", err)
+		}
+		if err := mapTo(kindComment, cm.ID, c.ID); err != nil {
+			return nil, err
+		}
+		events = append(events, comment.CreatedEvent(c, projectID, &c.AuthorID))
+	}
+	return events, nil
 }
 
 // insertFiles writes the blob rows and attachments of the copied files.
