@@ -12,6 +12,30 @@ import (
 	"github.com/google/uuid"
 )
 
+const getImportSource = `-- name: GetImportSource :one
+SELECT id, kind, source_id, url, workspace, first_run_at, last_run_at FROM import_sources WHERE kind = $1 AND source_id = $2
+`
+
+type GetImportSourceParams struct {
+	Kind     string
+	SourceID string
+}
+
+func (q *Queries) GetImportSource(ctx context.Context, arg GetImportSourceParams) (ImportSource, error) {
+	row := q.db.QueryRow(ctx, getImportSource, arg.Kind, arg.SourceID)
+	var i ImportSource
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.SourceID,
+		&i.Url,
+		&i.Workspace,
+		&i.FirstRunAt,
+		&i.LastRunAt,
+	)
+	return i, err
+}
+
 const importCreateAttachment = `-- name: ImportCreateAttachment :one
 INSERT INTO attachments (id, issue_id, uploader_id, blob_sha256, name, created_at)
 VALUES ($1, $2::uuid, $3, $4, $5, $6)

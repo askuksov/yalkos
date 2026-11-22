@@ -217,6 +217,21 @@ func (ex *Existing) mapped(kind, planeID string) (uuid.UUID, bool) {
 	return id, ok
 }
 
+// ready gives ex the empty maps the writers fill.
+func (ex *Existing) ready() {
+	if ex.Map == nil {
+		ex.Map = map[string]map[string]uuid.UUID{}
+	}
+	for _, kind := range mapKinds {
+		if ex.Map[kind] == nil {
+			ex.Map[kind] = map[string]uuid.UUID{}
+		}
+	}
+	if ex.Updated == nil {
+		ex.Updated = map[string]time.Time{}
+	}
+}
+
 // LoadExisting reads what the instance has: the import map of source
 // (uuid.Nil: nothing imported yet), users, project keys, labels and the Type
 // labels.

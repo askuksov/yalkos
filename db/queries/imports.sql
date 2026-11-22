@@ -5,6 +5,9 @@ ON CONFLICT (kind, source_id) DO UPDATE
 SET url = EXCLUDED.url, workspace = EXCLUDED.workspace, last_run_at = EXCLUDED.last_run_at
 RETURNING *;
 
+-- name: GetImportSource :one
+SELECT * FROM import_sources WHERE kind = @kind AND source_id = @source_id;
+
 -- name: ListImportMap :many
 SELECT * FROM import_map WHERE source_id = @source_id AND kind = @kind ORDER BY plane_id;
 

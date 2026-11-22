@@ -77,14 +77,7 @@ func (w *Writer) Base(ctx context.Context, p Plan, ex *Existing) error {
 	if r == nil {
 		r = &Report{}
 	}
-	if ex.Map == nil {
-		ex.Map = map[string]map[string]uuid.UUID{}
-	}
-	for _, kind := range mapKinds {
-		if ex.Map[kind] == nil {
-			ex.Map[kind] = map[string]uuid.UUID{}
-		}
-	}
+	ex.ready()
 	if err := w.writeUsers(ctx, p.Users, ex); err != nil {
 		return err
 	}
