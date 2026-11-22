@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -55,6 +57,8 @@ type LabelPlan struct {
 type ProjectPlan struct {
 	Data *ProjectData
 	Key  string
+	// Name is the project name on one line, within the Yalkos limit.
+	Name string
 	// Target is the project an earlier import created; uuid.Nil for a new one.
 	Target uuid.UUID
 	// Members are the Plane user ids of the project members that map to users.
@@ -129,6 +133,40 @@ const (
 	fallbackStateColor = "#95a2b3"
 	fallbackLabelColor = "#6e7781"
 )
+
+// Name limits of the entities the import creates, the same as when they are
+// created in Yalkos. Names are cut before they are made unique, so a cut
+// cannot make two names equal.
+const (
+	maxUserName      = 100
+	maxProjectName   = 100
+	maxStateName     = 50
+	maxLabelName     = 50
+	maxMilestoneName = 100
+)
+
+// name puts a Plane name on one line and cuts it to limit runes, with no
+// space left at the end; what names it in the report's cut texts when it is
+// cut.
+func (r *Report) name(s string, limit int, what func(cut string) string) string {
+	out, cut := cutName(oneLine(s), limit)
+	if cut {
+		if entry := what(out); !slices.Contains(r.Dropped.CutTexts, entry) {
+			r.Dropped.CutTexts = append(r.Dropped.CutTexts, entry)
+		}
+	}
+	return out
+}
+
+// cutName cuts a name to limit runes and trims the space a cut may leave at
+// its end.
+func cutName(s string, limit int) (string, bool) {
+	out, cut := cutRunes(s, limit)
+	if cut {
+		out = strings.TrimSpace(out)
+	}
+	return out, cut
+}
 
 // isSeedBot reports Plane's seed bot account, skipped by the import.
 func isSeedBot(email string) bool { return seedBotRe.MatchString(strings.ToLower(email)) }
@@ -227,7 +265,11 @@ func planUsers(members []Member, ex *Existing, r *Report) ([]UserPlan, map[strin
 		if isSeedBot(m.Email) {
 			continue
 		}
-		up := UserPlan{PlaneID: m.ID, Email: strings.TrimSpace(m.Email), Name: memberName(m)}
+		up := UserPlan{PlaneID: m.ID, Email: strings.TrimSpace(m.Email)}
+		up.Name = r.name(memberName(m), maxUserName, func(string) string { return up.Email + " (user name)" })
+		if up.Name == "" {
+			up.Name, _ = cutRunes(up.Email, maxUserName)
+		}
 		if id, ok := ex.mapped(kindUser, m.ID); ok {
 			up.Target = id
 		} else if id, ok := ex.Users[strings.ToLower(up.Email)]; ok {
@@ -256,11 +298,14 @@ func memberName(m Member) string {
 }
 
 // freeName returns name, or "name (2)", "name (3)", … whichever is first not
-// taken (taken gets lower-case names).
-func freeName(name string, taken func(lower string) bool) string {
+// taken (taken gets lower-case names). The suffix stays within limit runes:
+// name is cut to make room for it.
+func freeName(name string, limit int, taken func(lower string) bool) string {
 	final := name
 	for n := 2; taken(strings.ToLower(final)); n++ {
-		final = fmt.Sprintf("%s (%d)", name, n)
+		suffix := fmt.Sprintf(" (%d)", n)
+		base, _ := cutName(name, max(limit-utf8.RuneCountInString(suffix), 0))
+		final = base + suffix
 	}
 	return final
 }

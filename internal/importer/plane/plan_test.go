@@ -675,6 +675,71 @@ func TestPlanMappedProjectUsesYalkosKey(t *testing.T) {
 	}
 }
 
+func TestPlanCutsNamesBeforeMakingThemUnique(t *testing.T) {
+	ws, _ := surveyFixture(t)
+	ws.Members = append(ws.Members, Member{ID: "u-long", Email: "long@example.invalid", DisplayName: strings.Repeat("n", 101)})
+	alp := projectData(t, ws, "ALP")
+	a50 := strings.Repeat("a", 50)
+	alp.States = append(alp.States,
+		State{ID: "st-alp-long1", Name: a50 + "X", Color: "#123456", Group: "started", Sequence: 36000},
+		State{ID: "st-alp-long2", Name: a50 + "Y", Color: "#123456", Group: "started", Sequence: 37000})
+	m100 := strings.Repeat("m", 100)
+	alp.Modules = append(alp.Modules,
+		Module{ID: "md-alp-long1", Name: m100, Status: "planned", SortOrder: 3000},
+		Module{ID: "md-alp-long2", Name: m100, Status: "planned", SortOrder: 4000},
+		Module{ID: "md-alp-long3", Name: m100 + "Z", Status: "planned", SortOrder: 5000})
+	l50 := strings.Repeat("l", 50)
+	alp.Labels = append(alp.Labels,
+		Label{ID: "lb-alp-long1", Name: l50 + "1", Color: "#123456", SortOrder: 7000},
+		Label{ID: "lb-alp-long2", Name: l50 + "2", Color: "#123456", SortOrder: 8000})
+
+	p, err := MakePlan(ws, emptyExisting())
+	if err != nil {
+		t.Fatalf("MakePlan: %v", err)
+	}
+	pp := findProject(t, p, "ALP")
+	var states []string
+	for _, s := range pp.States {
+		if strings.HasPrefix(s.PlaneID, "st-alp-long") {
+			states = append(states, s.Name)
+		}
+	}
+	if want := []string{a50, strings.Repeat("a", 46) + " (2)"}; !slices.Equal(states, want) {
+		t.Errorf("long states = %q, want %q", states, want)
+	}
+	var milestones []string
+	for _, m := range pp.Milestones {
+		if strings.HasPrefix(m.Module.ID, "md-alp-long") {
+			milestones = append(milestones, m.Name)
+		}
+	}
+	m96 := strings.Repeat("m", 96)
+	if want := []string{m100, m96 + " (2)", m96 + " (3)"}; !slices.Equal(milestones, want) {
+		t.Errorf("long milestones = %q, want %q", milestones, want)
+	}
+	l := findLabel(t, p, labelKey("", l50))
+	if l.Name != l50 || len(l.PlaneIDs) != 2 {
+		t.Errorf("long label = %+v, want one label of 50 runes", l)
+	}
+	var user UserPlan
+	for _, u := range p.Users {
+		if u.PlaneID == "u-long" {
+			user = u
+		}
+	}
+	if user.Name != strings.Repeat("n", 100) {
+		t.Errorf("long user name = %d runes", len(user.Name))
+	}
+	for _, want := range []string{
+		"ALP: " + a50 + " (state name)", "ALP: " + m100 + " (milestone name)", l50 + " (label name)",
+		"long@example.invalid (user name)",
+	} {
+		if !slices.Contains(p.Report.Dropped.CutTexts, want) {
+			t.Errorf("cutTexts = %q, want %q in it", p.Report.Dropped.CutTexts, want)
+		}
+	}
+}
+
 func TestPlanColoursLowerCase(t *testing.T) {
 	ws, _ := surveyFixture(t)
 	alp, bet := projectData(t, ws, "ALP"), projectData(t, ws, "BET")
@@ -698,5 +763,45 @@ func TestPlanColoursLowerCase(t *testing.T) {
 		if s.PlaneID == "st-alp-upper" && s.Color != "#aabbcc" {
 			t.Errorf("Review colour = %q, want #aabbcc", s.Color)
 		}
+	}
+}
+
+func TestPlanCutNamesHaveNoTrailingSpace(t *testing.T) {
+	ws, _ := surveyFixture(t)
+	alp := projectData(t, ws, "ALP")
+	a45 := strings.Repeat("a", 45)
+	// 49 runes, not cut; the (2) variant cuts the base right after the space.
+	alp.States = append(alp.States,
+		State{ID: "st-alp-sp1", Name: a45 + " bcd", Color: "#123456", Group: "started", Sequence: 36000},
+		State{ID: "st-alp-sp2", Name: a45 + " bcd", Color: "#123456", Group: "started", Sequence: 37000})
+	m99 := strings.Repeat("m", 99)
+	alp.Modules = append(alp.Modules, Module{ID: "md-alp-sp", Name: m99 + " tail", Status: "planned", SortOrder: 3000})
+	l49 := strings.Repeat("l", 49)
+	alp.Labels = append(alp.Labels, Label{ID: "lb-alp-sp", Name: l49 + " tail", Color: "#123456", SortOrder: 7000})
+
+	p, err := MakePlan(ws, emptyExisting())
+	if err != nil {
+		t.Fatalf("MakePlan: %v", err)
+	}
+	pp := findProject(t, p, "ALP")
+	var states []string
+	for _, s := range pp.States {
+		if strings.HasPrefix(s.PlaneID, "st-alp-sp") {
+			states = append(states, s.Name)
+		}
+	}
+	if want := []string{a45 + " bcd", a45 + " (2)"}; !slices.Equal(states, want) {
+		t.Errorf("states = %q, want %q", states, want)
+	}
+	for _, m := range pp.Milestones {
+		if m.Module.ID == "md-alp-sp" && m.Name != m99 {
+			t.Errorf("milestone = %q, want %q", m.Name, m99)
+		}
+	}
+	if l := findLabel(t, p, labelKey("", l49+" tail")); l.Name != l49 {
+		t.Errorf("label = %q, want %q", l.Name, l49)
+	}
+	if !slices.Contains(p.Report.Dropped.CutTexts, l49+" (label name)") {
+		t.Errorf("cutTexts = %q, want the trimmed label name", p.Report.Dropped.CutTexts)
 	}
 }
