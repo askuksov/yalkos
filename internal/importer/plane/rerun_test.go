@@ -605,3 +605,81 @@ func TestRerunSkipsProjectArchivedInYalkos(t *testing.T) {
 		t.Errorf("ALP-2 comments requests = %d, want none", n)
 	}
 }
+
+func TestIssuesStopInProjectArchivedMidRun(t *testing.T) {
+	ctx := context.Background()
+	e := newIssueEnv(t)
+	e.fake.onRequest("projects/p-alp/work-items/i-alp-3/comments/", func() {
+		if _, err := e.pool.Exec(ctx, `UPDATE projects SET archived_at = now() WHERE key = 'ALP'`); err != nil {
+			t.Error(err)
+		}
+	})
+	r := e.mustRunAll(t)
+	alp := e.projectID(t, "ALP")
+	written := e.count(t, `SELECT count(*) FROM issues WHERE project_id = $1`, alp)
+	if written == 0 || written >= 5 {
+		t.Fatalf("ALP issues written = %d, want the ones before the archive only", written)
+	}
+	if n := e.count(t, `SELECT count(*) FROM import_map WHERE kind = 'issue' AND plane_id = 'i-alp-3'`); n != 0 {
+		t.Errorf("ALP-3 written into the archived project")
+	}
+	a := projectReport(t, r, "ALP")
+	if a.Created.Issues != written || a.Skipped.Issues != 5-written {
+		t.Errorf("ALP report = %+v, want %d created and %d skipped", a, written, 5-written)
+	}
+	if !slices.Equal(r.ArchivedInYalkos, []string{"ALP"}) {
+		t.Errorf("archived in Yalkos = %v, want ALP", r.ArchivedInYalkos)
+	}
+	if b := projectReport(t, r, "BET"); b.Created.Issues != 3 {
+		t.Errorf("BET issues created = %d, want 3", b.Created.Issues)
+	}
+
+	if _, err := e.pool.Exec(ctx, `UPDATE projects SET archived_at = NULL WHERE id = $1`, alp); err != nil {
+		t.Fatal(err)
+	}
+	e.mustRunAll(t)
+	if n := e.count(t, `SELECT count(*) FROM issues WHERE project_id = $1`, alp); n != 5 {
+		t.Errorf("ALP issues after unarchiving = %d, want 5", n)
+	}
+}
+
+func TestNewCommentsInArchivedProjectOfMovedIssue(t *testing.T) {
+	ctx := context.Background()
+	e := newIssueEnv(t)
+	e.mustRunAll(t)
+	bet := e.projectID(t, "BET")
+	issues := issue.New(e.pool, project.New(e.pool, e.clock), e.clock)
+	moved, err := issues.Move(ctx, e.users.Owner, e.issue(t, "ALP-1").ID, bet, nil)
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+	if _, err := e.pool.Exec(ctx, `UPDATE projects SET archived_at = now() WHERE id = $1`, bet); err != nil {
+		t.Fatal(err)
+	}
+	e.editItem(t, "p-alp", "i-alp-1", func(it map[string]any) { it["updated_at"] = "2025-07-02T10:00:00Z" })
+	e.fake.setPaged("projects/p-alp/work-items/i-alp-1/comments/", map[string]any{
+		"id": "c-alp-1-new", "comment_html": "<p>Late.</p>", "actor": "u-ann", "parent": nil,
+		"created_at": "2025-07-02T10:00:00Z", "updated_at": "2025-07-02T10:00:00Z", "edited_at": nil, "deleted_at": nil,
+	})
+	recorded := e.mappedUpdated(t, "i-alp-1")
+	had := len(e.comments(t, moved.ID))
+
+	r := e.mustRunAll(t)
+	if n := len(e.comments(t, moved.ID)); n != had {
+		t.Errorf("comments of the moved issue %d -> %d, want none added in the archived project", had, n)
+	}
+	if at := e.mappedUpdated(t, "i-alp-1"); at != recorded {
+		t.Errorf("recorded updated_at = %s, want %s kept", at, recorded)
+	}
+	if !slices.Contains(r.ArchivedInYalkos, "BET") || len(r.ChangedInPlane) != 0 {
+		t.Errorf("archived in Yalkos = %v, changed in Plane = %v; want BET listed and no change", r.ArchivedInYalkos, r.ChangedInPlane)
+	}
+
+	if _, err := e.pool.Exec(ctx, `UPDATE projects SET archived_at = NULL WHERE id = $1`, bet); err != nil {
+		t.Fatal(err)
+	}
+	e.mustRunAll(t)
+	if cs := e.comments(t, moved.ID); len(cs) != had+1 || cs[len(cs)-1].Body != "Late." {
+		t.Errorf("comments after unarchiving = %+v, want the new one added", cs)
+	}
+}

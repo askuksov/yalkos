@@ -656,3 +656,80 @@ func TestBaseReportsLabelsOfDeletedGroup(t *testing.T) {
 		t.Errorf("deletedInYalkos = %q, want the new label of the deleted group", p.Report.Dropped.DeletedInYalkos)
 	}
 }
+
+func TestBaseMatchedStateDeletedMeanwhile(t *testing.T) {
+	ctx := context.Background()
+	e := newBaseEnv(t)
+	e.base(t)
+	alp := e.projectID(t, "ALP")
+	at := planeTime(t, "2025-07-01T00:00:00Z")
+	review, err := q.New(e.pool).ImportCreateState(ctx, q.ImportCreateStateParams{
+		ProjectID: alp, Name: "Review", Type: "started", Color: "#123456", Position: 10, CreatedAt: at, UpdatedAt: at,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pd := projectData(t, e.ws, "ALP")
+	pd.States = append(pd.States, State{ID: "st-alp-review", Name: "Review", Color: "#654321", Group: "started", Sequence: 36000})
+
+	p, ex := e.prepare(t)
+	if sp := findProject(t, p, "ALP").States; len(sp) != 1 || sp[0].Target != review.ID {
+		t.Fatalf("ALP states to write = %+v, want Review onto the existing state", sp)
+	}
+	if _, err := e.pool.Exec(ctx, `DELETE FROM states WHERE id = $1`, review.ID); err != nil {
+		t.Fatal(err)
+	}
+	p.Report.resetWritten()
+	if err := NewWriter(e.pool, e.source, e.users.Owner, e.clock).Base(ctx, p, &ex); err != nil {
+		t.Fatalf("Base: %v", err)
+	}
+	got := ex.Map["state"]["st-alp-review"]
+	if got == uuid.Nil || got == review.ID {
+		t.Fatalf("ex.Map state st-alp-review = %v, want a new state", got)
+	}
+	st, err := q.New(e.pool).GetState(ctx, got)
+	if err != nil || st.ProjectID != alp || st.Name != "Review" || st.Color != "#654321" {
+		t.Errorf("mapped state = %+v, %v; want a new Review in ALP", st, err)
+	}
+	if n := projectReport(t, p.Report, "ALP").Created.States; n != 1 {
+		t.Errorf("ALP states created = %d, want 1", n)
+	}
+}
+
+func TestBaseProjectArchivedMeanwhile(t *testing.T) {
+	ctx := context.Background()
+	e := newBaseEnv(t)
+	e.base(t)
+	alp := e.projectID(t, "ALP")
+	pd := projectData(t, e.ws, "ALP")
+	pd.States = append(pd.States, State{ID: "st-alp-review", Name: "Review", Color: "#654321", Group: "started", Sequence: 36000})
+	pd.Modules = append(pd.Modules, Module{ID: "md-alp-later", Name: "Later", Status: "planned"})
+	before := map[string]int{}
+	for _, tb := range []string{"states", "milestones"} {
+		before[tb] = e.count(t, "SELECT count(*) FROM "+tb+" WHERE project_id = $1", alp)
+	}
+
+	p, ex := e.prepare(t)
+	p.Report.resetWritten()
+	if _, err := e.pool.Exec(ctx, `UPDATE projects SET archived_at = now() WHERE id = $1`, alp); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewWriter(e.pool, e.source, e.users.Owner, e.clock).Base(ctx, p, &ex); err != nil {
+		t.Fatalf("Base: %v", err)
+	}
+	for tb, n := range before {
+		if got := e.count(t, "SELECT count(*) FROM "+tb+" WHERE project_id = $1", alp); got != n {
+			t.Errorf("ALP %s %d -> %d, want nothing added to the archived project", tb, n, got)
+		}
+	}
+	if !slices.Equal(p.Report.ArchivedInYalkos, []string{"ALP"}) || !ex.Archived[alp] {
+		t.Errorf("archived in Yalkos = %v (marked %v), want ALP", p.Report.ArchivedInYalkos, ex.Archived[alp])
+	}
+	a := projectReport(t, p.Report, "ALP")
+	if a.Created.States != 0 || a.Created.Milestones != 0 || a.Skipped.Milestones != 1 {
+		t.Errorf("ALP report = %+v, want nothing created and the milestone skipped", a)
+	}
+	if _, ok := ex.Map["project"][pd.ID]; !ok {
+		t.Error("the archived project left the import map")
+	}
+}

@@ -120,6 +120,11 @@ func (pw *projectWriter) write(ctx context.Context, pp *ProjectPlan, progress fu
 		return nil
 	}
 	pw.pp, pw.target, pw.rep, pw.gone = pp, target, pw.r.project(pp.Key), map[string]bool{}
+	if pw.ex.Archived[target] {
+		// Archived in Yalkos while Base ran; Base reported it.
+		pw.skipIssues(0)
+		return nil
+	}
 	if err := pw.loadTargets(ctx); err != nil {
 		return err
 	}
@@ -127,7 +132,18 @@ func (pw *projectWriter) write(ctx context.Context, pp *ProjectPlan, progress fu
 	// created during the run, or a renumbered item, never takes the number
 	// of a later Plane item.
 	if pp.MaxNumber > 0 {
-		if err := pw.w.q.RaiseSequenceCounter(ctx, q.RaiseSequenceCounterParams{Number: int32(pp.MaxNumber), ID: target}); err != nil {
+		err := pw.w.inTx(ctx, pw.ex, func(tx *q.Queries, _ mapFunc) error {
+			if err := lockWritable(ctx, tx, target); err != nil {
+				return err
+			}
+			return tx.RaiseSequenceCounter(ctx, q.RaiseSequenceCounterParams{Number: int32(pp.MaxNumber), ID: target})
+		})
+		if errors.Is(err, errArchived) {
+			archivedMeanwhile(pp, target, pw.ex, pw.r)
+			pw.skipIssues(0)
+			return nil
+		}
+		if err != nil {
 			return fmt.Errorf("raise counter: %w", err)
 		}
 	}
@@ -136,7 +152,13 @@ func (pw *projectWriter) write(ctx context.Context, pp *ProjectPlan, progress fu
 	for n := range pp.Issues {
 		is := &pp.Issues[n]
 		if _, done := pw.ex.mapped(kindIssue, is.Item.ID); !done {
-			if err := pw.writeIssue(ctx, is); err != nil {
+			err := pw.writeIssue(ctx, is)
+			if errors.Is(err, errArchived) {
+				archivedMeanwhile(pp, target, pw.ex, pw.r)
+				pw.skipIssues(n)
+				return nil
+			}
+			if err != nil {
 				return fmt.Errorf("%s: %w", is.Key, err)
 			}
 		}
@@ -146,6 +168,16 @@ func (pw *projectWriter) write(ctx context.Context, pp *ProjectPlan, progress fu
 	}
 	progress(pp.Key, total, total)
 	return nil
+}
+
+// skipIssues counts the planned issues from the n-th on that are not
+// written as skipped: the project was archived in Yalkos during the run.
+func (pw *projectWriter) skipIssues(n int) {
+	for _, is := range pw.pp.Issues[n:] {
+		if _, done := pw.ex.mapped(kindIssue, is.Item.ID); !done {
+			pw.rep.Skipped.Issues++
+		}
+	}
 }
 
 // issueText is an issue's text and files, read from Plane before its
@@ -309,12 +341,16 @@ func (pw *projectWriter) writeIssue(ctx context.Context, is *IssuePlan) error {
 	var issueID uuid.UUID
 	err = pw.w.inTx(ctx, pw.ex, func(tx *q.Queries, mapTo mapFunc) error {
 		out.renumbered, out.parentDropped = nil, false
+		// The project row is held until the commit: the project is not
+		// archived meanwhile, and deleting a state or a milestone needs the
+		// row too, so what is read now stays.
+		if err := lockWritable(ctx, tx, pw.target); err != nil {
+			return err
+		}
 		number, err := pw.number(ctx, tx, is, out)
 		if err != nil {
 			return err
 		}
-		// The counter update holds the project row, which deleting a state or
-		// a milestone needs too: what is read now stays until the commit.
 		st, err := pw.liveState(ctx, tx, st, is.State, out)
 		if err != nil {
 			return err

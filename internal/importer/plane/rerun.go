@@ -11,6 +11,7 @@ import (
 
 	"github.com/askuksov/yalkos/internal/blob"
 	"github.com/askuksov/yalkos/internal/domain/audit"
+	"github.com/askuksov/yalkos/internal/domain/kit"
 	"github.com/askuksov/yalkos/internal/store/q"
 )
 
@@ -22,8 +23,11 @@ import (
 // issue's own fields stay as they are. Each changed issue's report entry
 // gets the number added; an issue (or project) deleted in Yalkos is skipped,
 // keeps its recorded updated_at, is reported as deleted and leaves the
-// changed list. progress (may be nil) is called every 50 changed issues and
-// at the end of each project that has any, with the project key and the
+// changed list. Nothing is added to an issue in a project archived in Yalkos
+// (the project the issue is in now, which a move may have changed): the issue
+// keeps its recorded updated_at, leaves the changed list, and the project is
+// listed as archived. progress (may be nil) is called every 50 changed issues
+// and at the end of each project that has any, with the project key and the
 // changed issues done and in total.
 func (w *Writer) NewComments(ctx context.Context, c *Client, store blob.Store, maxUpload int64, p Plan, ex *Existing,
 	progress func(key string, done, total int)) error {
@@ -36,8 +40,10 @@ func (w *Writer) NewComments(ctx context.Context, c *Client, store blob.Store, m
 		if len(pp.Changed) == 0 {
 			continue
 		}
-		if _, ok := ex.mapped(kindProject, pp.Data.ID); !ok {
-			// Deleted in Yalkos since an earlier import; Base reported it.
+		target, ok := ex.mapped(kindProject, pp.Data.ID)
+		if !ok || ex.Archived[target] {
+			// Deleted in Yalkos since an earlier import, or archived during
+			// this run; Base or Issues reported it.
 			for _, ch := range pp.Changed {
 				pw.r.dropChanged(ch.Key)
 			}
@@ -116,11 +122,20 @@ func (pw *projectWriter) addComments(ctx context.Context, it WorkItem, key strin
 	if !ok {
 		return nil
 	}
-	if _, err := pw.w.q.GetIssue(ctx, issueID); errors.Is(err, pgx.ErrNoRows) {
+	row, err := pw.w.q.GetIssue(ctx, issueID)
+	if errors.Is(err, pgx.ErrNoRows) {
 		pw.deletedIssue(key)
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("get issue: %w", err)
+	}
+	project, err := pw.w.q.GetProject(ctx, row.Issue.ProjectID)
+	if err != nil {
+		return fmt.Errorf("get project: %w", err)
+	}
+	if project.ArchivedAt != nil {
+		pw.archivedIssue(key, row.ProjectKey)
+		return nil
 	}
 
 	comments, err := pw.c.Comments(ctx, pw.pp.Data.ID, it.ID)
@@ -145,18 +160,38 @@ func (pw *projectWriter) addComments(ctx context.Context, it WorkItem, key strin
 		return err
 	}
 
-	gone := false
+	gone, archived, projectKey := false, false, ""
 	updated := it.UpdatedAt
 	err = pw.w.inTx(ctx, pw.ex, func(tx *q.Queries, mapTo mapFunc) error {
-		// The row lock keeps the issue from being deleted until the commit.
-		row, err := tx.GetIssueForUpdate(ctx, issueID)
+		gone, archived = false, false
+		row, err := tx.GetIssue(ctx, issueID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			gone = true
 			return nil
 		}
-		gone = false
 		if err != nil {
 			return fmt.Errorf("get issue: %w", err)
+		}
+		// The project the issue is in now is locked first, as every writer of
+		// a project's issues does, then the issue: neither is archived, moved
+		// or deleted until the commit.
+		if err := lockWritable(ctx, tx, row.Issue.ProjectID); errors.Is(err, errArchived) {
+			archived, projectKey = true, row.ProjectKey
+			return nil
+		} else if err != nil {
+			return err
+		}
+		locked, err := tx.GetIssueForUpdate(ctx, issueID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			gone = true
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("lock issue: %w", err)
+		}
+		if locked.Issue.ProjectID != row.Issue.ProjectID {
+			// Moved while this waited: lock the new project instead.
+			return kit.ErrStartOver
 		}
 		events, err := pw.insertComments(ctx, tx, mapTo, issueID, row.Issue.ProjectID, added, bodies, created)
 		if err != nil {
@@ -177,6 +212,10 @@ func (pw *projectWriter) addComments(ctx context.Context, it WorkItem, key strin
 	}
 	if gone {
 		pw.deletedIssue(key)
+		return nil
+	}
+	if archived {
+		pw.archivedIssue(key, projectKey)
 		return nil
 	}
 	pw.ex.Updated[it.ID] = updated
@@ -201,6 +240,15 @@ func (r *Report) commentsAdded(key string, n int) {
 // not as changed.
 func (pw *projectWriter) deletedIssue(key string) {
 	pw.r.Dropped.DeletedInYalkos = append(pw.r.Dropped.DeletedInYalkos, "issue "+key)
+	pw.r.dropChanged(key)
+}
+
+// archivedIssue reports a changed issue in a project archived in Yalkos:
+// the project is listed as archived, the issue not as changed.
+func (pw *projectWriter) archivedIssue(key, projectKey string) {
+	if !slices.Contains(pw.r.ArchivedInYalkos, projectKey) {
+		pw.r.ArchivedInYalkos = append(pw.r.ArchivedInYalkos, projectKey)
+	}
 	pw.r.dropChanged(key)
 }
 
