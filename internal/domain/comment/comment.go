@@ -99,6 +99,14 @@ func validBody(v string) (string, error) {
 	return v, nil
 }
 
+// CreatedEvent is the history entry of a new comment; like every comment
+// event it carries no text.
+func CreatedEvent(c q.Comment, projectID uuid.UUID, actor *uuid.UUID) audit.Event {
+	return audit.Event{
+		EntityType: "comment", Action: "create", EntityID: c.ID, ProjectID: &projectID, ActorID: actor, At: c.CreatedAt,
+	}
+}
+
 // record writes a comment event without its text.
 func record(ctx context.Context, tx *q.Queries, actor account.User, id uuid.UUID, projectID uuid.UUID, action string, at time.Time) error {
 	return audit.Record(ctx, tx, audit.Event{
@@ -125,7 +133,7 @@ func (s *Service) Create(ctx context.Context, actor account.User, issueID uuid.U
 			return fmt.Errorf("create comment: %w", err)
 		}
 		out = toComment(row)
-		if err := record(ctx, tx, actor, row.ID, i.ProjectID, "create", now); err != nil {
+		if err := audit.Record(ctx, tx, CreatedEvent(row, i.ProjectID, &actor.ID)); err != nil {
 			return err
 		}
 		if err := s.emit(ctx, ptx, event.Change{

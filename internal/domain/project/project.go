@@ -87,6 +87,20 @@ func snapshot(p q.Project) map[string]any {
 	}
 }
 
+// CreatedEvent is the history entry of a new project: p is the stored row,
+// members the ids of its members at creation and actor the creator.
+func CreatedEvent(p q.Project, members []uuid.UUID, actor *uuid.UUID) audit.Event {
+	snap := snapshot(p)
+	if members == nil {
+		members = []uuid.UUID{}
+	}
+	snap["members"] = members
+	return audit.Event{
+		EntityType: "project", Action: "create", EntityID: p.ID, ProjectID: &p.ID, ActorID: actor,
+		Changes: audit.Diff(nil, snap), At: p.CreatedAt,
+	}
+}
+
 func archivedErr() error {
 	return kit.Input("projectId", kit.ReasonArchived, "project is archived")
 }
@@ -190,13 +204,8 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 		if err := tx.AddProjectMember(ctx, q.AddProjectMemberParams{ProjectID: p.ID, UserID: actor.ID, Now: now}); err != nil {
 			return fmt.Errorf("add creator: %w", err)
 		}
-		snap := snapshot(p)
-		snap["members"] = []uuid.UUID{actor.ID}
 		out = p
-		return audit.Record(ctx, tx, audit.Event{
-			EntityType: "project", Action: "create", EntityID: p.ID, ProjectID: &p.ID, ActorID: &actor.ID,
-			Changes: audit.Diff(nil, snap), At: now,
-		})
+		return audit.Record(ctx, tx, CreatedEvent(p, []uuid.UUID{actor.ID}, &actor.ID))
 	})
 	if err != nil {
 		return Project{}, err

@@ -110,6 +110,14 @@ func snapshot(l Label) map[string]any {
 	}
 }
 
+// CreatedEvent is the history entry of a new label.
+func CreatedEvent(l q.Label, actor *uuid.UUID) audit.Event {
+	return audit.Event{
+		EntityType: "label", Action: "create", EntityID: l.ID, ActorID: actor,
+		Changes: audit.Diff(nil, snapshot(FromRow(l))), At: l.CreatedAt,
+	}
+}
+
 func record(ctx context.Context, tx *q.Queries, actor account.User, l Label, action string, changes map[string]audit.Change, at time.Time) error {
 	return audit.Record(ctx, tx, audit.Event{
 		EntityType: "label", Action: action, EntityID: l.ID, ActorID: &actor.ID, Changes: changes, At: at,
@@ -236,7 +244,7 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 			return fmt.Errorf("create label: %w", err)
 		}
 		out = FromRow(row)
-		if err := record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now); err != nil {
+		if err := audit.Record(ctx, tx, CreatedEvent(row, &actor.ID)); err != nil {
 			return err
 		}
 		return s.emit(ctx, ptx, event.Change{Resource: event.Label, Action: event.Create, EntityID: out.ID, ActorID: actor.ID, At: now})

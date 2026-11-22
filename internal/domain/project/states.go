@@ -74,6 +74,14 @@ func stateEvent(actor account.User, s q.State, action string, changes map[string
 	}
 }
 
+// StateCreatedEvent is the history entry of a state added to a project.
+func StateCreatedEvent(s q.State, actor *uuid.UUID) audit.Event {
+	return audit.Event{
+		EntityType: "state", Action: "create", EntityID: s.ID, ProjectID: &s.ProjectID, ActorID: actor,
+		Changes: audit.Diff(nil, stateSnapshot(s)), At: s.CreatedAt,
+	}
+}
+
 func isStateNameTaken(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "states_name"
@@ -171,7 +179,7 @@ func (s *Service) CreateState(ctx context.Context, actor account.User, projectID
 		if err != nil {
 			return fmt.Errorf("create state: %w", err)
 		}
-		return audit.Record(ctx, tx, stateEvent(actor, out, "create", audit.Diff(nil, stateSnapshot(out)), now))
+		return audit.Record(ctx, tx, StateCreatedEvent(out, &actor.ID))
 	})
 	if err != nil {
 		return State{}, err
