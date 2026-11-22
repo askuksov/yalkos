@@ -56,6 +56,21 @@ func TestSurveyUnknownProject(t *testing.T) {
 	}
 }
 
+func TestChooseProjectsMatchesAsSelected(t *testing.T) {
+	// The identifier starts with the Kelvin sign (U+212A), which folds to K
+	// under Unicode case folding but is not an ASCII K.
+	projects := []Project{{ID: "p-kel", Identifier: "KEL"}, {ID: "p-alp", Identifier: "ALP"}}
+	_, err := chooseProjects(projects, []string{"KEL"})
+	var ue *UsageError
+	if !errors.As(err, &ue) || !strings.Contains(ue.Error(), "KEL") {
+		t.Errorf("err = %v, want a usage error naming KEL", err)
+	}
+	out, err := chooseProjects(projects, []string{" alp "})
+	if err != nil || len(out) != 1 || out[0].ID != "p-alp" {
+		t.Errorf("chosen = %+v, %v; want ALP", out, err)
+	}
+}
+
 func TestConflictErrorNamesKeys(t *testing.T) {
 	err := error(&ConflictError{Keys: []string{"ALP", "TOOLONGKEY"}})
 	if !strings.Contains(err.Error(), "ALP") || !strings.Contains(err.Error(), "TOOLONGKEY") {

@@ -727,6 +727,11 @@ func TestNewClientValidation(t *testing.T) {
 		"ftp":             {"ftp://plane.example.invalid", "ws", "k"},
 		"empty workspace": {"https://plane.example.invalid", "", "k"},
 		"empty key":       {"https://plane.example.invalid", "ws", ""},
+		"userinfo":        {"https://someone:secret@plane.example.invalid", "ws", "k"},
+		"query":           {"https://plane.example.invalid/?a=b", "ws", "k"},
+		"empty query":     {"https://plane.example.invalid/?", "ws", "k"},
+		"fragment":        {"https://plane.example.invalid/#ws", "ws", "k"},
+		"empty fragment":  {"https://plane.example.invalid/#", "ws", "k"},
 	} {
 		if _, err := NewClient(args[0], args[1], args[2], ClientOptions{}); err == nil {
 			t.Errorf("%s: want error", name)
@@ -734,6 +739,14 @@ func TestNewClientValidation(t *testing.T) {
 	}
 	if _, err := NewClient("https://plane.example.invalid/", "ws", "k", ClientOptions{}); err != nil {
 		t.Errorf("valid args: %v", err)
+	}
+	for _, c := range []struct{ in, want string }{
+		{"https://plane.example.invalid", "https://plane.example.invalid"},
+		{" \thttps://plane.example.invalid/x/ \n", "https://plane.example.invalid/x/"},
+	} {
+		if got, err := CheckBaseURL(c.in); err != nil || got != c.want {
+			t.Errorf("CheckBaseURL(%q) = %q, %v; want %q", c.in, got, err, c.want)
+		}
 	}
 }
 

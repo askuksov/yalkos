@@ -90,13 +90,15 @@ func Run(ctx context.Context, opts RunOptions) (*Report, error) {
 	}
 	r := p.Report
 	r.Source, r.DryRun = src, opts.DryRun
+	if !opts.DryRun {
+		r.resetWritten()
+	}
 	if len(p.Conflicts) > 0 {
 		return r, &ConflictError{Keys: p.Conflicts}
 	}
 	if opts.DryRun {
 		return r, nil
 	}
-	r.resetWritten()
 
 	row, err = db.UpsertImportSource(ctx, q.UpsertImportSourceParams{
 		Kind: sourceKind, SourceID: planeWS, Url: opts.URL, Workspace: opts.Workspace, Now: now(),
