@@ -379,6 +379,7 @@ func (pw *projectWriter) writeIssue(ctx context.Context, is *IssuePlan) error {
 	pw.ex.Map[kindIssue][it.ID] = issueID
 	pw.ex.Updated[it.ID] = it.UpdatedAt
 	out.comments, out.files = len(t.comments), len(t.files.files)
+	pw.rep.Created.Issues++
 	pw.apply(out)
 	return nil
 }

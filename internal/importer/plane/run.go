@@ -96,6 +96,7 @@ func Run(ctx context.Context, opts RunOptions) (*Report, error) {
 	if opts.DryRun {
 		return r, nil
 	}
+	r.resetWritten()
 
 	row, err = db.UpsertImportSource(ctx, q.UpsertImportSourceParams{
 		Kind: sourceKind, SourceID: planeWS, Url: opts.URL, Workspace: opts.Workspace, Now: now(),

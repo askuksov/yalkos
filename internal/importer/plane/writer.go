@@ -78,7 +78,7 @@ func (w *Writer) Base(ctx context.Context, p Plan, ex *Existing) error {
 		r = &Report{}
 	}
 	ex.ready()
-	if err := w.writeUsers(ctx, p.Users, ex); err != nil {
+	if err := w.writeUsers(ctx, p.Users, ex, r); err != nil {
 		return err
 	}
 	if err := w.writeLabels(ctx, p, ex, r); err != nil {
@@ -138,7 +138,7 @@ func (w *Writer) creator(planeID string) *uuid.UUID {
 // writeUsers creates, disabled, the members no Yalkos user matches, and maps
 // the members matched by email too, so a later email change in Yalkos does
 // not make a re-run create them again.
-func (w *Writer) writeUsers(ctx context.Context, users []UserPlan, ex *Existing) error {
+func (w *Writer) writeUsers(ctx context.Context, users []UserPlan, ex *Existing, r *Report) error {
 	var workspace uuid.UUID
 	for _, u := range users {
 		w.names[u.PlaneID] = u.Name
@@ -182,6 +182,11 @@ func (w *Writer) writeUsers(ctx context.Context, users []UserPlan, ex *Existing)
 			return err
 		}
 		w.users[u.PlaneID] = id
+		for i := range r.Users {
+			if strings.EqualFold(r.Users[i].Email, u.Email) {
+				r.Users[i].Created = true
+			}
+		}
 		if ex.Users != nil {
 			ex.Users[strings.ToLower(u.Email)] = id
 		}
@@ -390,12 +395,16 @@ func (w *Writer) writeProject(ctx context.Context, pp *ProjectPlan, ex *Existing
 		} else if err != nil {
 			return fmt.Errorf("get project: %w", err)
 		}
+		var states int
 		err := w.inTx(ctx, ex, func(tx *q.Queries, mapTo mapFunc) error {
-			return w.writeStates(ctx, tx, mapTo, pp, target, created, ex)
+			var err error
+			states, err = w.writeStates(ctx, tx, mapTo, pp, target, created, ex)
+			return err
 		})
 		if err != nil {
 			return err
 		}
+		r.project(pp.Key).Created.States += states
 	} else {
 		id, err := w.createProject(ctx, pp, created, ex, r)
 		if err != nil {
@@ -427,6 +436,7 @@ func (w *Writer) createProject(ctx context.Context, pp *ProjectPlan, created tim
 	}
 
 	var id uuid.UUID
+	var states int
 	err := w.inTx(ctx, ex, func(tx *q.Queries, mapTo mapFunc) error {
 		row, err := tx.ImportCreateProject(ctx, q.ImportCreateProjectParams{
 			Key: pp.Key, Name: pp.Name, Description: desc, CreatedBy: creator, CreatedAt: created, UpdatedAt: updated,
@@ -455,8 +465,12 @@ func (w *Writer) createProject(ctx context.Context, pp *ProjectPlan, created tim
 			return err
 		}
 		id = row.ID
-		return w.writeStates(ctx, tx, mapTo, pp, row.ID, created, ex)
+		states, err = w.writeStates(ctx, tx, mapTo, pp, row.ID, created, ex)
+		return err
 	})
+	if err == nil {
+		r.project(pp.Key).Created.States += states
+	}
 	return id, err
 }
 
@@ -465,29 +479,31 @@ func keyTaken(key string) error {
 }
 
 // writeStates creates the planned states of a project after its current
-// ones. A Plane state planned onto an existing state only gets its import
+// ones and returns how many it created (counted once the transaction
+// commits). A Plane state planned onto an existing state only gets its import
 // map row. fallback is the time of a state Plane gives none.
-func (w *Writer) writeStates(ctx context.Context, tx *q.Queries, mapTo mapFunc, pp *ProjectPlan, projectID uuid.UUID, fallback time.Time, ex *Existing) error {
+func (w *Writer) writeStates(ctx context.Context, tx *q.Queries, mapTo mapFunc, pp *ProjectPlan, projectID uuid.UUID, fallback time.Time, ex *Existing) (int, error) {
 	byID := make(map[string]State, len(pp.Data.States))
 	for _, s := range pp.Data.States {
 		byID[s.ID] = s
 	}
 	current, err := tx.ListStates(ctx, projectID)
 	if err != nil {
-		return fmt.Errorf("list states: %w", err)
+		return 0, fmt.Errorf("list states: %w", err)
 	}
 	pos := int32(0)
 	for _, s := range current {
 		pos = max(pos, s.Position+1)
 	}
 	var events []audit.Event
+	created := 0
 	for _, sp := range pp.States {
 		if _, ok := ex.mapped(kindState, sp.PlaneID); ok {
 			continue
 		}
 		if sp.Target != uuid.Nil {
 			if err := mapTo(kindState, sp.PlaneID, sp.Target); err != nil {
-				return err
+				return 0, err
 			}
 			continue
 		}
@@ -498,15 +514,16 @@ func (w *Writer) writeStates(ctx context.Context, tx *q.Queries, mapTo mapFunc, 
 			IsDefault: sp.Default, CreatedAt: at, UpdatedAt: laterOf(orTime(ps.UpdatedAt, at), at),
 		})
 		if err != nil {
-			return fmt.Errorf("create state %s: %w", sp.Name, err)
+			return 0, fmt.Errorf("create state %s: %w", sp.Name, err)
 		}
 		pos++
 		if err := mapTo(kindState, sp.PlaneID, row.ID); err != nil {
-			return err
+			return 0, err
 		}
+		created++
 		events = append(events, project.StateCreatedEvent(row, w.creator(ps.CreatedBy)))
 	}
-	return audit.RecordMany(ctx, tx, events)
+	return created, audit.RecordMany(ctx, tx, events)
 }
 
 func (w *Writer) writeMilestone(ctx context.Context, pp *ProjectPlan, mp MilestonePlan, projectID uuid.UUID, ex *Existing, r *Report) error {
@@ -525,7 +542,7 @@ func (w *Writer) writeMilestone(ctx context.Context, pp *ProjectPlan, mp Milesto
 		}
 	}
 	creator := w.creator(m.CreatedBy)
-	return w.inTx(ctx, ex, func(tx *q.Queries, mapTo mapFunc) error {
+	err := w.inTx(ctx, ex, func(tx *q.Queries, mapTo mapFunc) error {
 		row, err := tx.ImportCreateMilestone(ctx, q.ImportCreateMilestoneParams{
 			ProjectID: projectID, Name: name, Description: desc, TargetDate: planeDate(m.TargetDate),
 			LeadID: lead, SortOrder: m.SortOrder, StatusManual: mp.Status, CreatedBy: creator,
@@ -539,6 +556,10 @@ func (w *Writer) writeMilestone(ctx context.Context, pp *ProjectPlan, mp Milesto
 		}
 		return audit.Record(ctx, tx, milestone.CreatedEvent(row, creator))
 	})
+	if err == nil {
+		r.project(pp.Key).Created.Milestones++
+	}
+	return err
 }
 
 // description is the Markdown description of a project or module: its HTML
