@@ -397,10 +397,18 @@ func (w *Writer) writeProject(ctx context.Context, pp *ProjectPlan, ex *Existing
 		}
 		var states int
 		err := w.inTx(ctx, ex, func(tx *q.Queries, mapTo mapFunc) error {
+			if err := lockWritable(ctx, tx, target); err != nil {
+				return err
+			}
 			var err error
 			states, err = w.writeStates(ctx, tx, mapTo, pp, target, created, ex)
 			return err
 		})
+		if errors.Is(err, errArchived) {
+			archivedMeanwhile(pp, target, ex, r)
+			skipMilestones(pp, pp.Milestones, ex, r)
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -412,12 +420,55 @@ func (w *Writer) writeProject(ctx context.Context, pp *ProjectPlan, ex *Existing
 		}
 		target = id
 	}
-	for _, mp := range pp.Milestones {
-		if err := w.writeMilestone(ctx, pp, mp, target, ex, r); err != nil {
+	for i, mp := range pp.Milestones {
+		err := w.writeMilestone(ctx, pp, mp, target, ex, r)
+		if errors.Is(err, errArchived) {
+			archivedMeanwhile(pp, target, ex, r)
+			skipMilestones(pp, pp.Milestones[i:], ex, r)
+			return nil
+		}
+		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// errArchived ends a transaction that would write into a project archived in
+// Yalkos.
+var errArchived = errors.New("project archived in Yalkos")
+
+// lockWritable locks the project row for the rest of tx, so the project is
+// not archived and its states and milestones do not change before the
+// commit; an archived project is errArchived.
+func lockWritable(ctx context.Context, tx *q.Queries, id uuid.UUID) error {
+	p, err := tx.GetProjectForUpdate(ctx, id)
+	if err != nil {
+		return fmt.Errorf("lock project: %w", err)
+	}
+	if p.ArchivedAt != nil {
+		return errArchived
+	}
+	return nil
+}
+
+// archivedMeanwhile records a project archived in Yalkos during the run:
+// it is listed once and nothing more is written into it in this run. Its
+// import map rows stay, so a run after it is unarchived goes on from there.
+func archivedMeanwhile(pp *ProjectPlan, target uuid.UUID, ex *Existing, r *Report) {
+	ex.Archived[target] = true
+	if !slices.Contains(r.ArchivedInYalkos, pp.Key) {
+		r.ArchivedInYalkos = append(r.ArchivedInYalkos, pp.Key)
+	}
+}
+
+// skipMilestones counts the milestones of rest not written as skipped.
+func skipMilestones(pp *ProjectPlan, rest []MilestonePlan, ex *Existing, r *Report) {
+	for _, mp := range rest {
+		if _, ok := ex.mapped(kindMilestone, mp.Module.ID); !ok {
+			r.project(pp.Key).Skipped.Milestones++
+		}
+	}
 }
 
 func (w *Writer) createProject(ctx context.Context, pp *ProjectPlan, created time.Time, ex *Existing, r *Report) (uuid.UUID, error) {
@@ -481,7 +532,10 @@ func keyTaken(key string) error {
 // writeStates creates the planned states of a project after its current
 // ones and returns how many it created (counted once the transaction
 // commits). A Plane state planned onto an existing state only gets its import
-// map row. fallback is the time of a state Plane gives none.
+// map row; when that state is gone from the project meanwhile, the Plane
+// state is created instead. The caller holds the project row, so the
+// positions and states read here stay until the commit. fallback is the time
+// of a state Plane gives none.
 func (w *Writer) writeStates(ctx context.Context, tx *q.Queries, mapTo mapFunc, pp *ProjectPlan, projectID uuid.UUID, fallback time.Time, ex *Existing) (int, error) {
 	byID := make(map[string]State, len(pp.Data.States))
 	for _, s := range pp.Data.States {
@@ -492,8 +546,10 @@ func (w *Writer) writeStates(ctx context.Context, tx *q.Queries, mapTo mapFunc, 
 		return 0, fmt.Errorf("list states: %w", err)
 	}
 	pos := int32(0)
+	live := make(map[uuid.UUID]bool, len(current))
 	for _, s := range current {
 		pos = max(pos, s.Position+1)
+		live[s.ID] = true
 	}
 	var events []audit.Event
 	created := 0
@@ -501,7 +557,7 @@ func (w *Writer) writeStates(ctx context.Context, tx *q.Queries, mapTo mapFunc, 
 		if _, ok := ex.mapped(kindState, sp.PlaneID); ok {
 			continue
 		}
-		if sp.Target != uuid.Nil {
+		if sp.Target != uuid.Nil && live[sp.Target] {
 			if err := mapTo(kindState, sp.PlaneID, sp.Target); err != nil {
 				return 0, err
 			}
@@ -543,6 +599,9 @@ func (w *Writer) writeMilestone(ctx context.Context, pp *ProjectPlan, mp Milesto
 	}
 	creator := w.creator(m.CreatedBy)
 	err := w.inTx(ctx, ex, func(tx *q.Queries, mapTo mapFunc) error {
+		if err := lockWritable(ctx, tx, projectID); err != nil {
+			return err
+		}
 		row, err := tx.ImportCreateMilestone(ctx, q.ImportCreateMilestoneParams{
 			ProjectID: projectID, Name: name, Description: desc, TargetDate: planeDate(m.TargetDate),
 			LeadID: lead, SortOrder: m.SortOrder, StatusManual: mp.Status, CreatedBy: creator,

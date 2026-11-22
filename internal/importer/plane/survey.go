@@ -232,6 +232,9 @@ func (ex *Existing) ready() {
 	if ex.Updated == nil {
 		ex.Updated = map[string]time.Time{}
 	}
+	if ex.Archived == nil {
+		ex.Archived = map[uuid.UUID]bool{}
+	}
 }
 
 // LoadExisting reads what the instance has: the import map of source
