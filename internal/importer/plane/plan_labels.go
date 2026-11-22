@@ -19,11 +19,18 @@ var typeOrder = []struct{ plane, yalkos string }{
 // labelKey identifies a Yalkos label: its lower-case name, prefixed by its
 // group's for a label in a group.
 func labelKey(group, name string) string {
-	name = strings.ToLower(strings.TrimSpace(name))
+	name = strings.ToLower(labelName(name))
 	if group == "" {
 		return name
 	}
-	return strings.ToLower(strings.TrimSpace(group)) + "\x1f" + name
+	return strings.ToLower(labelName(group)) + "\x1f" + name
+}
+
+// labelName is a Plane label name on one line, cut to the Yalkos limit.
+// Labels whose names are equal once cut are merged.
+func labelName(s string) string {
+	out, _ := cutName(oneLine(s), maxLabelName)
+	return out
 }
 
 // labelRes is what a Plane label turns into.
@@ -111,7 +118,7 @@ func (lp *labelPlanner) addProject(projectKey string, labels []Label) {
 			continue
 		}
 		color := validColor(l.Color, fallbackLabelColor)
-		res := labelRes{key: labelKey("", l.Name), rank: -1, name: strings.TrimSpace(l.Name), color: color, order: i}
+		res := labelRes{key: labelKey("", l.Name), rank: -1, name: lp.name(l.Name), color: color, order: i}
 		if rank := typeRank(l.Name); rank >= 0 && !hasChildren[l.ID] {
 			if id, ok := lp.ex.TypeNames[typeOrder[rank].plane]; ok {
 				res.rank, res.typeID = rank, id
@@ -138,11 +145,11 @@ func (lp *labelPlanner) addProject(projectKey string, labels []Label) {
 		}
 		color := validColor(l.Color, fallbackLabelColor)
 		group := labelKey("", t.Name)
-		res := labelRes{key: labelKey(t.Name, l.Name), rank: -1, name: strings.TrimSpace(l.Name), color: color, order: i}
+		res := labelRes{key: labelKey(t.Name, l.Name), rank: -1, name: lp.name(l.Name), color: color, order: i}
 		lp.add(projectKey, l.ID, res.key, group, res.name, color, false)
 		lp.byPlane[l.ID] = res
 		if depth > 1 {
-			f := FlattenedLabel{Name: res.name, Group: strings.TrimSpace(t.Name)}
+			f := FlattenedLabel{Name: res.name, Group: labelName(t.Name)}
 			if !slices.Contains(lp.r.Labels.Flattened, f) {
 				lp.r.Labels.Flattened = append(lp.r.Labels.Flattened, f)
 			}
@@ -236,7 +243,7 @@ func (lp *labelPlanner) resolve(l *LabelPlan) {
 		l.Target = id
 		return
 	}
-	final := freeName(l.Name, func(n string) bool {
+	final := freeName(l.Name, maxLabelName, func(n string) bool {
 		_, inYalkos := lp.ex.Labels[n]
 		return inYalkos || lp.topNames[n]
 	})
@@ -329,4 +336,9 @@ func (lp *labelPlanner) forIssue(key string, planeIDs []string) (*uuid.UUID, []s
 		lp.r.Dropped.LabelsOver20 = append(lp.r.Dropped.LabelsOver20, key)
 	}
 	return typ, keys
+}
+
+// name is labelName that reports a cut name.
+func (lp *labelPlanner) name(s string) string {
+	return lp.r.name(s, maxLabelName, func(cut string) string { return cut + " (label name)" })
 }

@@ -42,6 +42,10 @@ func issueKey(key string, n int) string { return key + "-" + strconv.Itoa(n) }
 // planProject plans one project's states, milestones and issues.
 func planProject(pd *ProjectData, key string, ex *Existing, members map[string]bool, lp *labelPlanner, r *Report) (ProjectPlan, error) {
 	pp := ProjectPlan{Data: pd, Key: key}
+	pp.Name = r.name(pd.Name, maxProjectName, func(string) string { return key + " (project name)" })
+	if pp.Name == "" {
+		pp.Name = key
+	}
 	pp.Target, _ = ex.mapped(kindProject, pd.ID)
 	for _, id := range pd.MemberIDs {
 		if members[id] && !slices.Contains(pp.Members, id) {
@@ -147,18 +151,19 @@ func planStates(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report) (s
 			continue
 		}
 		sp := StatePlan{
-			PlaneID: s.ID, Name: strings.TrimSpace(s.Name), Color: validColor(s.Color, fallbackStateColor),
+			PlaneID: s.ID, Color: validColor(s.Color, fallbackStateColor),
 			Type: stateTypes[s.Group], Position: s.Sequence,
 			// A project that already exists keeps its default.
 			Default: s.ID == def && pp.Target == uuid.Nil,
 		}
+		sp.Name = r.name(s.Name, maxStateName, func(cut string) string { return pp.Key + ": " + cut + " (state name)" })
 		lower := strings.ToLower(sp.Name)
 		if id, ok := existing[lower]; ok && !claimed[lower] {
 			sp.Target, sp.Default = id, false
 			rep.Existing.States++
 		} else {
 			if claimed[lower] {
-				final := freeName(sp.Name, func(n string) bool {
+				final := freeName(sp.Name, maxStateName, func(n string) bool {
 					_, inYalkos := existing[n]
 					return claimed[n] || inYalkos
 				})
@@ -190,8 +195,8 @@ func planMilestones(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report
 			rep.Existing.Milestones++
 			continue
 		}
-		name := strings.TrimSpace(m.Name)
-		final := freeName(name, func(n string) bool { return used[n] })
+		name := r.name(m.Name, maxMilestoneName, func(cut string) string { return pp.Key + ": " + cut + " (milestone name)" })
+		final := freeName(name, maxMilestoneName, func(n string) bool { return used[n] })
 		used[strings.ToLower(final)] = true
 		if final != name {
 			r.RenamedMilestones = append(r.RenamedMilestones, RenamedMilestone{Project: pp.Key, Plane: name, Yalkos: final})

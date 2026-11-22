@@ -2,26 +2,26 @@
   "paged": {
     "projects/p-alp/members/": [{"id": "u-ann"}, {"id": "u-bot"}, {"id": "u-bob"}],
     "projects/p-alp/states/": [
-      {"id": "st-alp-backlog", "name": "Backlog", "color": "#bec2c8", "group": "backlog", "sequence": 15000, "default": false},
-      {"id": "st-alp-todo", "name": "Todo", "color": "#3a3a3a", "group": "unstarted", "sequence": 25000, "default": true},
-      {"id": "st-alp-doing", "name": "In Progress", "color": "#f59e0b", "group": "started", "sequence": 35000, "default": false},
-      {"id": "st-alp-done", "name": "Done", "color": "green", "group": "completed", "sequence": 45000, "default": false},
-      {"id": "st-alp-cancelled", "name": "Cancelled", "color": "#9ca3af", "group": "cancelled", "sequence": 55000, "default": false},
-      {"id": "st-alp-triage", "name": "Triage", "color": "#4e5355", "group": "triage", "sequence": 65000, "default": false}
+      {"id": "st-alp-backlog", "name": "Backlog", "color": "#bec2c8", "group": "backlog", "sequence": 15000, "default": false, "created_at": "2025-01-10T09:01:00Z", "created_by": "u-ann"},
+      {"id": "st-alp-todo", "name": "Todo", "color": "#3a3a3a", "group": "unstarted", "sequence": 25000, "default": true, "created_at": "2025-01-10T09:01:00Z", "created_by": "u-ann"},
+      {"id": "st-alp-doing", "name": "In Progress", "color": "#f59e0b", "group": "started", "sequence": 35000, "default": false, "created_at": "2025-01-10T09:01:00Z", "updated_at": "2025-04-01T08:00:00Z", "created_by": "u-ann"},
+      {"id": "st-alp-done", "name": "Done", "color": "green", "group": "completed", "sequence": 45000, "default": false, "created_at": "2025-01-10T09:01:00Z", "created_by": "u-ann"},
+      {"id": "st-alp-cancelled", "name": "Cancelled", "color": "#9ca3af", "group": "cancelled", "sequence": 55000, "default": false, "created_at": "2025-01-10T09:01:00Z", "created_by": "u-ann"},
+      {"id": "st-alp-triage", "name": "Triage", "color": "#4e5355", "group": "triage", "sequence": 65000, "default": false, "created_at": "2025-01-10T09:01:00Z", "created_by": "u-ann"}
     ],
     "projects/p-alp/labels/": [
-      {"id": "lb-alp-bug", "name": "bug", "color": "#e5484d", "parent": null, "sort_order": 1000},
-      {"id": "lb-alp-frontend", "name": "Frontend", "color": "#3b82f6", "parent": null, "sort_order": 2000},
-      {"id": "lb-alp-feature", "name": "feature", "color": "#8e4ec6", "parent": null, "sort_order": 3000},
-      {"id": "lb-alp-area", "name": "Area", "color": "#f97316", "parent": null, "sort_order": 4000},
-      {"id": "lb-alp-api", "name": "api", "color": "#0ea5e9", "parent": "lb-alp-area", "sort_order": 5000},
-      {"id": "lb-alp-v2", "name": "v2", "color": "#22c55e", "parent": "lb-alp-api", "sort_order": 6000}
+      {"id": "lb-alp-bug", "name": "bug", "color": "#e5484d", "parent": null, "sort_order": 1000, "created_at": "2025-01-10T12:00:00Z", "created_by": "u-ann"},
+      {"id": "lb-alp-frontend", "name": "Frontend", "color": "#3b82f6", "parent": null, "sort_order": 2000, "created_at": "2025-01-10T10:00:00Z", "updated_at": "2025-04-02T08:00:00Z", "created_by": "u-bob"},
+      {"id": "lb-alp-feature", "name": "feature", "color": "#8e4ec6", "parent": null, "sort_order": 3000, "created_at": "2025-01-10T12:00:00Z", "created_by": "u-ann"},
+      {"id": "lb-alp-area", "name": "Area", "color": "#f97316", "parent": null, "sort_order": 4000, "created_at": "2025-01-10T11:00:00Z", "created_by": "u-bot"},
+      {"id": "lb-alp-api", "name": "api", "color": "#0ea5e9", "parent": "lb-alp-area", "sort_order": 5000, "created_at": "2025-01-10T12:00:00Z", "created_by": "u-ann"},
+      {"id": "lb-alp-v2", "name": "v2", "color": "#22c55e", "parent": "lb-alp-api", "sort_order": 6000, "created_at": "2025-01-10T12:00:00Z", "created_by": "u-ann"}
     ],
     "projects/p-alp/modules/": [
-      {"id": "md-alp-launch", "name": "Launch", "description_html": "<p>First public version.</p>", "status": "in-progress",
+      {"id": "md-alp-launch", "name": "Launch", "description_html": "<p>First public version.</p>", "description": "Plain launch text.", "status": "in-progress",
        "start_date": null, "target_date": "2026-03-01", "lead": "u-ann", "sort_order": 1000,
        "created_at": "2025-01-11T09:00:00Z", "updated_at": "2025-01-11T09:00:00Z", "created_by": "u-ann"},
-      {"id": "md-alp-polish", "name": "Polish", "description_html": null, "status": "backlog",
+      {"id": "md-alp-polish", "name": "Polish", "description_html": null, "description": "Rough edges first.\nThen the docs.", "status": "backlog",
        "start_date": null, "target_date": null, "lead": null, "sort_order": 2000,
        "created_at": "2025-01-12T09:00:00Z", "updated_at": "2025-01-12T09:00:00Z", "created_by": "u-bot"}
     ],

@@ -144,6 +144,9 @@ type Dropped struct {
 	Parents []string `json:"parents"`
 	// GroupLabels are issues that carried a Plane label that became a group.
 	GroupLabels []string `json:"groupLabels"`
+	// DeletedInYalkos are entities an earlier import created that were deleted
+	// in Yalkos since; they are not brought back, and nothing is added to them.
+	DeletedInYalkos []string `json:"deletedInYalkos"`
 }
 
 // AttachmentReport lists files that were not copied.
@@ -191,6 +194,7 @@ func (r *Report) filled() Report {
 	d.StartDates, d.ExtraAssignees, d.ExtraModules = orEmpty(d.StartDates), orEmpty(d.ExtraAssignees), orEmpty(d.ExtraModules)
 	d.ModuleStartDates, d.LabelsOver20, d.CutTexts = orEmpty(d.ModuleStartDates), orEmpty(d.LabelsOver20), orEmpty(d.CutTexts)
 	d.Parents, d.GroupLabels = orEmpty(d.Parents), orEmpty(d.GroupLabels)
+	d.DeletedInYalkos = orEmpty(d.DeletedInYalkos)
 	if d.UnknownTags == nil {
 		d.UnknownTags = map[string]int{}
 	}
@@ -315,6 +319,7 @@ func (r *Report) WriteText(w io.Writer) {
 	tw.list("Texts cut to the Yalkos limit", d.CutTexts)
 	tw.list("Parents not imported (issue imported without parent)", d.Parents)
 	tw.list("Plane group labels dropped from issues", d.GroupLabels)
+	tw.list("Deleted in Yalkos after an earlier import, not brought back", d.DeletedInYalkos)
 	if len(d.UnknownTags) > 0 {
 		tw.line("")
 		tw.line("Unknown HTML tags kept as text:")

@@ -52,21 +52,27 @@ func (p *Project) UnmarshalJSON(data []byte) error {
 
 // State is a workflow state of a project.
 type State struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Color    string  `json:"color"`
-	Group    string  `json:"group"`
-	Sequence float64 `json:"sequence"`
-	Default  bool    `json:"default"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Color     string    `json:"color"`
+	Group     string    `json:"group"`
+	Sequence  float64   `json:"sequence"`
+	Default   bool      `json:"default"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	CreatedBy string    `json:"created_by"`
 }
 
 // Label is a project label; Parent points at its label group.
 type Label struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Color     string  `json:"color"`
-	Parent    *string `json:"parent"`
-	SortOrder float64 `json:"sort_order"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Color     string    `json:"color"`
+	Parent    *string   `json:"parent"`
+	SortOrder float64   `json:"sort_order"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	CreatedBy string    `json:"created_by"`
 }
 
 // Module is a Plane module.

@@ -107,7 +107,9 @@ func archivedErr() error {
 
 func keyTakenErr() error { return kit.Input("key", kit.ReasonTaken, "key is already used") }
 
-func isUniqueViolation(err error) bool {
+// IsUniqueViolation reports a unique constraint violation, such as a project
+// key another project has.
+func IsUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
@@ -136,9 +138,10 @@ func lockProject(ctx context.Context, tx *q.Queries, id uuid.UUID) (q.Project, e
 	return p, nil
 }
 
-// claimKey records key as one of project id's keys; a key held by another
-// project (now or before) is taken.
-func claimKey(ctx context.Context, tx *q.Queries, key string, id uuid.UUID) error {
+// ClaimKey records key as one of project id's keys in tx; a key held by
+// another project (now or before) is taken: a kit.InputError on "key" with
+// reason taken.
+func ClaimKey(ctx context.Context, tx *q.Queries, key string, id uuid.UUID) error {
 	if err := tx.InsertProjectKey(ctx, q.InsertProjectKeyParams{Key: key, ProjectID: id}); err != nil {
 		return fmt.Errorf("insert project key: %w", err)
 	}
@@ -189,13 +192,13 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 			Key: key, Name: name, Description: in.Description, Icon: icon, Color: color,
 			CreatedBy: &actor.ID, Now: now,
 		})
-		if isUniqueViolation(err) {
+		if IsUniqueViolation(err) {
 			return keyTakenErr()
 		}
 		if err != nil {
 			return fmt.Errorf("create project: %w", err)
 		}
-		if err := claimKey(ctx, tx, key, p.ID); err != nil {
+		if err := ClaimKey(ctx, tx, key, p.ID); err != nil {
 			return err
 		}
 		if err := insertDefaultStates(ctx, tx, p.ID, now); err != nil {
@@ -286,14 +289,14 @@ func (s *Service) Update(ctx context.Context, actor account.User, id uuid.UUID, 
 		// projects.key first, then project_keys: the same lock order as Create,
 		// so a key change racing a create of that key cannot deadlock.
 		out, err = tx.UpdateProject(ctx, next)
-		if isUniqueViolation(err) {
+		if IsUniqueViolation(err) {
 			return keyTakenErr()
 		}
 		if err != nil {
 			return fmt.Errorf("update project: %w", err)
 		}
 		if next.Key != p.Key {
-			if err := claimKey(ctx, tx, next.Key, p.ID); err != nil {
+			if err := ClaimKey(ctx, tx, next.Key, p.ID); err != nil {
 				return err
 			}
 		}

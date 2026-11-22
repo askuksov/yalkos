@@ -15,7 +15,9 @@
         "color": "#bec2c8",
         "group": "backlog",
         "sequence": 10000,
-        "default": false
+        "default": false,
+        "created_at": "2025-02-10T09:01:00Z",
+        "created_by": "u-bot"
       },
       {
         "id": "st-bet-doing",
@@ -23,7 +25,9 @@
         "color": "#f59e0b",
         "group": "started",
         "sequence": 20000,
-        "default": true
+        "default": true,
+        "created_at": "2025-02-10T09:01:00Z",
+        "created_by": "u-bot"
       },
       {
         "id": "st-bet-done",
@@ -31,7 +35,9 @@
         "color": "#16a34a",
         "group": "completed",
         "sequence": 30000,
-        "default": false
+        "default": false,
+        "created_at": "2025-02-10T09:01:00Z",
+        "created_by": "u-bot"
       },
       {
         "id": "st-bet-dropped",
@@ -39,7 +45,9 @@
         "color": "#9ca3af",
         "group": "cancelled",
         "sequence": 40000,
-        "default": false
+        "default": false,
+        "created_at": "2025-02-10T09:01:00Z",
+        "created_by": "u-bot"
       }
     ],
     "projects/p-bet/labels/": [
@@ -48,21 +56,28 @@
         "name": "frontend",
         "color": "#22c55e",
         "parent": null,
-        "sort_order": 1000
+        "sort_order": 1000,
+        "created_at": "2025-02-10T10:00:00Z",
+        "updated_at": "2025-05-03T08:00:00Z",
+        "created_by": "u-ann"
       },
       {
         "id": "lb-bet-improvement",
         "name": "Improvement",
         "color": "#30a46c",
         "parent": null,
-        "sort_order": 2000
+        "sort_order": 2000,
+        "created_at": "2025-02-10T11:00:00Z",
+        "created_by": "u-bob"
       },
       {
         "id": "lb-bet-feature",
         "name": "Feature",
         "color": "#6e56cf",
         "parent": null,
-        "sort_order": 3000
+        "sort_order": 3000,
+        "created_at": "2025-02-10T11:00:00Z",
+        "created_by": "u-bob"
       }
     ],
     "projects/p-bet/modules/": [
