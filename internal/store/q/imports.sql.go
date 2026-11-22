@@ -13,12 +13,13 @@ import (
 )
 
 const importCreateAttachment = `-- name: ImportCreateAttachment :one
-INSERT INTO attachments (issue_id, uploader_id, blob_sha256, name, created_at)
-VALUES ($1::uuid, $2, $3, $4, $5)
+INSERT INTO attachments (id, issue_id, uploader_id, blob_sha256, name, created_at)
+VALUES ($1, $2::uuid, $3, $4, $5, $6)
 RETURNING id, issue_id, uploader_id, blob_sha256, name, created_at
 `
 
 type ImportCreateAttachmentParams struct {
+	ID         uuid.UUID
 	IssueID    uuid.UUID
 	UploaderID uuid.UUID
 	BlobSha256 []byte
@@ -26,8 +27,11 @@ type ImportCreateAttachmentParams struct {
 	CreatedAt  time.Time
 }
 
+// The id is chosen by the caller: the description or comment that shows the
+// file links to it before the row exists.
 func (q *Queries) ImportCreateAttachment(ctx context.Context, arg ImportCreateAttachmentParams) (Attachment, error) {
 	row := q.db.QueryRow(ctx, importCreateAttachment,
+		arg.ID,
 		arg.IssueID,
 		arg.UploaderID,
 		arg.BlobSha256,

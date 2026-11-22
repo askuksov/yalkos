@@ -36,7 +36,7 @@
        "priority": "low", "state": "st-alp-backlog", "sequence_id": 4, "sort_order": 4000, "parent": "i-alp-5",
        "assignees": [], "labels": [], "start_date": null, "target_date": null,
        "created_at": "2025-03-04T10:00:00Z", "updated_at": "2025-03-04T10:00:00Z", "completed_at": null, "created_by": "u-ann"},
-      {"id": "i-alp-5", "name": "Onboarding for new teams", "description_html": "<p>Make the first hour pleasant.</p>",
+      {"id": "i-alp-5", "name": "Onboarding for new teams", "description_html": "<p>Make the first hour pleasant.</p><image-component src=\"as-alp-5-flow\"></image-component>",
        "priority": "none", "state": "st-alp-done", "sequence_id": 5, "sort_order": 5000, "parent": null,
        "assignees": ["u-bob"], "labels": ["lb-alp-feature"], "start_date": null, "target_date": null,
        "created_at": "2025-03-05T10:00:00Z", "updated_at": "2025-03-09T10:00:00Z", "completed_at": "2025-03-09T10:00:00Z", "created_by": "u-bob"},
@@ -52,6 +52,75 @@
        "priority": "medium", "state": "st-alp-triage", "sequence_id": 3, "sort_order": 3000, "parent": null,
        "assignees": ["u-ann"], "labels": ["lb-alp-v2", "lb-alp-api"], "start_date": null, "target_date": null,
        "created_at": "2025-03-03T10:00:00Z", "updated_at": "2025-03-03T10:00:00Z", "completed_at": null, "created_by": "u-ann"}
-    ]
+    ],
+    "projects/p-alp/work-items/i-alp-1/comments/": [
+      {"id": "c-alp-1-gone", "comment_html": "<p>Wrong issue, sorry.</p>", "actor": "u-bob", "parent": null,
+       "created_at": "2025-03-01T11:00:00Z", "updated_at": "2025-03-01T11:05:00Z", "edited_at": null, "deleted_at": "2025-03-01T11:05:00Z"},
+      {"id": "c-alp-1-reply", "comment_html": "<p>Same in Firefox.</p>", "actor": "u-bob", "parent": "c-alp-1-first",
+       "created_at": "2025-03-01T13:00:00Z", "updated_at": "2025-03-01T14:00:00Z", "edited_at": "2025-03-01T14:00:00Z", "deleted_at": null},
+      {"id": "c-alp-1-first", "comment_html": "<p>Here is what I see:</p><image-component src=\"as-alp-1-shot\"></image-component>", "actor": "u-ann", "parent": null,
+       "created_at": "2025-03-01T12:00:00Z", "updated_at": "2025-03-01T12:00:00Z", "edited_at": null, "deleted_at": null}
+    ],
+    "projects/p-alp/work-items/i-alp-1/attachments/": [
+      {"id": "at-alp-1-log", "attributes": {"name": "console log.txt", "type": "text/plain", "size": 27},
+       "created_at": "2025-03-01T10:30:00Z", "created_by": "u-ann"}
+    ],
+    "projects/p-alp/work-items/i-alp-1/links/": [
+      {"title": "Browser notes", "url": "https://example.invalid/notes"},
+      {"title": null, "url": "https://example.invalid/plain"}
+    ],
+    "projects/p-alp/work-items/i-alp-2/comments/": [],
+    "projects/p-alp/work-items/i-alp-2/attachments/": [],
+    "projects/p-alp/work-items/i-alp-2/links/": [],
+    "projects/p-alp/work-items/i-alp-3/comments/": [
+      {"id": "c-alp-3-first", "comment_html": "<p>Start with the sign-in route.</p>", "actor": "u-ann", "parent": null,
+       "created_at": "2025-03-03T11:00:00Z", "updated_at": "2025-03-03T11:00:00Z", "edited_at": null, "deleted_at": null}
+    ],
+    "projects/p-alp/work-items/i-alp-3/attachments/": [
+      {"id": "at-alp-3-limits", "attributes": {"name": "limits.csv", "type": "text/csv", "size": 18},
+       "created_at": "2025-03-03T10:30:00Z", "created_by": "u-ann"}
+    ],
+    "projects/p-alp/work-items/i-alp-3/links/": [],
+    "projects/p-alp/work-items/i-alp-4/comments/": [],
+    "projects/p-alp/work-items/i-alp-4/attachments/": [],
+    "projects/p-alp/work-items/i-alp-4/links/": [],
+    "projects/p-alp/work-items/i-alp-5/comments/": [
+      {"id": "c-alp-5-first", "comment_html": "<p></p>", "actor": "u-bot", "parent": null,
+       "created_at": "2025-03-06T10:00:00Z", "updated_at": "2025-03-06T10:00:00Z", "edited_at": null, "deleted_at": null}
+    ],
+    "projects/p-alp/work-items/i-alp-5/attachments/": [],
+    "projects/p-alp/work-items/i-alp-5/links/": []
+  },
+  "plain": {
+    "projects/p-alp/work-items/i-alp-1/relations/": {
+      "blocking": [], "blocked_by": [{"project_id": "p-bet", "issue_id": "i-bet-2"}],
+      "duplicate": [{"project_id": "p-gam", "issue_id": "i-gam-gone"}],
+      "relates_to": [{"project_id": "p-gam", "issue_id": "i-gam-7"}, {"project_id": "p-alp", "issue_id": "i-alp-3"}],
+      "start_after": [], "start_before": [], "finish_after": [], "finish_before": []
+    },
+    "projects/p-alp/work-items/i-alp-2/relations/": {},
+    "projects/p-alp/work-items/i-alp-3/relations/": {"relates_to": [{"project_id": "p-alp", "issue_id": "i-alp-1"}]},
+    "projects/p-alp/work-items/i-alp-4/relations/": {},
+    "projects/p-alp/work-items/i-alp-5/relations/": {},
+    "projects/p-gam/work-items/i-gam-7/": {
+      "id": "i-gam-7", "name": "Gamma item", "description_html": "", "priority": "none", "state": "st-gam-todo",
+      "sequence_id": 7, "sort_order": 7000, "parent": null, "assignees": [], "labels": [],
+      "start_date": null, "target_date": null, "created_at": "2025-03-07T10:00:00Z", "updated_at": "2025-03-07T10:00:00Z",
+      "completed_at": null, "created_by": "u-bob"
+    }
+  },
+  "files": {
+    "projects/p-alp/work-items/i-alp-1/attachments/at-alp-1-log/": {
+      "name": "console log.txt", "contentType": "text/plain", "body": "TypeError: x is not defined", "length": true
+    },
+    "projects/p-alp/work-items/i-alp-1/attachments/as-alp-1-shot/": {
+      "name": "shot.gif", "contentType": "image/gif", "body": "GIF89a-first-comment-shot"
+    },
+    "projects/p-alp/work-items/i-alp-3/attachments/at-alp-3-limits/": {
+      "name": "limits.csv", "contentType": "text/csv", "body": "route,limit\nall,9\n"
+    },
+    "projects/p-alp/work-items/i-alp-5/attachments/as-alp-5-flow/": {
+      "name": "flow.gif", "contentType": "image/gif", "body": "GIF89a-onboarding-flow"
+    }
   }
 }

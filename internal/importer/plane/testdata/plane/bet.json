@@ -184,6 +184,20 @@
         "completed_at": null,
         "created_by": "u-bot"
       }
-    ]
+    ],
+    "projects/p-bet/work-items/i-bet-1/comments/": [],
+    "projects/p-bet/work-items/i-bet-1/attachments/": [],
+    "projects/p-bet/work-items/i-bet-1/links/": [],
+    "projects/p-bet/work-items/i-bet-2/comments/": [],
+    "projects/p-bet/work-items/i-bet-2/attachments/": [],
+    "projects/p-bet/work-items/i-bet-2/links/": [],
+    "projects/p-bet/work-items/i-bet-3/comments/": [],
+    "projects/p-bet/work-items/i-bet-3/attachments/": [],
+    "projects/p-bet/work-items/i-bet-3/links/": []
+  },
+  "plain": {
+    "projects/p-bet/work-items/i-bet-1/relations/": {},
+    "projects/p-bet/work-items/i-bet-2/relations/": {"blocking": [{"project_id": "p-alp", "issue_id": "i-alp-1"}]},
+    "projects/p-bet/work-items/i-bet-3/relations/": {}
   }
 }
