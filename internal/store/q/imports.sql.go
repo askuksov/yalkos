@@ -449,6 +449,31 @@ func (q *Queries) ListImportMap(ctx context.Context, arg ListImportMapParams) ([
 	return items, nil
 }
 
+const listProjectKeys = `-- name: ListProjectKeys :many
+SELECT key, project_id FROM project_keys ORDER BY key
+`
+
+// Every key a project has had, current or earlier.
+func (q *Queries) ListProjectKeys(ctx context.Context) ([]ProjectKey, error) {
+	rows, err := q.db.Query(ctx, listProjectKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectKey
+	for rows.Next() {
+		var i ProjectKey
+		if err := rows.Scan(&i.Key, &i.ProjectID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const raiseSequenceCounter = `-- name: RaiseSequenceCounter :exec
 UPDATE projects SET sequence_counter = GREATEST(sequence_counter, $1::int) WHERE id = $2
 `
