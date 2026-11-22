@@ -57,8 +57,10 @@ VALUES (@issue_id, @author_id, @body, @created_at, @updated_at, @edited_at)
 RETURNING *;
 
 -- name: ImportCreateAttachment :one
-INSERT INTO attachments (issue_id, uploader_id, blob_sha256, name, created_at)
-VALUES (@issue_id::uuid, @uploader_id, @blob_sha256, @name, @created_at)
+-- The id is chosen by the caller: the description or comment that shows the
+-- file links to it before the row exists.
+INSERT INTO attachments (id, issue_id, uploader_id, blob_sha256, name, created_at)
+VALUES (@id, @issue_id::uuid, @uploader_id, @blob_sha256, @name, @created_at)
 RETURNING *;
 
 -- name: RaiseSequenceCounter :exec

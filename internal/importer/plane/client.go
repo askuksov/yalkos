@@ -485,6 +485,11 @@ func (c *Client) WorkItems(ctx context.Context, pid string) ([]WorkItem, error) 
 	return getList[WorkItem](ctx, c, projectPath(pid, "work-items/"))
 }
 
+// WorkItem reads one work item.
+func (c *Client) WorkItem(ctx context.Context, pid, iid string) (WorkItem, error) {
+	return getObject[WorkItem](ctx, c, issuePath(pid, iid, ""))
+}
+
 // Comments lists the comments of a work item.
 func (c *Client) Comments(ctx context.Context, pid, iid string) ([]Comment, error) {
 	return getList[Comment](ctx, c, issuePath(pid, iid, "comments/"))

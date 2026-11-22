@@ -147,6 +147,9 @@ type Dropped struct {
 	// DeletedInYalkos are entities an earlier import created that were deleted
 	// in Yalkos since; they are not brought back, and nothing is added to them.
 	DeletedInYalkos []string `json:"deletedInYalkos"`
+	// UnresolvedRelations are issues with a relation to a work item Plane no
+	// longer shows; that line is left out of the description.
+	UnresolvedRelations []string `json:"unresolvedRelations"`
 }
 
 // AttachmentReport lists files that were not copied.
@@ -155,7 +158,8 @@ type AttachmentReport struct {
 	TooLarge []string           `json:"tooLarge"`
 }
 
-// FailedAttachment is a file whose download failed.
+// FailedAttachment is a file that was not copied: its download failed or
+// Plane never finished its upload.
 type FailedAttachment struct {
 	Key    string `json:"key"`
 	Name   string `json:"name"`
@@ -195,6 +199,7 @@ func (r *Report) filled() Report {
 	d.ModuleStartDates, d.LabelsOver20, d.CutTexts = orEmpty(d.ModuleStartDates), orEmpty(d.LabelsOver20), orEmpty(d.CutTexts)
 	d.Parents, d.GroupLabels = orEmpty(d.Parents), orEmpty(d.GroupLabels)
 	d.DeletedInYalkos = orEmpty(d.DeletedInYalkos)
+	d.UnresolvedRelations = orEmpty(d.UnresolvedRelations)
 	if d.UnknownTags == nil {
 		d.UnknownTags = map[string]int{}
 	}
@@ -320,6 +325,7 @@ func (r *Report) WriteText(w io.Writer) {
 	tw.list("Parents not imported (issue imported without parent)", d.Parents)
 	tw.list("Plane group labels dropped from issues", d.GroupLabels)
 	tw.list("Deleted in Yalkos after an earlier import, not brought back", d.DeletedInYalkos)
+	tw.list("Relations to work items Plane no longer shows, left out", d.UnresolvedRelations)
 	if len(d.UnknownTags) > 0 {
 		tw.line("")
 		tw.line("Unknown HTML tags kept as text:")

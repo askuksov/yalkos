@@ -55,6 +55,7 @@ type fakePlane struct {
 	requests   map[string]int
 	queries    map[string][]url.Values
 	keys       map[string][]string
+	hooks      map[string]func()
 }
 
 func newFakePlane(t *testing.T) *fakePlane {
@@ -71,6 +72,7 @@ func newFakePlane(t *testing.T) *fakePlane {
 		requests: map[string]int{},
 		queries:  map[string][]url.Values{},
 		keys:     map[string][]string{},
+		hooks:    map[string]func(){},
 	}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(f.srv.Close)
@@ -141,6 +143,14 @@ func (f *fakePlane) headerOn(path, name, value string) {
 	f.extra[path].Set(name, value)
 }
 
+// onRequest runs fn once, when the next request for path arrives (before it
+// is answered); it simulates a change in Yalkos in the middle of a run.
+func (f *fakePlane) onRequest(path string, fn func()) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.hooks[path] = fn
+}
+
 // redirectAttachment sends attachment details to a full URL instead of the
 // fake's own storage path.
 func (f *fakePlane) redirectAttachment(to string) {
@@ -165,6 +175,10 @@ func (f *fakePlane) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f.requests[path]++
+	if hook := f.hooks[path]; hook != nil {
+		delete(f.hooks, path)
+		hook()
+	}
 	f.queries[path] = append(f.queries[path], r.URL.Query())
 	f.keys[path] = append(f.keys[path], r.Header.Get("X-API-Key"))
 	for name, vals := range f.extra[path] {

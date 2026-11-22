@@ -24,7 +24,10 @@ type Plan struct {
 	// Labels are in creation order: a group comes before its labels.
 	Labels   []LabelPlan
 	Projects []ProjectPlan
-	Report   *Report
+	// PlaneProjects are all listed Plane projects by id, imported or not, so
+	// relations into any of them can be named.
+	PlaneProjects map[string]Project
+	Report        *Report
 }
 
 // UserPlan is a Plane workspace member other than the seed bot.
@@ -187,7 +190,7 @@ func MakePlan(ws *Workspace, ex Existing) (Plan, error) {
 		return Plan{}, errors.New("plane: nothing surveyed")
 	}
 	r := &Report{}
-	p := Plan{Report: r}
+	p := Plan{Report: r, PlaneProjects: ws.AllProjects}
 
 	var active []*ProjectData
 	keys := map[*ProjectData]string{}
