@@ -190,8 +190,9 @@ type Existing struct {
 	ProjectKeys map[string]uuid.UUID
 	// Labels maps lower(name) of a top-level label (or group) to the label.
 	Labels map[string]uuid.UUID
-	// GroupLabels maps lower(group name) → lower(label name) to a label in a group.
-	GroupLabels map[string]map[string]uuid.UUID
+	// GroupLabels maps a group's label id → lower(label name) to a label in
+	// that group.
+	GroupLabels map[uuid.UUID]map[string]uuid.UUID
 	// LabelKinds tells, by lower(name) of a top-level label, whether it is a
 	// group and whether that group is exclusive.
 	LabelKinds map[string]LabelKind
@@ -247,7 +248,7 @@ func LoadExisting(ctx context.Context, db *q.Queries, source uuid.UUID) (Existin
 		Users:       map[string]uuid.UUID{},
 		ProjectKeys: map[string]uuid.UUID{},
 		Labels:      map[string]uuid.UUID{},
-		GroupLabels: map[string]map[string]uuid.UUID{},
+		GroupLabels: map[uuid.UUID]map[string]uuid.UUID{},
 		LabelKinds:  map[string]LabelKind{},
 		TypeNames:   map[string]uuid.UUID{},
 
@@ -307,7 +308,7 @@ func LoadExisting(ctx context.Context, db *q.Queries, source uuid.UUID) (Existin
 			ex.LabelKinds[names[l.ID]] = LabelKind{Group: l.IsGroup, Exclusive: l.Exclusive}
 			continue
 		}
-		group := names[*l.ParentID]
+		group := *l.ParentID
 		if ex.GroupLabels[group] == nil {
 			ex.GroupLabels[group] = map[string]uuid.UUID{}
 		}

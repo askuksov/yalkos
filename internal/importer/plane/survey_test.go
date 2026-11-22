@@ -155,7 +155,7 @@ func TestLoadExisting(t *testing.T) {
 	if ex.ProjectKeys["ALP"] != p.ID || ex.ProjectKeys["OLDALP"] != p.ID {
 		t.Errorf("project keys = %v", ex.ProjectKeys)
 	}
-	if ex.Labels["area"] != group.ID || ex.GroupLabels["area"]["api"] != child.ID {
+	if ex.Labels["area"] != group.ID || ex.GroupLabels[group.ID]["api"] != child.ID {
 		t.Errorf("labels = %v, group labels = %v", ex.Labels, ex.GroupLabels)
 	}
 	if _, ok := ex.Labels["api"]; ok {

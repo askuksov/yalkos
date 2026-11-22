@@ -101,7 +101,11 @@ func (n *issueNamer) name(ctx context.Context, ref RelationRef) (string, bool, e
 	}
 	p, ok := n.projects[ref.ProjectID]
 	if !ok || ref.IssueID == "" {
-		n.fetched[ref.IssueID] = ""
+		// A bare id names no project: a later reference with its project
+		// may still find the work item, so nothing is remembered for it.
+		if ref.ProjectID != "" {
+			n.fetched[ref.IssueID] = ""
+		}
 		return "", false, nil
 	}
 	it, err := n.c.WorkItem(ctx, ref.ProjectID, ref.IssueID)

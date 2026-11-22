@@ -229,9 +229,10 @@ func (lp *labelPlanner) resolve(l *LabelPlan) {
 	}
 	name := strings.ToLower(l.Name)
 	if l.Group != "" {
-		// A group that is created (new or renamed) has no labels yet.
+		// A group that is created (new or renamed) has no labels yet; an
+		// existing one is looked up by its Yalkos label, whatever its name.
 		if group := lp.labels[lp.byKey[l.Group]]; group.Target != uuid.Nil {
-			l.Target = lp.ex.GroupLabels[strings.ToLower(group.Name)][name]
+			l.Target = lp.ex.GroupLabels[group.Target][name]
 		}
 		return
 	}

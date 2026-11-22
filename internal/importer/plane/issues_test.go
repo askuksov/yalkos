@@ -616,3 +616,50 @@ func TestRelationsAsBareIDs(t *testing.T) {
 		t.Errorf("unresolved relations = %v, want ALP-4", r.Dropped.UnresolvedRelations)
 	}
 }
+
+func TestFallbackStateIsCurrentYalkosDefault(t *testing.T) {
+	ctx := context.Background()
+	e := newIssueEnv(t)
+	e.mustRun(t)
+	alp := e.projectID(t, "ALP")
+	// The Yalkos default changes after the import.
+	var doing uuid.UUID
+	if err := e.pool.QueryRow(ctx, `SELECT id FROM states WHERE project_id = $1 AND name = 'In Progress'`, alp).Scan(&doing); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.pool.Exec(ctx, `UPDATE states SET is_default = false WHERE project_id = $1`, alp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.pool.Exec(ctx, `UPDATE states SET is_default = true WHERE id = $1`, doing); err != nil {
+		t.Fatal(err)
+	}
+	item := planeItem("i-alp-6", "In triage in Plane", 6)
+	item["state"] = "st-alp-triage"
+	e.addItem("p-alp", item)
+
+	r := e.mustRun(t)
+	if got := e.issue(t, "ALP-6").StateID; got != doing {
+		t.Errorf("ALP-6 state = %v, want the current Yalkos default %v", got, doing)
+	}
+	if !slices.Contains(r.StateFallback, "ALP-6") {
+		t.Errorf("state fallback = %v, want ALP-6 listed", r.StateFallback)
+	}
+}
+
+func TestBareRelationDoesNotHideLaterRef(t *testing.T) {
+	e := newIssueEnv(t)
+	// A work item of a project that is not surveyed (OLD is archived) is
+	// listed first as a bare id, then with its project.
+	e.fake.setPlain("projects/p-old/work-items/i-old-1/", map[string]any{
+		"id": "i-old-1", "name": "Old item", "sequence_id": 1, "state": "st-old", "priority": "none",
+		"created_at": "2024-03-01T10:00:00Z", "updated_at": "2024-03-01T10:00:00Z",
+	})
+	e.fake.setPlain("projects/p-alp/work-items/i-alp-4/relations/", map[string]any{
+		"blocking":   []any{"i-old-1"},
+		"relates_to": []any{map[string]any{"project_id": "p-old", "issue_id": "i-old-1"}},
+	})
+	e.mustRun(t)
+	if got := e.issue(t, "ALP-4").Description; !strings.Contains(got, "- relates to OLD-1") {
+		t.Errorf("ALP-4 description = %q, want the relation with the project named", got)
+	}
+}

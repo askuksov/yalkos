@@ -58,12 +58,11 @@ func planProject(pd *ProjectData, key string, ex *Existing, members map[string]b
 		return pp, nil
 	}
 
-	defState, err := planStates(&pp, ex, &rep, r)
-	if err != nil {
+	if err := planStates(&pp, ex, &rep, r); err != nil {
 		return ProjectPlan{}, err
 	}
 	modules := planMilestones(&pp, ex, &rep, r)
-	planIssues(&pp, ex, defState, modules, lp, &rep, r)
+	planIssues(&pp, ex, modules, lp, &rep, r)
 
 	r.Projects = append(r.Projects, rep)
 	return pp, nil
@@ -96,12 +95,12 @@ func skipArchived(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report) 
 	r.Projects = append(r.Projects, *rep)
 }
 
-// planStates plans the states to create and returns the Plane id of the
-// project's default state. Triage states (and groups Yalkos does not have)
+// planStates plans the states to create; the Plane default state becomes
+// the default of a new project. Triage states (and groups Yalkos does not have)
 // are skipped. In a project an earlier import created, a new Plane state
 // named like an existing Yalkos state is mapped onto it; a Plane state named
 // like an earlier one of the same project gets the next free name.
-func planStates(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report) (string, error) {
+func planStates(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report) error {
 	var states []State
 	for _, s := range pp.Data.States {
 		if importable(s) {
@@ -111,7 +110,7 @@ func planStates(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report) (s
 		}
 	}
 	if len(states) == 0 {
-		return "", fmt.Errorf("plane project %s has no states to import", pp.Key)
+		return fmt.Errorf("plane project %s has no states to import", pp.Key)
 	}
 	slices.SortStableFunc(states, func(a, b State) int { return cmp.Compare(a.Sequence, b.Sequence) })
 
@@ -175,7 +174,7 @@ func planStates(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report) (s
 		claimed[strings.ToLower(sp.Name)] = true
 		pp.States = append(pp.States, sp)
 	}
-	return def, nil
+	return nil
 }
 
 // planMilestones plans the milestones to create and returns the project's
@@ -212,7 +211,7 @@ func planMilestones(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report
 
 // planIssues plans the issues to create in parent-first order and lists the
 // imported ones that changed in Plane since.
-func planIssues(pp *ProjectPlan, ex *Existing, defState string, modules []Module, lp *labelPlanner, rep *ProjectReport, r *Report) {
+func planIssues(pp *ProjectPlan, ex *Existing, modules []Module, lp *labelPlanner, rep *ProjectReport, r *Report) {
 	items := slices.Clone(pp.Data.Items)
 	slices.SortStableFunc(items, func(a, b WorkItem) int { return cmp.Compare(a.SequenceID, b.SequenceID) })
 
@@ -252,7 +251,9 @@ func planIssues(pp *ProjectPlan, ex *Existing, defState string, modules []Module
 		}
 		is := IssuePlan{Item: it, Key: key, Number: it.SequenceID, State: it.State, Priority: priorities[it.Priority]}
 		if !states[it.State] {
-			is.State = defState
+			// No Plane state: the writer puts the issue in the project's
+			// default state in Yalkos at the time it is written.
+			is.State = ""
 			r.StateFallback = append(r.StateFallback, key)
 		}
 		if it.Parent != nil && *it.Parent != "" {
