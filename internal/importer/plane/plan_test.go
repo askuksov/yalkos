@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/askuksov/yalkos/internal/domain/label"
+	"github.com/askuksov/yalkos/internal/store/q"
 )
 
 var (
@@ -130,9 +131,10 @@ func TestPlanStatesAndPriorities(t *testing.T) {
 		}
 	}
 
-	// ALP-3 sits in the skipped triage state: it falls back to the default.
-	if got := findIssue(t, alp, "ALP-3").State; got != "st-alp-todo" {
-		t.Errorf("ALP-3 state = %q, want the default st-alp-todo", got)
+	// ALP-3 sits in the skipped triage state: it gets no Plane state and
+	// falls back to the Yalkos default when it is written.
+	if got := findIssue(t, alp, "ALP-3").State; got != "" {
+		t.Errorf("ALP-3 state = %q, want none (the Yalkos default)", got)
 	}
 	if got := findIssue(t, alp, "ALP-1").State; got != "st-alp-todo" {
 		t.Errorf("ALP-1 state = %q", got)
@@ -805,5 +807,51 @@ func TestPlanCutNamesHaveNoTrailingSpace(t *testing.T) {
 	}
 	if !slices.Contains(p.Report.Dropped.CutTexts, l49+" (label name)") {
 		t.Errorf("cutTexts = %q, want the trimmed label name", p.Report.Dropped.CutTexts)
+	}
+}
+
+func TestPlanGroupLabelsUnderMappedGroup(t *testing.T) {
+	ctx := context.Background()
+	e := newBaseEnv(t)
+	e.base(t)
+	db := q.New(e.pool)
+	// The group an earlier import created is renamed in Yalkos, and a new
+	// Yalkos group takes the Plane group's name.
+	if _, err := e.pool.Exec(ctx, `UPDATE labels SET name = 'Zone' WHERE name = 'Area' AND parent_id IS NULL`); err != nil {
+		t.Fatal(err)
+	}
+	at := planeTime(t, "2025-07-01T00:00:00Z")
+	native, err := db.ImportCreateLabel(ctx, q.ImportCreateLabelParams{IsGroup: true, Name: "Area", Color: "#123456", CreatedAt: at, UpdatedAt: at})
+	if err != nil {
+		t.Fatal(err)
+	}
+	web, err := db.ImportCreateLabel(ctx, q.ImportCreateLabelParams{ParentID: &native.ID, Name: "web", Color: "#123456", CreatedAt: at, UpdatedAt: at})
+	if err != nil {
+		t.Fatal(err)
+	}
+	zoneAPI := e.count(t, `SELECT count(*) FROM labels c JOIN labels g ON g.id = c.parent_id WHERE g.name = 'Zone' AND c.name = 'api'`)
+	if zoneAPI != 1 {
+		t.Fatalf("Zone/api labels = %d, want the imported one", zoneAPI)
+	}
+	var zone uuid.UUID
+	if err := e.pool.QueryRow(ctx, `SELECT id FROM labels WHERE name = 'Zone' AND parent_id IS NULL`).Scan(&zone); err != nil {
+		t.Fatal(err)
+	}
+	ui, err := db.ImportCreateLabel(ctx, q.ImportCreateLabelParams{ParentID: &zone, Name: "UI", Color: "#123456", CreatedAt: at, UpdatedAt: at})
+	if err != nil {
+		t.Fatal(err)
+	}
+	group := "lb-alp-area"
+	alp := projectData(t, e.ws, "ALP")
+	alp.Labels = append(alp.Labels,
+		Label{ID: "lb-alp-web", Name: "web", Color: "#222222", Parent: &group, SortOrder: 9000},
+		Label{ID: "lb-alp-ui", Name: "ui", Color: "#222222", Parent: &group, SortOrder: 9100})
+
+	p, _ := e.prepare(t)
+	if l := findLabel(t, p, labelKey("Area", "web")); l.Target == web.ID || l.Target != uuid.Nil {
+		t.Errorf("new Plane Area/web = %+v, want it created under the mapped group, not the Yalkos Area/web", l)
+	}
+	if l := findLabel(t, p, labelKey("Area", "ui")); l.Target != ui.ID {
+		t.Errorf("new Plane Area/ui = %+v, want the Yalkos Zone/UI %v", l, ui.ID)
 	}
 }

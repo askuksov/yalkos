@@ -108,7 +108,8 @@ func (pw *projectWriter) liveState(ctx context.Context, tx *q.Queries, st q.Stat
 		return q.State{}, fmt.Errorf("state: %w", err)
 	}
 	delete(pw.states, st.ID)
-	if !pw.gone[planeID] {
+	// planeID is empty for an issue already in the default state.
+	if planeID != "" && !pw.gone[planeID] {
 		pw.gone[planeID] = true
 		out.deleted = append(out.deleted, "state "+pw.pp.Key+": "+pw.planeStateName(planeID))
 	}
