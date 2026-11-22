@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -168,6 +169,62 @@ func TestRemainingZeroWaits(t *testing.T) {
 			assertSleeps(t, clock, tc.want) // the wait is spent once
 		})
 	}
+}
+
+func TestRemainingZeroWaitsUntilReset(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		elapsed time.Duration
+		want    []time.Duration
+	}{
+		{"reset passed", 25 * time.Second, nil},
+		{"reset reached", 20 * time.Second, nil},
+		{"partly waited", 8 * time.Second, []time.Duration{12 * time.Second}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFakePlane(t)
+			f.setPaged("projects/", map[string]any{"id": "p1"})
+			f.setPlain("members/", []any{})
+			clock := newFakeClock()
+			f.headerOn("projects/", "X-Ratelimit-Remaining", "0")
+			f.headerOn("projects/", "X-Ratelimit-Reset", fmt.Sprint(clock.now.Add(20*time.Second).Unix()))
+			c := newTestClient(t, f, clock)
+
+			if _, err := c.Projects(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			clock.now = clock.now.Add(tc.elapsed) // the work between two requests
+			if _, err := c.Members(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			assertSleeps(t, clock, tc.want...)
+		})
+	}
+}
+
+func TestRemainingZeroCancelledWaitKept(t *testing.T) {
+	f := newFakePlane(t)
+	f.setPaged("projects/", map[string]any{"id": "p1"})
+	f.setPlain("members/", []any{})
+	clock := newFakeClock()
+	f.headerOn("projects/", "X-Ratelimit-Remaining", "0")
+	f.headerOn("projects/", "X-Ratelimit-Reset", fmt.Sprint(clock.now.Add(20*time.Second).Unix()))
+	c := newTestClient(t, f, clock)
+	if _, err := c.Projects(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := c.Members(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("error = %v, want context.Canceled", err)
+	}
+	clock.now = clock.now.Add(5 * time.Second)
+	if _, err := c.Members(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// The cancelled wait is still owed: the next request waits for the rest.
+	assertSleeps(t, clock, 20*time.Second, 15*time.Second)
 }
 
 func TestServerErrorRetries(t *testing.T) {
@@ -558,6 +615,23 @@ func TestDownloadLimit(t *testing.T) {
 	_ = d.Body.Close()
 	if err != nil || len(body) != 2<<20 {
 		t.Fatalf("read %d bytes, err = %v", len(body), err)
+	}
+}
+
+func TestLimitsNearMaxInt64(t *testing.T) {
+	l := &limitBody{rc: io.NopCloser(strings.NewReader("short body")), left: math.MaxInt64}
+	if got, err := io.ReadAll(l); err != nil || string(got) != "short body" {
+		t.Errorf("limitBody read %q, %v", got, err)
+	}
+
+	saved := maxBody
+	maxBody = math.MaxInt64
+	defer func() { maxBody = saved }()
+	f := newFakePlane(t)
+	f.setPaged("projects/", map[string]any{"id": "p1"})
+	ps, err := newTestClient(t, f, newFakeClock()).Projects(context.Background())
+	if err != nil || len(ps) != 1 {
+		t.Errorf("projects = %+v, %v; want one", ps, err)
 	}
 }
 

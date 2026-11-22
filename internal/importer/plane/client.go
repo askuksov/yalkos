@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"mime"
 	"net"
 	"net/http"
@@ -79,7 +80,9 @@ type Client struct {
 
 	requests atomic.Int64
 	mu       sync.Mutex
-	pending  time.Duration // pacing wait owed before the next request
+	// pendingUntil is when an exhausted request budget is renewed; no
+	// request is sent before it.
+	pendingUntil time.Time
 }
 
 // ErrBaseURLCredentials reports a base URL with a user name or password.
@@ -313,8 +316,9 @@ func retryAfter(h http.Header) time.Duration {
 	return time.Duration(min(max(n, 1), maxRetryAfter)) * time.Second
 }
 
-// noteLimits records a pacing wait when Plane says the request budget is spent.
-// Answers from another host (a storage redirect) are not Plane's.
+// noteLimits records when the request budget is renewed if Plane says it is
+// spent: at X-Ratelimit-Reset, at most 61 s from now. Answers from another
+// host (a storage redirect) are not Plane's.
 func (c *Client) noteLimits(resp *http.Response) {
 	if resp.Request == nil || resp.Request.URL.Host != c.host {
 		return
@@ -322,33 +326,46 @@ func (c *Client) noteLimits(resp *http.Response) {
 	if strings.TrimSpace(resp.Header.Get("X-Ratelimit-Remaining")) != "0" {
 		return
 	}
-	wait := maxRateWait
-	if reset, err := strconv.ParseFloat(strings.TrimSpace(resp.Header.Get("X-Ratelimit-Reset")), 64); err == nil {
-		until := time.Unix(int64(reset), 0).Sub(c.now())
-		wait = until.Round(time.Second)
-		if wait < until {
-			wait += time.Second // round up: never wake before the reset
-		}
-		wait = min(wait, maxRateWait)
+	now := c.now()
+	until := now.Add(maxRateWait)
+	if reset, err := strconv.ParseFloat(strings.TrimSpace(resp.Header.Get("X-Ratelimit-Reset")), 64); err == nil &&
+		reset < float64(until.Unix()) {
+		until = time.Unix(int64(math.Ceil(reset)), 0)
 	}
-	if wait <= 0 {
+	if !until.After(now) {
 		return
 	}
 	c.mu.Lock()
-	c.pending = max(c.pending, wait)
+	if until.After(c.pendingUntil) {
+		c.pendingUntil = until
+	}
 	c.mu.Unlock()
 }
 
-// pace spends the wait owed from an exhausted request budget.
+// pace waits until the request budget is renewed; the time spent since the
+// budget ran out counts. An interrupted wait stays owed.
 func (c *Client) pace(ctx context.Context) error {
 	c.mu.Lock()
-	wait := c.pending
-	c.pending = 0
+	until := c.pendingUntil
 	c.mu.Unlock()
+	wait := until.Sub(c.now())
 	if wait <= 0 {
 		return ctx.Err()
 	}
-	return c.sleep(ctx, wait)
+	if rounded := wait.Round(time.Second); rounded < wait {
+		wait = rounded + time.Second // never wake before the reset
+	} else {
+		wait = rounded
+	}
+	if err := c.sleep(ctx, wait); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	if c.pendingUntil.Equal(until) {
+		c.pendingUntil = time.Time{}
+	}
+	c.mu.Unlock()
+	return nil
 }
 
 // page is Plane's pagination envelope.
@@ -374,7 +391,8 @@ func decodePage[T any](body []byte) (page[T], error) {
 func readBody(resp *http.Response, cancel context.CancelFunc) ([]byte, error) {
 	defer cancel()
 	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
+	// One byte over the cap tells a too large answer apart.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, min(maxBody, math.MaxInt64-1)+1))
 	if err != nil {
 		return nil, err
 	}
@@ -596,7 +614,9 @@ type limitBody struct {
 }
 
 func (l *limitBody) Read(p []byte) (int, error) {
-	if int64(len(p)) > l.left+1 {
+	// Read at most one byte over the limit, to tell a too large file apart;
+	// left < len(p) here, so left+1 cannot overflow.
+	if int64(len(p)) > l.left {
 		p = p[:l.left+1]
 	}
 	n, err := l.rc.Read(p)
