@@ -44,6 +44,13 @@ Commands:
   migrate status  Show applied and latest migration versions
   user set-password --email <email>
                   Set a user's password (read from stdin) and end their sessions
+  import plane --url <base url> --workspace <slug> [--project KEY]...
+               [--as <email>] [--dry-run] [--report <file>]
+                  Copy a Plane workspace into Yalkos; the API key is read from the
+                  environment variable PLANE_API_KEY. --project repeats to choose
+                  projects (default all), --as names the user recorded as the actor
+                  (default the Owner), --dry-run only reports what would be created,
+                  --report also writes the report as JSON
   version         Print version information
   help            Show this help
 `
@@ -71,6 +78,8 @@ func Run(args []string, env Env) int {
 			return 2
 		}
 		return setPassword(args[2:], env)
+	case "import":
+		return importCmd(args[1:], env)
 	case "migrate":
 		if len(args) < 2 || (args[1] != "up" && args[1] != "down" && args[1] != "status") {
 			_, _ = fmt.Fprintf(env.Stderr, "migrate: expected \"up\", \"down\" or \"status\"\n\n%s", usage)

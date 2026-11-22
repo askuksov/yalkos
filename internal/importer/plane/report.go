@@ -166,6 +166,21 @@ type FailedAttachment struct {
 	Reason string `json:"reason"`
 }
 
+// shownUsers are the users the text report lists: all planned ones in a dry
+// run, the written ones otherwise.
+func (r *Report) shownUsers() []UserReport {
+	if r.DryRun {
+		return r.Users
+	}
+	var out []UserReport
+	for _, u := range r.Users {
+		if u.Created {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
 // orEmpty returns s, or an empty slice for nil, so JSON shows [] not null.
 func orEmpty[T any](s []T) []T {
 	if s == nil {
@@ -218,6 +233,20 @@ func (r *Report) WriteJSON(w io.Writer) error {
 	return enc.Encode(r.filled())
 }
 
+// resetWritten zeroes what a real run counts as it writes: the states,
+// milestones and issues to create, and the created flag of the new users. The
+// writers raise them again as each transaction commits, so a run that stops
+// reports only what was written. A dry run keeps the planned numbers.
+func (r *Report) resetWritten() {
+	for i := range r.Projects {
+		c := &r.Projects[i].Created
+		c.States, c.Milestones, c.Issues = 0, 0, 0
+	}
+	for i := range r.Users {
+		r.Users[i].Created = false
+	}
+}
+
 // WriteText writes the report for a person: counts first, then every
 // non-empty list.
 func (r *Report) WriteText(w io.Writer) {
@@ -250,7 +279,11 @@ func (r *Report) WriteText(w io.Writer) {
 
 	if len(r.Projects) > 0 {
 		tw.line("")
-		tw.line("Projects (new / already imported / skipped):")
+		if r.DryRun {
+			tw.line("Projects (would create / already imported / skipped):")
+		} else {
+			tw.line("Projects (created / already imported / skipped):")
+		}
 		for _, p := range r.Projects {
 			tw.line("  %s", p.Key)
 			tw.counts("issues", p.Created.Issues, p.Existing.Issues, p.Skipped.Issues)
@@ -261,10 +294,14 @@ func (r *Report) WriteText(w io.Writer) {
 		}
 	}
 
-	if len(r.Users) > 0 {
+	if users := r.shownUsers(); len(users) > 0 {
 		tw.line("")
-		tw.line("New users:")
-		for _, u := range r.Users {
+		if r.DryRun {
+			tw.line("Users that would be created:")
+		} else {
+			tw.line("New users:")
+		}
+		for _, u := range users {
 			state := "enabled"
 			if u.Disabled {
 				state = "disabled"
