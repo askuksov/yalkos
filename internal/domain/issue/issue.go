@@ -344,7 +344,7 @@ func (s *Service) Create(ctx context.Context, actor account.User, in CreateInput
 		}
 		out = toIssue(row, p.Key)
 		out.LabelIDs = labelIDs
-		if err := record(ctx, tx, actor, out, "create", audit.Diff(nil, snapshot(out)), now); err != nil {
+		if err := audit.Record(ctx, tx, CreatedEvent(row, p.Key, labelIDs, &actor.ID)); err != nil {
 			return err
 		}
 		if err := s.emit(ctx, ptx, event.Change{
