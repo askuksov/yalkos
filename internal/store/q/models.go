@@ -59,6 +59,25 @@ type Comment struct {
 	EditedAt  *time.Time
 }
 
+type ImportMap struct {
+	SourceID        uuid.UUID
+	Kind            string
+	PlaneID         string
+	TargetID        uuid.UUID
+	SourceUpdatedAt *time.Time
+	ImportedAt      time.Time
+}
+
+type ImportSource struct {
+	ID         uuid.UUID
+	Kind       string
+	SourceID   string
+	Url        string
+	Workspace  string
+	FirstRunAt time.Time
+	LastRunAt  time.Time
+}
+
 type Invite struct {
 	ID        uuid.UUID
 	TokenHash []byte
