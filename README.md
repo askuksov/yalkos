@@ -280,6 +280,26 @@ A delivery succeeds on any 2xx answer within 5 seconds; redirects are not follow
 
 Destinations: `http` or `https` URLs. Webhooks may point at private networks (a receiver on the same host or LAN); `WEBHOOK_ALLOW_PRIVATE=false` forbids loopback and private ranges. Link-local and cloud metadata addresses (such as `169.254.169.254`) are always refused, the address is checked when the connection is made (so DNS tricks do not help), redirects are not followed and proxy settings from the environment are ignored. A workspace can have at most 50 webhooks. Changes to webhooks themselves are not recorded in issue history and send no webhooks.
 
+### Import from Plane
+
+`yalkos import plane` copies a Plane workspace into Yalkos through the Plane API (v1): projects, states, labels, modules (as milestones), issues with their parents, comments and files, with Plane's authors, numbers and times. Run it next to a running, set up Yalkos; it uses the same database and `DATA_DIR` as `serve`.
+
+```sh
+export PLANE_API_KEY=plane_api_…        # Plane → Profile settings → API tokens
+docker compose exec -e PLANE_API_KEY app /yalkos import plane \
+  --url https://plane.example.com --workspace my-team --dry-run
+# then the same without --dry-run
+```
+
+`--dry-run` reads Plane, prints what would be created and skipped, and writes nothing. `--project KEY` (repeatable) chooses projects by Plane identifier; the default is all. `--as <email>` names the Yalkos user recorded as the actor (default the Owner). `--report <file>` also writes the report as JSON. The key is read only from the environment, never from a flag. Exit code: 0 finished (skipped items are in the report), 1 stopped (network, conflict, database, another import running, Yalkos not set up), 2 wrong usage (missing key, unknown flag or project).
+
+- The key's owner must be a member of every project to import. Without `--project`, projects the owner is not a member of are skipped and listed; naming one with `--project` is an error.
+- Plane allows 60 API requests a minute per key, and an import needs about 4 per issue (about 1 hour for 1000 issues). On self-hosted Plane raise `API_KEY_RATE_LIMIT` (for example `600/minute`) on the API container and restart it for the import.
+- Running it again adds what is new in Plane (projects, issues, labels, milestones, and new comments on issues changed in Plane) and never changes what was imported; nothing new goes into a project archived in Yalkos (it is listed in the report). A stopped run, Ctrl+C included, continues where it stopped. A Plane number already used in Yalkos gets the next free number and is listed in the report.
+- Plane users without a Yalkos account are created disabled; enable them in **Settings → Members** and set a password with `yalkos user set-password`.
+- Not imported: archived Plane projects, cycles (counted in the report), estimates, triage states, archived and draft work items, pages and views. An issue keeps only its first assignee and its first module; the other assignees and modules and work item start dates are dropped and listed in the report. Links and relations become text sections in the issue description; milestone start dates are dropped.
+- Network: private-network addresses are reachable only on the Plane host itself. A file whose redirect leads to a private address on another host is refused and listed as failed; public storage hosts are followed. The import ignores `HTTP_PROXY` and `HTTPS_PROXY`. Link-local and cloud metadata addresses are always refused. Files larger than `MAX_UPLOAD_MB` are skipped and listed.
+
 ### Compatibility
 
 Yalkos serves a Linear-compatible API at `/graphql` and sends webhooks in the Linear-compatible format. Two scripts check this against a fresh instance: one drives the official `@linear/sdk` client, the other receives webhooks with the SDK's `LinearWebhookClient` and with a hand-written signature check. Both live in `compat/`.
