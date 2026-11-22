@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,10 +22,7 @@ import (
 )
 
 // The advisory lock lets one import run at a time.
-const (
-	importLockSQL   = "SELECT pg_try_advisory_lock(hashtext('yalkos:import'))"
-	importUnlockSQL = "SELECT pg_advisory_unlock(hashtext('yalkos:import'))"
-)
+const importLockSQL = "SELECT pg_try_advisory_lock(hashtext('yalkos:import'))"
 
 // stringList is a repeatable string flag.
 type stringList []string
@@ -71,14 +67,20 @@ func importPlaneWith(args []string, env Env, opts plane.ClientOptions) int {
 		_, _ = fmt.Fprintf(env.Stderr, "import plane: unexpected argument %q\n", fs.Arg(0))
 		return 2
 	}
-	if *url == "" || *workspace == "" {
+	if strings.TrimSpace(*url) == "" || *workspace == "" {
 		_, _ = fmt.Fprintln(env.Stderr, "import plane: --url and --workspace are required")
 		return 2
 	}
-	// The address is stored in the import source and printed in the report, so
-	// it must carry no credentials.
-	if u, err := neturl.Parse(*url); err == nil && u.User != nil {
+	// The address is checked once and the checked value is the one used: it
+	// is stored in the import source and printed in the report, so it must
+	// carry no credentials.
+	baseURL, err := plane.CheckBaseURL(*url)
+	if errors.Is(err, plane.ErrBaseURLCredentials) {
 		_, _ = fmt.Fprintln(env.Stderr, "import plane: --url must not contain a user name or password; the key goes in PLANE_API_KEY")
+		return 2
+	}
+	if err != nil {
+		_, _ = fmt.Fprintln(env.Stderr, "import plane: --url:", err)
 		return 2
 	}
 	key := env.Getenv("PLANE_API_KEY")
@@ -86,7 +88,7 @@ func importPlaneWith(args []string, env Env, opts plane.ClientOptions) int {
 		_, _ = fmt.Fprintln(env.Stderr, "import plane: set the Plane API key in the environment variable PLANE_API_KEY")
 		return 2
 	}
-	client, err := plane.NewClient(*url, *workspace, key, opts)
+	client, err := plane.NewClient(baseURL, *workspace, key, opts)
 	if err != nil {
 		_, _ = fmt.Fprintln(env.Stderr, "import plane:", err)
 		return 2
@@ -127,9 +129,12 @@ func importPlaneWith(args []string, env Env, opts plane.ClientOptions) int {
 	if err != nil {
 		return fail(err)
 	}
-	blobs, err := blob.NewLocalFS(cfg.DataDir)
-	if err != nil {
-		return fail(err)
+	// A dry run writes nothing, not even the empty directories of the store.
+	var blobs blob.Store
+	if !*dryRun {
+		if blobs, err = blob.NewLocalFS(cfg.DataDir); err != nil {
+			return fail(err)
+		}
 	}
 
 	unlock, err := lockImport(ctx, pool)
@@ -140,7 +145,7 @@ func importPlaneWith(args []string, env Env, opts plane.ClientOptions) int {
 
 	report, runErr := plane.Run(ctx, plane.RunOptions{
 		Client: client, Pool: pool, Store: blobs, MaxUpload: int64(cfg.MaxUploadMB) << 20,
-		Actor: actor, Keys: projects, DryRun: *dryRun, URL: *url, Workspace: *workspace,
+		Actor: actor, Keys: projects, DryRun: *dryRun, URL: baseURL, Workspace: *workspace,
 		Progress: env.Stderr, Now: time.Now,
 	})
 
@@ -151,14 +156,19 @@ func importPlaneWith(args []string, env Env, opts plane.ClientOptions) int {
 		if runErr != nil && !isUsage && !isConflict {
 			_, _ = fmt.Fprintln(env.Stdout, "Stopped before the end; counts show what was written.")
 		}
-		report.WriteText(env.Stdout)
+		failed := false
+		if err := report.WriteText(env.Stdout); err != nil {
+			_, _ = fmt.Fprintln(env.Stderr, "import plane: report:", err)
+			failed = true
+		}
 		if out != nil {
 			if err := out.write(report); err != nil {
 				_, _ = fmt.Fprintln(env.Stderr, "import plane: report file:", err)
-				if runErr == nil {
-					return 1
-				}
+				failed = true
 			}
+		}
+		if failed && runErr == nil {
+			return 1
 		}
 	}
 
@@ -213,34 +223,32 @@ func importActor(ctx context.Context, db *q.Queries, asEmail string) (account.Us
 	}, nil
 }
 
-// lockImport takes the import advisory lock on one pooled connection that it
-// keeps until the returned function runs. A held lock is an error.
+// lockImport takes the import advisory lock on a connection of its own,
+// opened with the settings of pool but outside it, so the run keeps every
+// pooled connection (a pool of one included). The connection is kept until
+// the returned function runs. A held lock is an error.
 func lockImport(ctx context.Context, pool *pgxpool.Pool) (func(), error) {
-	conn, err := pool.Acquire(ctx)
+	conn, err := pgx.ConnectConfig(ctx, pool.Config().ConnConfig.Copy())
 	if err != nil {
-		return nil, fmt.Errorf("acquire connection: %w", err)
+		return nil, fmt.Errorf("connect for the import lock: %w", err)
+	}
+	closeConn := func() {
+		// The run may have ended because ctx was cancelled; close regardless.
+		// Closing the session drops the lock.
+		cctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = conn.Close(cctx)
 	}
 	var got bool
 	if err := conn.QueryRow(ctx, importLockSQL).Scan(&got); err != nil {
-		conn.Release()
+		closeConn()
 		return nil, fmt.Errorf("take the import lock: %w", err)
 	}
 	if !got {
-		conn.Release()
+		closeConn()
 		return nil, errors.New("another import is running")
 	}
-	return func() {
-		// The run may have ended because ctx was cancelled; unlock regardless.
-		uctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		var released bool
-		if err := conn.QueryRow(uctx, importUnlockSQL).Scan(&released); err != nil || !released {
-			// Closing the session drops the lock; never return it to the pool held.
-			_ = conn.Hijack().Close(uctx)
-			return
-		}
-		conn.Release()
-	}, nil
+	return closeConn, nil
 }
 
 // reportFile is the --report target. The JSON goes to a temporary file next

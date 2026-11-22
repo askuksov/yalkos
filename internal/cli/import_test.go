@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -522,18 +524,132 @@ func TestImportDisabledActor(t *testing.T) {
 
 func TestImportURLWithUserinfo(t *testing.T) {
 	e := newImportEnv(t, true, importKey)
-	var out, errb bytes.Buffer
-	env := e.env
-	env.Stdout, env.Stderr = &out, &errb
-	code := importPlaneWith([]string{"--url", "http://someone:hunter2@127.0.0.1:1", "--workspace", importWorkspace}, env, plane.ClientOptions{})
-	if code != 2 {
-		t.Fatalf("exit %d, want 2; stderr %q", code, errb.String())
-	}
-	if strings.Contains(out.String()+errb.String(), "hunter2") {
-		t.Errorf("password printed: %q %q", out.String(), errb.String())
+	noWait := plane.ClientOptions{Sleep: func(context.Context, time.Duration) error { return nil }}
+	for _, u := range []string{
+		"http://someone:hunter2@127.0.0.1:1",
+		" http://someone:hunter2@127.0.0.1:1",
+		"\thttp://someone:hunter2@127.0.0.1:1",
+		"http://127.0.0.1:1/?token=hunter2",
+		"http://127.0.0.1:1/#hunter2",
+	} {
+		var out, errb bytes.Buffer
+		env := e.env
+		env.Stdout, env.Stderr = &out, &errb
+		code := importPlaneWith([]string{"--url", u, "--workspace", importWorkspace}, env, noWait)
+		if code != 2 {
+			t.Errorf("%q: exit %d, want 2; stderr %q", u, code, errb.String())
+		}
+		if strings.Contains(out.String()+errb.String(), "hunter2") {
+			t.Errorf("%q: secret printed: %q %q", u, out.String(), errb.String())
+		}
+		if out.Len() != 0 {
+			t.Errorf("%q: stdout %q, want nothing", u, out.String())
+		}
 	}
 	if n := e.count(t, "import_sources"); n != 0 {
 		t.Errorf("import_sources = %d, want 0", n)
+	}
+}
+
+func TestImportURLTrimmed(t *testing.T) {
+	e := newImportEnv(t, true, importKey)
+	e.args[3] = " \t" + e.plane.srv.URL + " "
+	report := filepath.Join(t.TempDir(), "report.json")
+	code, out, errOut := e.run("--report", report)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, errOut)
+	}
+	var stored string
+	if err := e.pool.QueryRow(context.Background(), "SELECT url FROM import_sources").Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != e.plane.srv.URL {
+		t.Errorf("stored url = %q, want %q", stored, e.plane.srv.URL)
+	}
+	if !strings.Contains(out, " at "+e.plane.srv.URL+".") {
+		t.Errorf("stdout does not name the trimmed url:\n%s", out)
+	}
+	raw, err := os.ReadFile(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d struct{ Source struct{ URL string } }
+	if err := json.Unmarshal(raw, &d); err != nil {
+		t.Fatal(err)
+	}
+	if d.Source.URL != e.plane.srv.URL {
+		t.Errorf("report url = %q, want %q", d.Source.URL, e.plane.srv.URL)
+	}
+}
+
+func TestImportLockOnOneConnectionPool(t *testing.T) {
+	e := newImportEnv(t, true, importKey)
+	u, err := neturl.Parse(e.env.Getenv("DATABASE_URL"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	qs := u.Query()
+	qs.Set("pool_max_conns", "1")
+	u.RawQuery = qs.Encode()
+	getenv := e.env.Getenv
+	e.env.Getenv = func(k string) string {
+		if k == "DATABASE_URL" {
+			return u.String()
+		}
+		return getenv(k)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	e.env.Ctx = ctx
+	if code, _, errOut := e.run("--dry-run"); code != 0 {
+		t.Fatalf("exit %d, stderr %q; want the run to finish on a one-connection pool", code, errOut)
+	}
+	if !e.lockFree(t) {
+		t.Error("the import lock is still held after the run")
+	}
+}
+
+// failingWriter refuses every write.
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("disk full") }
+
+func TestImportStdoutWriteError(t *testing.T) {
+	e := newImportEnv(t, true, importKey)
+	report := filepath.Join(t.TempDir(), "report.json")
+	var errb bytes.Buffer
+	env := e.env
+	env.Stdout, env.Stderr = failingWriter{}, &errb
+	noWait := plane.ClientOptions{Sleep: func(context.Context, time.Duration) error { return nil }}
+	code := importPlaneWith(append(append([]string(nil), e.args[2:]...), "--dry-run", "--report", report), env, noWait)
+	if code != 1 || !strings.Contains(errb.String(), "disk full") {
+		t.Fatalf("exit %d, stderr %q; want 1 naming the write error", code, errb.String())
+	}
+	raw, err := os.ReadFile(report)
+	if err != nil {
+		t.Fatalf("report file not written: %v", err)
+	}
+	var d map[string]any
+	if err := json.Unmarshal(raw, &d); err != nil {
+		t.Errorf("report file is not the JSON report: %v", err)
+	}
+}
+
+func TestImportDryRunCreatesNoDataDir(t *testing.T) {
+	e := newImportEnv(t, true, importKey)
+	dataDir := filepath.Join(t.TempDir(), "data")
+	getenv := e.env.Getenv
+	e.env.Getenv = func(k string) string {
+		if k == "DATA_DIR" {
+			return dataDir
+		}
+		return getenv(k)
+	}
+	if code, _, errOut := e.run("--dry-run"); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, errOut)
+	}
+	if _, err := os.Stat(dataDir); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("DATA_DIR after a dry run: %v, want it not created", err)
 	}
 }
 

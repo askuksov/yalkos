@@ -82,12 +82,37 @@ type Client struct {
 	pending  time.Duration // pacing wait owed before the next request
 }
 
-// NewClient returns a client for the workspace slug on the Plane instance at
-// baseURL (for example https://plane.example.com).
-func NewClient(baseURL, workspace, key string, opts ClientOptions) (*Client, error) {
-	u, err := url.Parse(strings.TrimSpace(baseURL))
+// ErrBaseURLCredentials reports a base URL with a user name or password.
+var ErrBaseURLCredentials = errors.New("base URL must not contain a user name or password")
+
+// CheckBaseURL returns baseURL without surrounding white space if it is an
+// absolute http or https URL with no user name, password, query or fragment;
+// the API paths are appended to it as they are.
+func CheckBaseURL(baseURL string) (string, error) {
+	s := strings.TrimSpace(baseURL)
+	u, err := url.Parse(s)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, errors.New("plane: base URL must be an absolute http or https URL")
+		return "", errors.New("base URL must be an absolute http or https URL")
+	}
+	if u.User != nil {
+		return "", ErrBaseURLCredentials
+	}
+	if u.RawQuery != "" || u.ForceQuery || strings.Contains(s, "#") {
+		return "", errors.New("base URL must not have a query or a fragment")
+	}
+	return s, nil
+}
+
+// NewClient returns a client for the workspace slug on the Plane instance at
+// baseURL (for example https://plane.example.com), checked by CheckBaseURL.
+func NewClient(baseURL, workspace, key string, opts ClientOptions) (*Client, error) {
+	s, err := CheckBaseURL(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("plane: %w", err)
+	}
+	u, err := url.Parse(s)
+	if err != nil {
+		return nil, fmt.Errorf("plane: %w", err)
 	}
 	if workspace == "" {
 		return nil, errors.New("plane: workspace is empty")

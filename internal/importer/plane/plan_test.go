@@ -406,7 +406,9 @@ func TestReportHasNoIssueText(t *testing.T) {
 	if err := p.Report.WriteJSON(&js); err != nil {
 		t.Fatalf("WriteJSON: %v", err)
 	}
-	p.Report.WriteText(&text)
+	if err := p.Report.WriteText(&text); err != nil {
+		t.Fatalf("WriteText: %v", err)
+	}
 	if text.Len() == 0 {
 		t.Fatal("empty text report")
 	}

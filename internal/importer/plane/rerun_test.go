@@ -399,7 +399,20 @@ func TestRunStopsBeforeWriting(t *testing.T) {
 			t.Fatalf("dry %v: error = %v, want a conflict on ALP", dry, err)
 		}
 		if r == nil || len(r.Conflicts) != 1 || r.Conflicts[0].Key != "ALP" {
-			t.Errorf("dry %v: report = %+v, want the conflict listed", dry, r)
+			t.Fatalf("dry %v: report = %+v, want the conflict listed", dry, r)
+		}
+		// A dry run predicts; a stopped real run wrote nothing and says so.
+		if bet := projectReport(t, r, "BET"); dry != (bet.Created.Issues > 0) || (!dry && bet.Created != (Counts{})) {
+			t.Errorf("dry %v: BET created = %+v", dry, bet.Created)
+		}
+		created := 0
+		for _, u := range r.Users {
+			if u.Created {
+				created++
+			}
+		}
+		if dry != (created > 0) {
+			t.Errorf("dry %v: %d users flagged created", dry, created)
 		}
 	}
 	assertSameRows(t, before, e.snapshot(t))
@@ -419,7 +432,9 @@ func TestRunNothingToImport(t *testing.T) {
 		t.Errorf("report = %+v", r)
 	}
 	var text bytes.Buffer
-	r.WriteText(&text)
+	if err := r.WriteText(&text); err != nil {
+		t.Fatalf("WriteText: %v", err)
+	}
 	if !strings.Contains(text.String(), "Nothing to import.") {
 		t.Errorf("text report = %q, want it to say there is nothing to import", text.String())
 	}

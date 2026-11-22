@@ -248,8 +248,8 @@ func (r *Report) resetWritten() {
 }
 
 // WriteText writes the report for a person: counts first, then every
-// non-empty list.
-func (r *Report) WriteText(w io.Writer) {
+// non-empty list. It returns the first write error.
+func (r *Report) WriteText(w io.Writer) error {
 	tw := &textWriter{w: w}
 	src := "Plane"
 	if r.Source.Workspace != "" {
@@ -396,6 +396,7 @@ func (r *Report) WriteText(w io.Writer) {
 	tw.list("Archived Plane projects skipped", r.ArchivedProjects)
 	tw.list("Plane projects skipped, the API key's owner is not a member", r.NotMember)
 	tw.list("Projects archived in Yalkos, nothing new added", r.ArchivedInYalkos)
+	return tw.err
 }
 
 // textWriter writes lines; a write error is kept and later writes are skipped.

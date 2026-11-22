@@ -98,9 +98,11 @@ func chooseProjects(projects []Project, keys []string) ([]Project, error) {
 			continue
 		}
 		want[k] = true
+		// The same comparison selects the projects below: a key that folds
+		// to an identifier only under Unicode case folding is unknown.
 		found := false
 		for _, p := range projects {
-			if strings.EqualFold(p.Identifier, k) {
+			if strings.ToUpper(p.Identifier) == k {
 				found = true
 				break
 			}
