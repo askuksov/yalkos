@@ -27,6 +27,10 @@ type Project struct {
 	UpdatedAt       time.Time  `json:"updated_at"`
 	ArchivedAt      *time.Time `json:"archived_at"`
 	CreatedBy       string     `json:"created_by"`
+	// IsMember is false when the key's owner is not a member (the project is
+	// listed because it is public); nil when Plane does not say.
+	IsMember    *bool `json:"is_member"`
+	TotalCycles int   `json:"total_cycles"`
 }
 
 // UnmarshalJSON accepts description_html and description as any JSON value,

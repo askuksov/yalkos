@@ -67,3 +67,7 @@ UPDATE projects SET sequence_counter = GREATEST(sequence_counter, @number::int) 
 
 -- name: IssueNumberTaken :one
 SELECT EXISTS (SELECT 1 FROM issue_numbers WHERE project_id = @project_id AND number = @number::int);
+
+-- name: ListProjectKeys :many
+-- Every key a project has had, current or earlier.
+SELECT key, project_id FROM project_keys ORDER BY key;

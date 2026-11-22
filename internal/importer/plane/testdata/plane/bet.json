@@ -1,0 +1,174 @@
+{
+  "paged": {
+    "projects/p-bet/members/": [
+      {
+        "id": "u-ann"
+      },
+      {
+        "id": "u-bob"
+      }
+    ],
+    "projects/p-bet/states/": [
+      {
+        "id": "st-bet-backlog",
+        "name": "Backlog",
+        "color": "#bec2c8",
+        "group": "backlog",
+        "sequence": 10000,
+        "default": false
+      },
+      {
+        "id": "st-bet-doing",
+        "name": "Doing",
+        "color": "#f59e0b",
+        "group": "started",
+        "sequence": 20000,
+        "default": true
+      },
+      {
+        "id": "st-bet-done",
+        "name": "Done",
+        "color": "#16a34a",
+        "group": "completed",
+        "sequence": 30000,
+        "default": false
+      },
+      {
+        "id": "st-bet-dropped",
+        "name": "Dropped",
+        "color": "#9ca3af",
+        "group": "cancelled",
+        "sequence": 40000,
+        "default": false
+      }
+    ],
+    "projects/p-bet/labels/": [
+      {
+        "id": "lb-bet-frontend",
+        "name": "frontend",
+        "color": "#22c55e",
+        "parent": null,
+        "sort_order": 1000
+      },
+      {
+        "id": "lb-bet-improvement",
+        "name": "Improvement",
+        "color": "#30a46c",
+        "parent": null,
+        "sort_order": 2000
+      },
+      {
+        "id": "lb-bet-feature",
+        "name": "Feature",
+        "color": "#6e56cf",
+        "parent": null,
+        "sort_order": 3000
+      }
+    ],
+    "projects/p-bet/modules/": [
+      {
+        "id": "md-bet-beta",
+        "name": "Beta",
+        "description_html": "",
+        "status": "planned",
+        "start_date": null,
+        "target_date": null,
+        "lead": null,
+        "sort_order": 1000,
+        "created_at": "2025-02-11T09:00:00Z",
+        "updated_at": "2025-02-11T09:00:00Z",
+        "created_by": "u-ann"
+      },
+      {
+        "id": "md-bet-beta2",
+        "name": "beta",
+        "description_html": "<p>Second attempt.</p>",
+        "status": "cancelled",
+        "start_date": "2026-01-05",
+        "target_date": "2026-02-01",
+        "lead": "u-bob",
+        "sort_order": 2000,
+        "created_at": "2025-02-12T09:00:00Z",
+        "updated_at": "2025-02-12T09:00:00Z",
+        "created_by": "u-bob"
+      }
+    ],
+    "projects/p-bet/modules/md-bet-beta/module-issues/": [
+      {
+        "id": "mi-bet-1",
+        "issue": "i-bet-1"
+      }
+    ],
+    "projects/p-bet/modules/md-bet-beta2/module-issues/": [
+      {
+        "id": "mi-bet-2",
+        "issue": "i-bet-2"
+      }
+    ],
+    "projects/p-bet/work-items/": [
+      {
+        "id": "i-bet-1",
+        "name": "Export boards as CSV",
+        "description_html": "<p>Columns follow the board view.</p>",
+        "priority": "medium",
+        "state": "st-bet-doing",
+        "sequence_id": 1,
+        "sort_order": 1000,
+        "parent": null,
+        "assignees": [
+          "u-bob"
+        ],
+        "labels": [
+          "lb-bet-frontend"
+        ],
+        "start_date": null,
+        "target_date": null,
+        "created_at": "2025-04-01T10:00:00Z",
+        "updated_at": "2025-04-01T10:00:00Z",
+        "completed_at": null,
+        "created_by": "u-bob"
+      },
+      {
+        "id": "i-bet-2",
+        "name": "Retire the old importer",
+        "description_html": "",
+        "priority": "low",
+        "state": "st-bet-dropped",
+        "sequence_id": 2,
+        "sort_order": 2000,
+        "parent": null,
+        "assignees": [],
+        "labels": [
+          "lb-bet-improvement"
+        ],
+        "start_date": null,
+        "target_date": null,
+        "created_at": "2025-04-02T10:00:00Z",
+        "updated_at": "2025-04-05T10:00:00Z",
+        "completed_at": "2025-04-05T10:00:00Z",
+        "created_by": "u-ann"
+      },
+      {
+        "id": "i-bet-3",
+        "name": "Audit log retention",
+        "description_html": "<p>Keep entries for a year.</p>",
+        "priority": "high",
+        "state": "st-bet-backlog",
+        "sequence_id": 3,
+        "sort_order": 3000,
+        "parent": null,
+        "assignees": [
+          "u-ann",
+          "u-bob"
+        ],
+        "labels": [],
+        "start_date": "2026-02-10",
+        "target_date": "2026-03-10",
+        "created_at": "2025-04-03T10:00:00Z",
+        "updated_at": "2025-04-03T10:00:00Z",
+        "completed_at": null,
+        "created_by": "u-bot"
+      }
+    ]
+  }
+}

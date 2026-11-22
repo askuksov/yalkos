@@ -1,0 +1,57 @@
+{
+  "paged": {
+    "projects/p-alp/members/": [{"id": "u-ann"}, {"id": "u-bot"}, {"id": "u-bob"}],
+    "projects/p-alp/states/": [
+      {"id": "st-alp-backlog", "name": "Backlog", "color": "#bec2c8", "group": "backlog", "sequence": 15000, "default": false},
+      {"id": "st-alp-todo", "name": "Todo", "color": "#3a3a3a", "group": "unstarted", "sequence": 25000, "default": true},
+      {"id": "st-alp-doing", "name": "In Progress", "color": "#f59e0b", "group": "started", "sequence": 35000, "default": false},
+      {"id": "st-alp-done", "name": "Done", "color": "green", "group": "completed", "sequence": 45000, "default": false},
+      {"id": "st-alp-cancelled", "name": "Cancelled", "color": "#9ca3af", "group": "cancelled", "sequence": 55000, "default": false},
+      {"id": "st-alp-triage", "name": "Triage", "color": "#4e5355", "group": "triage", "sequence": 65000, "default": false}
+    ],
+    "projects/p-alp/labels/": [
+      {"id": "lb-alp-bug", "name": "bug", "color": "#e5484d", "parent": null, "sort_order": 1000},
+      {"id": "lb-alp-frontend", "name": "Frontend", "color": "#3b82f6", "parent": null, "sort_order": 2000},
+      {"id": "lb-alp-feature", "name": "feature", "color": "#8e4ec6", "parent": null, "sort_order": 3000},
+      {"id": "lb-alp-area", "name": "Area", "color": "#f97316", "parent": null, "sort_order": 4000},
+      {"id": "lb-alp-api", "name": "api", "color": "#0ea5e9", "parent": "lb-alp-area", "sort_order": 5000},
+      {"id": "lb-alp-v2", "name": "v2", "color": "#22c55e", "parent": "lb-alp-api", "sort_order": 6000}
+    ],
+    "projects/p-alp/modules/": [
+      {"id": "md-alp-launch", "name": "Launch", "description_html": "<p>First public version.</p>", "status": "in-progress",
+       "start_date": null, "target_date": "2026-03-01", "lead": "u-ann", "sort_order": 1000,
+       "created_at": "2025-01-11T09:00:00Z", "updated_at": "2025-01-11T09:00:00Z", "created_by": "u-ann"},
+      {"id": "md-alp-polish", "name": "Polish", "description_html": null, "status": "backlog",
+       "start_date": null, "target_date": null, "lead": null, "sort_order": 2000,
+       "created_at": "2025-01-12T09:00:00Z", "updated_at": "2025-01-12T09:00:00Z", "created_by": "u-bot"}
+    ],
+    "projects/p-alp/modules/md-alp-launch/module-issues/": [
+      {"id": "mi-alp-1", "issue": "i-alp-1"}, {"id": "mi-alp-2", "issue": "i-alp-2"}
+    ],
+    "projects/p-alp/modules/md-alp-polish/module-issues/": [
+      {"id": "mi-alp-3", "issue": "i-alp-2"}, {"id": "mi-alp-4", "issue": "i-alp-4"}
+    ],
+    "projects/p-alp/work-items/": [
+      {"id": "i-alp-4", "name": "Draft the onboarding checklist", "description_html": "<p>Steps a new team goes through on day one.</p>",
+       "priority": "low", "state": "st-alp-backlog", "sequence_id": 4, "sort_order": 4000, "parent": "i-alp-5",
+       "assignees": [], "labels": [], "start_date": null, "target_date": null,
+       "created_at": "2025-03-04T10:00:00Z", "updated_at": "2025-03-04T10:00:00Z", "completed_at": null, "created_by": "u-ann"},
+      {"id": "i-alp-5", "name": "Onboarding for new teams", "description_html": "<p>Make the first hour pleasant.</p>",
+       "priority": "none", "state": "st-alp-done", "sequence_id": 5, "sort_order": 5000, "parent": null,
+       "assignees": ["u-bob"], "labels": ["lb-alp-feature"], "start_date": null, "target_date": null,
+       "created_at": "2025-03-05T10:00:00Z", "updated_at": "2025-03-09T10:00:00Z", "completed_at": "2025-03-09T10:00:00Z", "created_by": "u-bob"},
+      {"id": "i-alp-1", "name": "Sign-in button does nothing", "description_html": "<p>Clicking the sign-in button in Safari has no effect.</p>",
+       "priority": "urgent", "state": "st-alp-todo", "sequence_id": 1, "sort_order": 1000, "parent": null,
+       "assignees": ["u-ann"], "labels": ["lb-alp-frontend", "lb-alp-bug"], "start_date": null, "target_date": "2026-02-01",
+       "created_at": "2025-03-01T10:00:00Z", "updated_at": "2025-03-02T10:00:00Z", "completed_at": null, "created_by": "u-bot"},
+      {"id": "i-alp-2", "name": "Remember the last opened board", "description_html": "",
+       "priority": "high", "state": "st-alp-doing", "sequence_id": 2, "sort_order": 2000, "parent": null,
+       "assignees": [], "labels": ["lb-alp-feature", "lb-alp-bug"], "start_date": null, "target_date": null,
+       "created_at": "2025-03-02T10:00:00Z", "updated_at": "2025-03-02T10:00:00Z", "completed_at": null, "created_by": "u-ann"},
+      {"id": "i-alp-3", "name": "Rate limit the public endpoints", "description_html": "<p>Throttle anonymous callers per address.</p>",
+       "priority": "medium", "state": "st-alp-triage", "sequence_id": 3, "sort_order": 3000, "parent": null,
+       "assignees": ["u-ann"], "labels": ["lb-alp-v2", "lb-alp-api"], "start_date": null, "target_date": null,
+       "created_at": "2025-03-03T10:00:00Z", "updated_at": "2025-03-03T10:00:00Z", "completed_at": null, "created_by": "u-ann"}
+    ]
+  }
+}
