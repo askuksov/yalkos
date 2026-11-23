@@ -683,3 +683,104 @@ func TestNewCommentsInArchivedProjectOfMovedIssue(t *testing.T) {
 		t.Errorf("comments after unarchiving = %+v, want the new one added", cs)
 	}
 }
+
+// moveOutAndArchive moves ALP-1 into BET, archives ALP and gives ALP-1 and
+// ALP-2 a new Plane comment each. It returns ALP and the moved issue.
+func (e *issueEnv) moveOutAndArchive(t *testing.T) (uuid.UUID, issue.Issue) {
+	t.Helper()
+	ctx := context.Background()
+	e.mustRunAll(t)
+	alp, bet := e.projectID(t, "ALP"), e.projectID(t, "BET")
+	issues := issue.New(e.pool, project.New(e.pool, e.clock), e.clock)
+	moved, err := issues.Move(ctx, e.users.Owner, e.issue(t, "ALP-1").ID, bet, nil)
+	if err != nil {
+		t.Fatalf("move: %v", err)
+	}
+	if _, err := e.pool.Exec(ctx, `UPDATE projects SET archived_at = now() WHERE id = $1`, alp); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"1", "2"} {
+		e.editItem(t, "p-alp", "i-alp-"+n, func(it map[string]any) { it["updated_at"] = "2025-07-02T10:00:00Z" })
+		e.fake.setPaged("projects/p-alp/work-items/i-alp-"+n+"/comments/", map[string]any{
+			"id": "c-alp-" + n + "-new", "comment_html": "<p>Late " + n + ".</p>", "actor": "u-ann", "parent": nil,
+			"created_at": "2025-07-02T10:00:00Z", "updated_at": "2025-07-02T10:00:00Z", "edited_at": nil, "deleted_at": nil,
+		})
+	}
+	return alp, moved
+}
+
+func TestNewCommentsOfIssueMovedOutOfArchivedProject(t *testing.T) {
+	ctx := context.Background()
+	e := newIssueEnv(t)
+	alp, moved := e.moveOutAndArchive(t)
+	key := issueKey("BET", moved.Number)
+	had := len(e.comments(t, moved.ID))
+	before := e.projectRows(t, alp, 1000)
+
+	dry, err := Run(ctx, RunOptions{
+		Client: e.client, Pool: e.pool, Store: e.store, MaxUpload: e.maxUpload, Actor: e.users.Owner,
+		URL: "http://plane.example.invalid", Workspace: fakeWorkspace, DryRun: true, Now: e.clock,
+	})
+	if err != nil {
+		t.Fatalf("dry run: %v", err)
+	}
+	if want := []ChangedIssue{{Key: key}}; !slices.Equal(dry.ChangedInPlane, want) || !slices.Equal(dry.ArchivedInYalkos, []string{"ALP"}) {
+		t.Errorf("dry run changed in Plane = %v, archived in Yalkos = %v; want %v and ALP", dry.ChangedInPlane, dry.ArchivedInYalkos, want)
+	}
+
+	r := e.mustRunAll(t)
+	if cs := e.comments(t, moved.ID); len(cs) != had+1 || cs[len(cs)-1].Body != "Late 1." {
+		t.Errorf("comments of the moved issue = %+v, want the new one added", cs)
+	}
+	if at := e.mappedUpdated(t, "i-alp-1"); at != "2025-07-02T10:00:00Z" {
+		t.Errorf("recorded updated_at = %s, want the Plane one", at)
+	}
+	if want := []ChangedIssue{{Key: key, CommentsAdded: 1}}; !slices.Equal(r.ChangedInPlane, want) {
+		t.Errorf("changed in Plane = %v, want %v", r.ChangedInPlane, want)
+	}
+	if !slices.Equal(r.ArchivedInYalkos, []string{"ALP"}) {
+		t.Errorf("archived in Yalkos = %v, want ALP", r.ArchivedInYalkos)
+	}
+	assertSameRows(t, before, e.projectRows(t, alp, 1000))
+}
+
+func TestNewCommentsSkippedInArchivedProjectWithIssueMovedOut(t *testing.T) {
+	ctx := context.Background()
+	e := newIssueEnv(t)
+	alp, _ := e.moveOutAndArchive(t)
+	alp2 := e.issue(t, "ALP-2")
+	recorded := e.mappedUpdated(t, "i-alp-2")
+	const comments = "projects/p-alp/work-items/i-alp-2/comments/"
+	commentReqs := e.fake.Requests(comments)
+	before := e.projectRows(t, alp, 1000)
+
+	for _, dry := range []bool{true, false} {
+		r, err := Run(ctx, RunOptions{
+			Client: e.client, Pool: e.pool, Store: e.store, MaxUpload: e.maxUpload, Actor: e.users.Owner,
+			URL: "http://plane.example.invalid", Workspace: fakeWorkspace, DryRun: dry, Now: e.clock,
+		})
+		if err != nil {
+			t.Fatalf("dry %v: Run: %v", dry, err)
+		}
+		if !slices.Equal(r.ArchivedInYalkos, []string{"ALP"}) {
+			t.Errorf("dry %v: archived in Yalkos = %v, want ALP", dry, r.ArchivedInYalkos)
+		}
+		if slices.ContainsFunc(r.ChangedInPlane, func(c ChangedIssue) bool { return c.Key == "ALP-2" }) {
+			t.Errorf("dry %v: changed in Plane = %v, want ALP-2 not listed", dry, r.ChangedInPlane)
+		}
+		// The comment of the moved issue counts under its Plane project.
+		if a := projectReport(t, r, "ALP"); a.Created.Issues != 0 || a.Created.States != 0 || a.Created.Milestones != 0 {
+			t.Errorf("dry %v: ALP report = %+v, want nothing created in ALP", dry, a)
+		}
+	}
+	if n := len(e.comments(t, alp2.ID)); n != 0 {
+		t.Errorf("ALP-2 comments = %d, want none added in the archived project", n)
+	}
+	if at := e.mappedUpdated(t, "i-alp-2"); at != recorded {
+		t.Errorf("ALP-2 recorded updated_at = %s, want %s kept", at, recorded)
+	}
+	if n := e.fake.Requests(comments) - commentReqs; n != 0 {
+		t.Errorf("ALP-2 comments requests = %d, want none", n)
+	}
+	assertSameRows(t, before, e.projectRows(t, alp, 1000))
+}
