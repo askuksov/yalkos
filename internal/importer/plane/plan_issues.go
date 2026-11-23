@@ -68,9 +68,11 @@ func planProject(pd *ProjectData, key string, ex *Existing, members map[string]b
 	return pp, nil
 }
 
-// skipArchived plans nothing for a project archived in Yalkos since an
-// earlier import: no state, milestone or issue, and no comment of a changed
-// issue. Its new milestones and issues are counted as skipped.
+// skipArchived plans nothing new for a project archived in Yalkos since an
+// earlier import: no state, milestone or issue. Its new milestones and issues
+// are counted as skipped. Its changed issues are still listed: one moved into
+// a writable project gets its new comments there, and nameChanged drops the
+// ones still in an archived project.
 func skipArchived(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report) {
 	r.ArchivedInYalkos = append(r.ArchivedInYalkos, pp.Key)
 	for _, s := range pp.Data.States {
@@ -88,11 +90,22 @@ func skipArchived(pp *ProjectPlan, ex *Existing, rep *ProjectReport, r *Report) 
 	for _, it := range pp.Data.Items {
 		if _, ok := ex.mapped(kindIssue, it.ID); ok {
 			rep.Existing.Issues++
+			addChanged(pp, ex, it, r)
 		} else {
 			rep.Skipped.Issues++
 		}
 	}
 	r.Projects = append(r.Projects, *rep)
+}
+
+// addChanged lists the imported work item it as changed when Plane updated
+// it since the updated_at an earlier import recorded.
+func addChanged(pp *ProjectPlan, ex *Existing, it WorkItem, r *Report) {
+	if rec, ok := ex.Updated[it.ID]; ok && it.UpdatedAt.After(rec) {
+		key := issueKey(pp.Key, it.SequenceID)
+		pp.Changed = append(pp.Changed, ChangedItem{PlaneID: it.ID, Key: key})
+		r.ChangedInPlane = append(r.ChangedInPlane, ChangedIssue{Key: key})
+	}
 }
 
 // planStates plans the states to create; the Plane default state becomes
@@ -243,10 +256,7 @@ func planIssues(pp *ProjectPlan, ex *Existing, modules []Module, lp *labelPlanne
 		key := issueKey(pp.Key, it.SequenceID)
 		if !planned[it.ID] {
 			rep.Existing.Issues++
-			if rec, ok := ex.Updated[it.ID]; ok && it.UpdatedAt.After(rec) {
-				pp.Changed = append(pp.Changed, ChangedItem{PlaneID: it.ID, Key: key})
-				r.ChangedInPlane = append(r.ChangedInPlane, ChangedIssue{Key: key})
-			}
+			addChanged(pp, ex, it, r)
 			continue
 		}
 		is := IssuePlan{Item: it, Key: key, Number: it.SequenceID, State: it.State, Priority: priorities[it.Priority]}

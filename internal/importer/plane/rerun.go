@@ -40,10 +40,11 @@ func (w *Writer) NewComments(ctx context.Context, c *Client, store blob.Store, m
 		if len(pp.Changed) == 0 {
 			continue
 		}
-		target, ok := ex.mapped(kindProject, pp.Data.ID)
-		if !ok || ex.Archived[target] {
-			// Deleted in Yalkos since an earlier import, or archived during
-			// this run; Base or Issues reported it.
+		if _, ok := ex.mapped(kindProject, pp.Data.ID); !ok {
+			// Deleted in Yalkos since an earlier import; Base reported it.
+			// A project archived in Yalkos is not skipped as a whole: an
+			// issue moved out of it takes comments in the project it is in
+			// now, and addComments skips one in an archived project.
 			for _, ch := range pp.Changed {
 				pw.r.dropChanged(ch.Key)
 			}
@@ -73,7 +74,9 @@ func (w *Writer) NewComments(ctx context.Context, c *Client, store blob.Store, m
 // nameChanged names the issues changed in Plane by their current Yalkos
 // keys, in p and its report: an issue renumbered on import, or moved
 // or renumbered in Yalkos since, is listed as Yalkos shows it. One deleted in
-// Yalkos keeps its Plane key.
+// Yalkos keeps its Plane key. One in a project an earlier import created
+// that is archived in Yalkos leaves the changed list and the project is
+// listed as archived, as addComments does.
 func nameChanged(ctx context.Context, db *q.Queries, p *Plan, ex *Existing) error {
 	var ids []uuid.UUID
 	for _, pp := range p.Projects {
@@ -91,13 +94,28 @@ func nameChanged(ctx context.Context, db *q.Queries, p *Plan, ex *Existing) erro
 		return fmt.Errorf("changed issues: %w", err)
 	}
 	current := make(map[uuid.UUID]string, len(rows))
+	archived := map[uuid.UUID]string{}
 	for _, row := range rows {
 		current[row.Issue.ID] = issueKey(row.ProjectKey, int(row.Issue.Number))
+		if ex.Archived[row.Issue.ProjectID] {
+			archived[row.Issue.ID] = row.ProjectKey
+		}
 	}
 	renamed := map[string]string{}
 	for i := range p.Projects {
-		for j := range p.Projects[i].Changed {
-			ch := &p.Projects[i].Changed[j]
+		pp := &p.Projects[i]
+		pp.Changed = slices.DeleteFunc(pp.Changed, func(ch ChangedItem) bool {
+			id, _ := ex.mapped(kindIssue, ch.PlaneID)
+			projectKey, ok := archived[id]
+			if ok && p.Report != nil {
+				// Dropped before the renaming pass, while the report still
+				// has the Plane key.
+				p.Report.archivedIssue(ch.Key, projectKey)
+			}
+			return ok
+		})
+		for j := range pp.Changed {
+			ch := &pp.Changed[j]
 			id, _ := ex.mapped(kindIssue, ch.PlaneID)
 			if k, ok := current[id]; ok && k != ch.Key {
 				renamed[ch.Key] = k
@@ -246,10 +264,16 @@ func (pw *projectWriter) deletedIssue(key string) {
 // archivedIssue reports a changed issue in a project archived in Yalkos:
 // the project is listed as archived, the issue not as changed.
 func (pw *projectWriter) archivedIssue(key, projectKey string) {
-	if !slices.Contains(pw.r.ArchivedInYalkos, projectKey) {
-		pw.r.ArchivedInYalkos = append(pw.r.ArchivedInYalkos, projectKey)
+	pw.r.archivedIssue(key, projectKey)
+}
+
+// archivedIssue lists projectKey as archived and drops key from the changed
+// list.
+func (r *Report) archivedIssue(key, projectKey string) {
+	if !slices.Contains(r.ArchivedInYalkos, projectKey) {
+		r.ArchivedInYalkos = append(r.ArchivedInYalkos, projectKey)
 	}
-	pw.r.dropChanged(key)
+	r.dropChanged(key)
 }
 
 // dropChanged removes an issue from the changed list.
