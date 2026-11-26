@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"strings"
 	"testing"
@@ -128,6 +129,50 @@ func TestClientIP(t *testing.T) {
 		got = ClientIP(r.Context())
 	})).ServeHTTP(httptest.NewRecorder(), req)
 	if got != "203.0.113.9" {
+		t.Errorf("ClientIP = %q", got)
+	}
+}
+
+func TestClientIPBehindProxy(t *testing.T) {
+	trusted := []netip.Prefix{netip.MustParsePrefix("172.16.0.0/12"), netip.MustParsePrefix("192.168.0.0/16")}
+	withV6 := append([]netip.Prefix{netip.MustParsePrefix("fd00::/8")}, trusted...)
+	for _, tc := range []struct {
+		name    string
+		remote  string
+		xff     []string
+		trusted []netip.Prefix
+		want    string
+	}{
+		{"untrusted peer ignores header", "203.0.113.9:5000", []string{"6.6.6.6"}, trusted, "203.0.113.9"},
+		{"trusted peer, no header", "172.18.0.1:5000", nil, trusted, "172.18.0.1"},
+		{"trusted peer, one entry", "172.18.0.1:5000", []string{"198.51.100.7"}, trusted, "198.51.100.7"},
+		{"forged then real", "172.18.0.1:5000", []string{"6.6.6.6, 198.51.100.7"}, trusted, "198.51.100.7"},
+		{"forged inside trusted", "172.18.0.1:5000", []string{"192.168.1.200, 198.51.100.7"}, trusted, "198.51.100.7"},
+		{"real inside trusted", "172.18.0.1:5000", []string{"6.6.6.6, 192.168.1.5"}, trusted, "192.168.1.5"},
+		{"garbage rightmost", "172.18.0.1:5000", []string{"198.51.100.7, nope"}, trusted, "172.18.0.1"},
+		{"empty header value", "172.18.0.1:5000", []string{""}, trusted, "172.18.0.1"},
+		{"several lines", "172.18.0.1:5000", []string{"6.6.6.6", "198.51.100.7, 203.0.113.4"}, trusted, "203.0.113.4"},
+		{"ipv6 peer and entry", "[fd00::1]:5000", []string{"2001:db8::5"}, withV6, "2001:db8::5"},
+		{"no trusted list", "172.18.0.1:5000", []string{"198.51.100.7"}, nil, "172.18.0.1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := clientIP(tc.remote, tc.xff, tc.trusted); got != tc.want {
+				t.Errorf("clientIP(%q, %q) = %q, want %q", tc.remote, tc.xff, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestClientIPMiddlewareUsesTrusted(t *testing.T) {
+	req := httptest.NewRequest("POST", "/api/graphql", nil)
+	req.RemoteAddr = "172.18.0.1:1"
+	req.Header.Set("X-Forwarded-For", "198.51.100.7")
+	u, _ := url.Parse("http://localhost:8080")
+	var got string
+	Middleware(fakeAuth{}, u, quiet, netip.MustParsePrefix("172.16.0.0/12"))(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got = ClientIP(r.Context())
+	})).ServeHTTP(httptest.NewRecorder(), req)
+	if got != "198.51.100.7" {
 		t.Errorf("ClientIP = %q", got)
 	}
 }

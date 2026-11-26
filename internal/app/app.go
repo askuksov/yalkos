@@ -135,7 +135,7 @@ func Run(ctx context.Context, cfg config.Config, ui fs.FS, logger *slog.Logger, 
 	if cfg.APIRateLimit > 0 {
 		limiter = ratelimit.New(cfg.APIRateLimit, time.Now)
 	}
-	authenticate := authn.Middleware(accounts, baseURL, logger)
+	authenticate := authn.Middleware(accounts, baseURL, logger, cfg.TrustedProxies...)
 	limit := ratelimit.Middleware(limiter, apiKeyUser)
 	router := httpapi.NewRouter(httpapi.Deps{
 		Ready: func(c context.Context) error { return store.Ready(c, pool, migrations) },
