@@ -51,6 +51,7 @@ Commands:
                   projects (default all), --as names the user recorded as the actor
                   (default the Owner), --dry-run only reports what would be created,
                   --report also writes the report as JSON
+  healthcheck     Exit 0 if the server answers /readyz with 200
   version         Print version information
   help            Show this help
 `
@@ -72,6 +73,8 @@ func Run(args []string, env Env) int {
 		return 0
 	case "serve":
 		return serve(env)
+	case "healthcheck":
+		return healthcheck(env)
 	case "user":
 		if len(args) < 2 || args[1] != "set-password" {
 			_, _ = fmt.Fprintf(env.Stderr, "user: expected \"set-password\"\n\n%s", usage)
