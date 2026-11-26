@@ -4,51 +4,19 @@ Lightweight, self-hosted issue tracker with a Linear-compatible API.
 
 > Status: early development. Accounts, invites, API keys, projects, issues, labels, milestones, comments and file attachments work in the browser and through the API; AI agents such as Claude Code and OpenCode work with issues over MCP.
 
-## Run with Docker
+## Install
 
 ```sh
-cd deploy
-echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env   # once; keep this file private
-docker compose up -d
-```
-
-Open http://localhost:8080 (set `YALKOS_PORT` to use another port). Two containers start: `app` and `db` (PostgreSQL 18). Migrations run automatically on start. Only the app port is published; the database is reachable from the `app` container only. Uploaded files live in the `yalkos-data` volume (`/data` in the app container).
-
-PostgreSQL stores the password when its data volume is first created; changing `YALKOS_DB_PASSWORD` later requires changing it inside the database as well.
-
-Behind a domain, set the public URL in `deploy/.env` (invite links and secure cookies depend on it). Open the app at exactly this address — requests from another address (for example the server IP) are rejected with “request origin does not match BASE_URL”:
-
-```sh
-YALKOS_BASE_URL=https://app.example.com
-```
-
-### First run
-
-A fresh instance prints a one-time setup link in its log. Whoever opens it first becomes the Owner:
-
-```sh
+mkdir yalkos && cd yalkos
+curl -fsSLO https://github.com/askuksov/yalkos/releases/latest/download/docker-compose.yml
+echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env
+docker compose up -d --wait
 docker compose logs app | grep "setup required"
-# {"level":"WARN","msg":"setup required","url":"http://localhost:8080/setup?code=7EV2RUJH"}
 ```
 
-The code changes on every restart until setup is done. After that, invite people from **Members** (links are single-use and expire after 7 days).
+This starts two containers, `app` (the image `ghcr.io/askuksov/yalkos`) and `db` (PostgreSQL 18); migrations run on start. The last command prints a one-time setup link: open it, and whoever does so first becomes the Owner. The app listens on port 8080 (`YALKOS_PORT` changes it). [docs/install.md](docs/install.md) covers what the commands do, a domain with HTTPS, upgrades, backup and restore, and the [configuration](docs/install.md#configuration).
 
-Forgot the password? There is no email in this version; reset it from the server:
-
-```sh
-docker compose exec -T app /yalkos user set-password --email you@example.com <<< 'new-password'
-```
-
-### Backup
-
-Back up the database and the files together:
-
-```sh
-docker compose exec -T db pg_dump -U yalkos yalkos > yalkos.sql
-docker run --rm -v yalkos_yalkos-data:/data -v "$PWD":/backup alpine tar czf /backup/yalkos-data.tgz -C /data .
-```
-
-Files are stored under `/data/blobs/` by content hash; restore both the dump and the archive. Stored files that no database row references are removed after 24 h, so restore the dump before starting the app on an existing data directory, and run one app process per `DATA_DIR` (the cleanup coordinates within one process only).
+## API and integrations
 
 ### API keys
 
@@ -421,18 +389,17 @@ CI uses `TOOLS=host` as well. `make dev` always runs in Docker.
 
 `make build` and `make docker` produce artifacts for deployment: the build itself runs in the Linux development container, so `bin/yalkos` is a Linux binary (use `make dev` for local work).
 
-Server configuration (environment variables):
+The server's configuration variables are listed in [docs/install.md](docs/install.md#configuration).
 
-| Variable | Default | Meaning |
-| :--- | :--- | :--- |
-| `DATABASE_URL` | — (required) | PostgreSQL connection string |
-| `LISTEN_ADDR` | `:8080` | HTTP listen address |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
-| `BASE_URL` | `http://localhost:8080` | Public URL (invite links, `Secure` cookies for https) |
-| `DATA_DIR` | `./data` (`/data` in Docker) | Uploaded files (created with mode 0700) |
-| `MAX_UPLOAD_MB` | `25` | Largest file to upload, 1–1024 |
-| `API_RATE_LIMIT` | `5000` | API-key requests per hour and user on every endpoint, 0 to 1000000; `0` turns the limit off |
-| `WEBHOOK_ALLOW_PRIVATE` | `true` | `false` blocks webhook destinations on loopback and private networks; link-local and cloud metadata addresses are always blocked |
+To run a locally built image with the release compose file, build it with `make docker`, tag it with `docker tag yalkos:dev ghcr.io/askuksov/yalkos:local`, then start it in a separate directory holding a copy of `deploy/docker-compose.yml` and a `.env` with `YALKOS_DB_PASSWORD`:
+
+```sh
+YALKOS_VERSION=local YALKOS_PORT=8081 docker compose -p yalkos-local up -d
+```
+
+`-p yalkos-local` keeps it from reusing the containers and volumes of `make dev` (both use the project name `yalkos` by default), and `YALKOS_PORT=8081` avoids port 8080, which `make dev` holds.
+
+`deploy/docker-compose.yml` now pulls the published image instead of building it, so `cd deploy && docker compose up -d` from a clone no longer builds from source; use `make docker` and the command above to run your own build. The data volumes are unchanged.
 
 Local ports used by `make dev` / `make test`, override if they are taken:
 
