@@ -2,6 +2,7 @@ package config
 
 import (
 	"log/slog"
+	"net/netip"
 	"strings"
 	"testing"
 )
@@ -155,5 +156,61 @@ func TestLoadWebhookAllowPrivate(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "WEBHOOK_ALLOW_PRIVATE must be true or false") {
 			t.Errorf("%q: err = %v, want WEBHOOK_ALLOW_PRIVATE must be true or false", bad, err)
 		}
+	}
+}
+
+func TestTrustedProxies(t *testing.T) {
+	load := func(v string) (Config, error) {
+		return Load(env(map[string]string{"DATABASE_URL": "postgres://x", "TRUSTED_PROXIES": v}))
+	}
+	pfx := func(ss ...string) []netip.Prefix {
+		var out []netip.Prefix
+		for _, s := range ss {
+			out = append(out, netip.MustParsePrefix(s))
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		name string
+		val  string
+		want []netip.Prefix
+	}{
+		{"empty", "", nil},
+		{"two ranges", "172.16.0.0/12, 192.168.0.0/16", pfx("172.16.0.0/12", "192.168.0.0/16")},
+		{"bare address", "10.0.0.1", pfx("10.0.0.1/32")},
+		{"ipv6", "fd00::/8,::1", pfx("fd00::/8", "::1/128")},
+		{"host bits masked", "172.18.0.5/12", pfx("172.16.0.0/12")},
+		{"mapped address", "::ffff:10.0.0.1", pfx("10.0.0.1/32")},
+		{"mapped range", "::ffff:10.0.0.0/104", pfx("10.0.0.0/8")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := load(tc.val)
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if len(cfg.TrustedProxies) != len(tc.want) {
+				t.Fatalf("TrustedProxies = %v, want %v", cfg.TrustedProxies, tc.want)
+			}
+			for i, p := range tc.want {
+				if cfg.TrustedProxies[i] != p {
+					t.Errorf("TrustedProxies[%d] = %v, want %v", i, cfg.TrustedProxies[i], p)
+				}
+			}
+		})
+	}
+	for _, tc := range []struct{ val, item string }{
+		{"10.0.0.0/8,nope", "nope"},
+		{"10.0.0.0/33", "10.0.0.0/33"},
+		{",", ""},
+		{"fe80::1%eth0", "fe80::1%eth0"},
+		{"::ffff:10.0.0.0/64", "::ffff:10.0.0.0/64"},
+	} {
+		t.Run("reject "+tc.val, func(t *testing.T) {
+			_, err := load(tc.val)
+			want := `TRUSTED_PROXIES: "` + tc.item + `" is not an IP address or CIDR range`
+			if err == nil || err.Error() != want {
+				t.Errorf("err = %v, want %s", err, want)
+			}
+		})
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"strings"
 	"testing"
@@ -48,6 +49,12 @@ type server struct {
 
 func newServer(t *testing.T) server {
 	t.Helper()
+	return newServerTrusting(t)
+}
+
+// newServerTrusting is newServer with the given trusted proxy ranges.
+func newServerTrusting(t *testing.T, trusted ...netip.Prefix) server {
+	t.Helper()
 	ctx := context.Background()
 	_, pool := testdb.New(t)
 	if err := store.Migrate(ctx, pool, db.Migrations()); err != nil {
@@ -59,7 +66,7 @@ func newServer(t *testing.T) server {
 		t.Fatal(err)
 	}
 	deps := testDeps(t, pool, svc)
-	srv := httptest.NewServer(authn.Middleware(svc, base, quiet)(native.NewHandler(deps)))
+	srv := httptest.NewServer(authn.Middleware(svc, base, quiet, trusted...)(native.NewHandler(deps)))
 	t.Cleanup(srv.Close)
 	return server{url: srv.URL, svc: svc, pool: pool, deps: deps}
 }
@@ -105,6 +112,8 @@ type client struct {
 	s    server
 	http *http.Client
 	auth string
+	// forwardedFor, when set, is sent as X-Forwarded-For.
+	forwardedFor string
 }
 
 func (s server) browser(t *testing.T) *client {
@@ -123,6 +132,9 @@ func (c *client) do(query string, vars map[string]any) result {
 	req.Header.Set("Content-Type", "application/json")
 	if c.auth != "" {
 		req.Header.Set("Authorization", c.auth)
+	}
+	if c.forwardedFor != "" {
+		req.Header.Set("X-Forwarded-For", c.forwardedFor)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -212,6 +224,37 @@ func TestSetupLoginViewerFlow(t *testing.T) {
 	if r := b.do(`{ viewer { name } }`, nil); r.str(t, "viewer", "name") != "Olga" {
 		t.Fatalf("viewer after login: %s", r.raw)
 	}
+}
+
+func TestLoginLimitBehindTrustedProxy(t *testing.T) {
+	const login = `mutation($e: String!, $p: String!) { login(email: $e, password: $p) { name } }`
+	attempt := func(b *client, ip, password string) result {
+		b.forwardedFor = ip
+		return b.do(login, map[string]any{"e": "owner@example.com", "p": password})
+	}
+	// Ten failures from one client address, then a correct login from another.
+	run := func(s server) result {
+		b := ownerBrowser(t, s)
+		for i := 0; i < 10; i++ {
+			if r := attempt(b, "203.0.113.1", "wrong-password"); r.code() != "AUTHENTICATION_ERROR" {
+				t.Fatalf("failure %d: %s", i+1, r.raw)
+			}
+		}
+		return attempt(b, "203.0.113.2", "owner-password")
+	}
+
+	t.Run("trusted proxy", func(t *testing.T) {
+		s := newServerTrusting(t, netip.MustParsePrefix("127.0.0.0/8"))
+		if r := run(s); r.str(t, "login", "name") != "Olga" {
+			t.Fatalf("login from a second client address: %s", r.raw)
+		}
+	})
+	t.Run("no trusted proxy", func(t *testing.T) {
+		s := newServer(t)
+		if r := run(s); r.code() != "RATE_LIMITED" {
+			t.Fatalf("login with a spoofed header: %s", r.raw)
+		}
+	})
 }
 
 func TestSetupWrongCode(t *testing.T) {

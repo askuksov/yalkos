@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -49,7 +50,8 @@ func ActorFrom(ctx context.Context) (*Actor, bool) {
 	return a, ok && a != nil
 }
 
-// ClientIP returns the remote IP of the request (used for rate limits).
+// ClientIP returns the client IP of the request (used for rate limits): the
+// connection peer, or the address a trusted proxy reports in X-Forwarded-For.
 func ClientIP(ctx context.Context) string {
 	ip, _ := ctx.Value(ipKey).(string)
 	return ip
@@ -84,18 +86,17 @@ func ClearSessionCookie(ctx context.Context) {
 // An Authorization header always wins: an invalid key means "anonymous", the cookie
 // is not consulted. Cookie-authenticated unsafe requests from a foreign Origin
 // get 403 (CSRF defence on top of SameSite=Lax; also surfaces a wrong BASE_URL).
-func Middleware(a Authenticator, baseURL *url.URL, logger *slog.Logger) func(http.Handler) http.Handler {
+//
+// The client address is the connection peer unless the peer is inside a trusted
+// prefix; then it is the last X-Forwarded-For entry, the address that proxy saw.
+func Middleware(a Authenticator, baseURL *url.URL, logger *slog.Logger, trusted ...netip.Prefix) func(http.Handler) http.Handler {
 	origin := baseURL.Scheme + "://" + baseURL.Host
 	secure := baseURL.Scheme == "https"
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := context.WithValue(r.Context(), cookieKey, &cookieWriter{w: w, secure: secure})
-			host, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				host = r.RemoteAddr
-			}
-			ctx = context.WithValue(ctx, ipKey, host)
+			ctx = context.WithValue(ctx, ipKey, clientIP(r.RemoteAddr, r.Header.Values("X-Forwarded-For"), trusted))
 
 			var actor *Actor
 			if h := r.Header.Get("Authorization"); h != "" {
@@ -131,4 +132,39 @@ func Middleware(a Authenticator, baseURL *url.URL, logger *slog.Logger) func(htt
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// clientIP returns the host of remoteAddr. When that peer is inside a trusted
+// prefix and the last X-Forwarded-For line ends with an IP address, it returns
+// that address instead: a trusted proxy appends the address it saw, so only the
+// rightmost entry is not forgeable by the client. Anything unparseable falls
+// back to the peer.
+func clientIP(remoteAddr string, xff []string, trusted []netip.Prefix) string {
+	peer, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		peer = remoteAddr
+	}
+	if len(xff) == 0 {
+		return peer
+	}
+	pa, err := netip.ParseAddr(peer)
+	if err != nil || !inPrefixes(pa.Unmap(), trusted) {
+		return peer
+	}
+	last := xff[len(xff)-1]
+	last = strings.TrimSpace(last[strings.LastIndexByte(last, ',')+1:])
+	client, err := netip.ParseAddr(last)
+	if err != nil {
+		return peer
+	}
+	return client.Unmap().String()
+}
+
+func inPrefixes(a netip.Addr, prefixes []netip.Prefix) bool {
+	for _, p := range prefixes {
+		if p.Contains(a) {
+			return true
+		}
+	}
+	return false
 }
