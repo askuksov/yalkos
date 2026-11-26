@@ -42,14 +42,14 @@ For other systems, or to install from Docker's package repository instead of the
 Run this in a new directory (the first line creates one):
 
 ```sh
-mkdir yalkos && cd yalkos
-curl -fsSLO https://github.com/askuksov/yalkos/releases/latest/download/docker-compose.yml
-echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env
+mkdir yalkos && cd yalkos &&
+curl -fsSLO https://github.com/askuksov/yalkos/releases/latest/download/docker-compose.yml &&
+echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env &&
 docker compose up -d --wait
 docker compose logs app | grep "setup required"
 ```
 
-If `mkdir` reports that the directory exists, stop: Yalkos may already be installed there.
+The first four lines are one chain: if one step fails, for example `mkdir` because the directory already exists (Yalkos may be installed there), the rest does not run and `.env` is not touched.
 
 Line by line:
 
@@ -86,10 +86,10 @@ The app listens on port 8080 of the server (`YALKOS_PORT` changes the published 
 The compose file defaults to the release line of the file you downloaded (for example `0.1`, which follows patch releases). To pin an exact release, download that release's file and set the version:
 
 ```sh
-mkdir yalkos && cd yalkos
-curl -fsSLO https://github.com/askuksov/yalkos/releases/download/vX.Y.Z/docker-compose.yml
-echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env
-echo "YALKOS_VERSION=X.Y.Z" >> .env
+mkdir yalkos && cd yalkos &&
+curl -fsSLO https://github.com/askuksov/yalkos/releases/download/vX.Y.Z/docker-compose.yml &&
+echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env &&
+echo "YALKOS_VERSION=X.Y.Z" >> .env &&
 docker compose up -d --wait
 ```
 
@@ -247,14 +247,16 @@ An older image does not run on a database that a newer version has migrated: `/r
 A complete backup is two files: the database dump and an archive of the uploaded files (the `/data` volume). Take both together. Run in the directory with `docker-compose.yml` and `.env`:
 
 ```sh
-docker compose exec -T db pg_dump -U yalkos yalkos > yalkos.sql
+docker compose exec -T db pg_dump -U yalkos yalkos > yalkos.sql.tmp &&
 docker run --rm --volumes-from "$(docker compose ps -aq app)" -v "$PWD":/backup \
   -e OWNER="$(id -u):$(id -g)" alpine \
-  sh -c 'tar czf /backup/yalkos-data.tgz -C /data . && chown "$OWNER" /backup/yalkos-data.tgz'
+  sh -c 'tar czf /backup/yalkos-data.tgz.tmp -C /data . && chown "$OWNER" /backup/yalkos-data.tgz.tmp' &&
+mv yalkos.sql.tmp yalkos.sql &&
+mv yalkos-data.tgz.tmp yalkos-data.tgz &&
 chmod 600 yalkos.sql yalkos-data.tgz
 ```
 
-The first command writes `yalkos.sql`; the second archives the files into `yalkos-data.tgz`, found through the app container rather than a volume name, so it is independent of the compose project name. Both files hold everything in the workspace, password hashes included: keep them private and copy them off the server, since a backup on the same disk does not survive the disk. A new backup replaces files of the same name; rename or move the old ones first if you want to keep them. For a copy where database and files are guaranteed to match, run `docker compose stop app` before and `docker compose start app` after.
+The first command writes the dump, the second archives the files into `yalkos-data.tgz.tmp`, found through the app container rather than a volume name, so it is independent of the compose project name. Only when both succeeded are they renamed to `yalkos.sql` and `yalkos-data.tgz`, so a failed step (a stopped database, a full disk) stops the chain and leaves no file that looks like a backup; a leftover `.tmp` file is incomplete and can be deleted. Both files hold everything in the workspace, password hashes included: keep them private and copy them off the server, since a backup on the same disk does not survive the disk. A new backup replaces files of the same name; rename or move the old ones first if you want to keep them. For a copy where database and files are guaranteed to match, run `docker compose stop app` before and `docker compose start app` after.
 
 ### Restore
 
@@ -263,18 +265,18 @@ Restoring starts from a directory with `docker-compose.yml` and `.env`, both dat
 The app must not run until both parts are back: a started app would initialize an empty schema, and stored files that no database row references are removed after 24 hours.
 
 ```sh
-docker compose stop app
-docker compose up -d --wait db
-docker compose create app
-docker compose exec -T db dropdb -U yalkos --if-exists --force yalkos
-docker compose exec -T db createdb -U yalkos -O yalkos yalkos
-docker compose exec -T db psql -U yalkos -d yalkos -v ON_ERROR_STOP=1 -q -o /dev/null < yalkos.sql
+docker compose stop app &&
+docker compose up -d --wait db &&
+docker compose create app &&
+docker compose exec -T db dropdb -U yalkos --if-exists --force yalkos &&
+docker compose exec -T db createdb -U yalkos -O yalkos yalkos &&
+docker compose exec -T db psql -U yalkos -d yalkos -v ON_ERROR_STOP=1 -q -o /dev/null < yalkos.sql &&
 docker run --rm --volumes-from "$(docker compose ps -aq app)" -v "$PWD":/backup alpine \
-  sh -c 'find /data -mindepth 1 -delete && tar xzf /backup/yalkos-data.tgz -C /data && chown -R 65532:65532 /data'
+  sh -c 'find /data -mindepth 1 -delete && tar xzf /backup/yalkos-data.tgz -C /data && chown -R 65532:65532 /data' &&
 docker compose up -d --wait
 ```
 
-What the commands do: stop the app if it runs; start only the database; create the app container without starting it (the file archive is unpacked through its volume); recreate the empty `yalkos` database and load the dump; replace the contents of `/data` and give them to the user the app runs as (uid 65532, which matters because the data directory is private to it); start everything.
+What the commands do: stop the app if it runs; start only the database; create the app container without starting it (the file archive is unpacked through its volume); recreate the empty `yalkos` database and load the dump; replace the contents of `/data` and give them to the user the app runs as (uid 65532, which matters because the data directory is private to it); start everything. The commands are one chain, and `psql` stops at the first error: if the dump does not load, the files in `/data` stay untouched and the app is not started. Fix the cause and run the whole block again; it recreates the database.
 
 The dump must come from the same or an older Yalkos version than the image you restore into, because the app migrates forward on start and cannot migrate back.
 

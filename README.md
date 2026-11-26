@@ -7,9 +7,9 @@ Lightweight, self-hosted issue tracker with a Linear-compatible API.
 ## Install
 
 ```sh
-mkdir yalkos && cd yalkos
-curl -fsSLO https://github.com/askuksov/yalkos/releases/latest/download/docker-compose.yml
-echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env
+mkdir yalkos && cd yalkos &&
+curl -fsSLO https://github.com/askuksov/yalkos/releases/latest/download/docker-compose.yml &&
+echo "YALKOS_DB_PASSWORD=$(openssl rand -hex 24)" > .env &&
 docker compose up -d --wait
 docker compose logs app | grep "setup required"
 ```

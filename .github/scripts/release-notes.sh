@@ -17,7 +17,9 @@ tag=$1
 changelog=$2
 
 num='(0|[1-9][0-9]*)'
-pre='-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
+# A numeric pre-release identifier has no leading zero ("rc.01" is not a version).
+ident='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+pre="-${ident}(\\.${ident})*"
 re="^v(${num})\\.(${num})\\.(${num})(${pre})?\$"
 [[ $tag =~ $re ]] || fail "tag $tag is not a version"
 version="${BASH_REMATCH[2]}.${BASH_REMATCH[4]}.${BASH_REMATCH[6]}"
