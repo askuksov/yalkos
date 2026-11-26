@@ -17,7 +17,8 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
       target: dev
-    # Distinct tag: `make docker` keeps the production yalkos:dev image intact.
+    # Distinct tag: `make docker` builds the final release image as yalkos:dev,
+    # and the development image must not overwrite it.
     image: yalkos-dev:local
     init: true
     working_dir: /src
