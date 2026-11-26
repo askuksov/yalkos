@@ -153,6 +153,7 @@ func TestClientIPBehindProxy(t *testing.T) {
 		{"empty header value", "172.18.0.1:5000", []string{""}, trusted, "172.18.0.1"},
 		{"several lines", "172.18.0.1:5000", []string{"6.6.6.6", "198.51.100.7, 203.0.113.4"}, trusted, "203.0.113.4"},
 		{"ipv6 peer and entry", "[fd00::1]:5000", []string{"2001:db8::5"}, withV6, "2001:db8::5"},
+		{"ipv6 peer with zone", "[fe80::1%eth0]:5000", []string{"2001:db8::5"}, []netip.Prefix{netip.MustParsePrefix("fe80::/10")}, "2001:db8::5"},
 		{"no trusted list", "172.18.0.1:5000", []string{"198.51.100.7"}, nil, "172.18.0.1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

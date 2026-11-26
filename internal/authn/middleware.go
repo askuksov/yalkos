@@ -148,7 +148,9 @@ func clientIP(remoteAddr string, xff []string, trusted []netip.Prefix) string {
 		return peer
 	}
 	pa, err := netip.ParseAddr(peer)
-	if err != nil || !inPrefixes(pa.Unmap(), trusted) {
+	// A zone ("fe80::1%eth0") never matches a prefix, so match without it; the
+	// returned peer keeps it.
+	if err != nil || !inPrefixes(pa.WithZone("").Unmap(), trusted) {
 		return peer
 	}
 	last := xff[len(xff)-1]

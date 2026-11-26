@@ -233,7 +233,7 @@ func TestLoginLimitBehindTrustedProxy(t *testing.T) {
 		return b.do(login, map[string]any{"e": "owner@example.com", "p": password})
 	}
 	// Ten failures from one client address, then a correct login from another.
-	run := func(s server) result {
+	run := func(t *testing.T, s server) result {
 		b := ownerBrowser(t, s)
 		for i := 0; i < 10; i++ {
 			if r := attempt(b, "203.0.113.1", "wrong-password"); r.code() != "AUTHENTICATION_ERROR" {
@@ -245,13 +245,13 @@ func TestLoginLimitBehindTrustedProxy(t *testing.T) {
 
 	t.Run("trusted proxy", func(t *testing.T) {
 		s := newServerTrusting(t, netip.MustParsePrefix("127.0.0.0/8"))
-		if r := run(s); r.str(t, "login", "name") != "Olga" {
+		if r := run(t, s); r.str(t, "login", "name") != "Olga" {
 			t.Fatalf("login from a second client address: %s", r.raw)
 		}
 	})
 	t.Run("no trusted proxy", func(t *testing.T) {
 		s := newServer(t)
-		if r := run(s); r.code() != "RATE_LIMITED" {
+		if r := run(t, s); r.code() != "RATE_LIMITED" {
 			t.Fatalf("login with a spoofed header: %s", r.raw)
 		}
 	})

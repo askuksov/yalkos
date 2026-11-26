@@ -170,15 +170,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The image is addressed by commit: the version tags do not exist yet.
+      # The image is addressed by commit and digest: the version tags do not
+      # exist yet, and the digest makes the runner start exactly the image the
+      # build produced, whatever the sha tag points at.
       - name: Choose the image and a throwaway database password
         env:
           COMMIT: ${{ needs.image.outputs.commit }}
+          DIGEST: ${{ needs.image.outputs.digest }}
         run: |
+          if [ -z "$COMMIT" ] || [ -z "$DIGEST" ]; then
+            echo "no commit or no digest to test" >&2
+            exit 1
+          fi
           password="$(openssl rand -hex 16)"
           echo "::add-mask::$password"
           {
-            echo "YALKOS_VERSION=sha-$COMMIT"
+            echo "YALKOS_VERSION=sha-$COMMIT@$DIGEST"
             echo "YALKOS_DB_PASSWORD=$password"
           } >> "$GITHUB_ENV"
 
