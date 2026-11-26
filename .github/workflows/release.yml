@@ -1,0 +1,275 @@
+name: Release
+
+# A pushed version tag builds the image for both platforms and publishes it by
+# commit only (sha-<7>). The version tags and the GitHub Release come after the
+# image started on amd64 and arm64, so a broken image never gets a version.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+# Each job asks for its own permissions.
+permissions: {}
+
+# A release is never cancelled half way: a second run of the same tag waits.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/askuksov/yalkos
+
+jobs:
+  # Stops the release, before anything is pushed, when the tag does not fit the
+  # repository: not on main, no changelog section, compose file on another version.
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Running a finished release again would build a new image and move its
+      # version tags. A release that does not exist ("release not found") is the
+      # only answer that lets the run go on; any other failure of gh stops it.
+      # A draft is invisible to this read-only token.
+      - name: No release exists for the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if err="$(gh release view "$GITHUB_REF_NAME" 2>&1 > /dev/null)"; then
+            echo "release check: a GitHub release for $GITHUB_REF_NAME already exists" >&2
+            exit 1
+          fi
+          case "$err" in
+            *"release not found"*) ;;
+            *)
+              echo "release check: cannot look up the release for $GITHUB_REF_NAME: $(echo "$err" | head -n 1)" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Tag commit is on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "release check: tag commit $GITHUB_SHA is not reachable from main" >&2
+            exit 1
+          fi
+      - name: Tag, changelog and compose file agree
+        run: .github/scripts/release-check.sh "$GITHUB_REF_NAME" CHANGELOG.md deploy/docker-compose.yml
+      # The release job needs these notes at the very end, after the image is
+      # public; a missing body is cheaper to find here.
+      - name: Release notes are not empty
+        run: .github/scripts/release-notes.sh "$GITHUB_REF_NAME" CHANGELOG.md > /dev/null
+
+  # Builds both platforms and pushes the image under sha-<7> only. The version
+  # tags are computed here and added by the publish job.
+  image:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write # push to GHCR
+      id-token: write # Sigstore certificate for the attestation
+      attestations: write # store the attestation
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      commit: ${{ steps.info.outputs.commit }}
+      tags: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build info
+        id: info
+        run: |
+          {
+            echo "version=$GITHUB_REF_NAME"
+            echo "commit=${GITHUB_SHA::7}"
+            echo "date=$(date -u '+%Y-%m-%d %H:%M')"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        id: meta
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=sha
+          labels: |
+            org.opencontainers.image.title=Yalkos
+          annotations: |
+            org.opencontainers.image.title=Yalkos
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # No cache-from or cache-to: a release build must not consume entries
+      # that other workflows wrote.
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        id: build
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE }}:sha-${{ steps.info.outputs.commit }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          build-args: |
+            VERSION=${{ steps.info.outputs.version }}
+            COMMIT=${{ steps.info.outputs.commit }}
+            DATE=${{ steps.info.outputs.date }}
+          provenance: mode=max
+          sbom: true
+
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false # storage records exist for organization repositories only
+
+  # Starts the pushed image with the compose file on both platforms. The
+  # package is private until it is made public by hand, so it logs in.
+  smoke:
+    needs: image
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The image is addressed by commit: the version tags do not exist yet.
+      - name: Choose the image and a throwaway database password
+        env:
+          COMMIT: ${{ needs.image.outputs.commit }}
+        run: |
+          password="$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          {
+            echo "YALKOS_VERSION=sha-$COMMIT"
+            echo "YALKOS_DB_PASSWORD=$password"
+          } >> "$GITHUB_ENV"
+
+      - name: Start the stack
+        env:
+          RUNNER_LABEL: ${{ matrix.runner }}
+        run: |
+          docker compose -f deploy/docker-compose.yml pull
+          start=$(date +%s)
+          docker compose -f deploy/docker-compose.yml up -d --wait --wait-timeout 120
+          seconds=$(($(date +%s) - start))
+          echo "$RUNNER_LABEL ($(uname -m)): healthy ${seconds} s after docker compose up" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ready
+        run: curl -fsS --max-time 10 http://localhost:8080/readyz
+
+      - name: Version is the tag
+        run: |
+          out="$(docker compose -f deploy/docker-compose.yml exec -T app /yalkos version)"
+          echo "$out"
+          grep -qF "yalkos $GITHUB_REF_NAME (" <<< "$out"
+          grep -qF "ui embedded" <<< "$out"
+
+      - name: Logs
+        if: failure()
+        run: |
+          docker compose -f deploy/docker-compose.yml ps -a
+          docker compose -f deploy/docker-compose.yml logs --no-color
+
+      - name: Stop and remove the stack
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml down -v
+
+  # Adds the version tags to the image that passed the smoke test. The tags are
+  # the ones computed in the image job; the digest, and with it the provenance
+  # and SBOM, stays the same.
+  publish:
+    needs: [image, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add the version tags
+        env:
+          DIGEST: ${{ needs.image.outputs.digest }}
+          TAGS: ${{ needs.image.outputs.tags }}
+        run: |
+          args=()
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              args+=(-t "$tag")
+            fi
+          done <<< "$TAGS"
+          if [ "${#args[@]}" -eq 0 ] || [ -z "$DIGEST" ]; then
+            echo "no tags or no digest to publish" >&2
+            exit 1
+          fi
+          docker buildx imagetools create "${args[@]}" "$IMAGE@$DIGEST"
+
+  # Creates the release as a draft, attaches the compose file, then publishes it.
+  release:
+    needs: [publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          .github/scripts/release-notes.sh "$GITHUB_REF_NAME" CHANGELOG.md > notes.md
+          flags=()
+          case "$GITHUB_REF_NAME" in
+            *-*) flags=(--prerelease --latest=false) ;;
+          esac
+          gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md "${flags[@]}" \
+            deploy/docker-compose.yml
+          gh release edit "$GITHUB_REF_NAME" --draft=false
