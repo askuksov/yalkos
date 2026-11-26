@@ -17,8 +17,8 @@ WORKDIR /src/web
 COPY web/package.json web/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# 1. Frontend build
-FROM node:24-alpine AS web
+# 1. Frontend build. Runs on the build platform once; the output is platform-independent.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS web
 RUN corepack enable
 WORKDIR /src/web
 COPY web/package.json web/pnpm-lock.yaml ./
@@ -26,17 +26,23 @@ RUN pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm build
 
-# 2. Go build with the frontend embedded
-FROM golang:1.26-alpine AS go
-ARG VERSION=dev
-ARG COMMIT=none
-ARG DATE=unknown
+# 2. Go build with the frontend embedded. Cross-compiles on the build platform, so no
+#    RUN executes on the target platform (no emulation for linux/arm64 or linux/amd64).
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS go
 WORKDIR /src
 COPY go.mod go.sum* ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
-RUN CGO_ENABLED=0 go build -trimpath \
+# Declared late on purpose: a changed ARG value invalidates every step after it, and
+# VERSION/COMMIT/DATE change on every build. Here they only rebuild the binary and
+# leave the `go mod download` layer cached.
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=dev
+ARG COMMIT=none
+ARG DATE=unknown
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags "-s -w \
       -X 'github.com/askuksov/yalkos/internal/buildinfo.Version=${VERSION}' \
       -X 'github.com/askuksov/yalkos/internal/buildinfo.Commit=${COMMIT}' \
@@ -46,7 +52,7 @@ RUN CGO_ENABLED=0 go build -trimpath \
 RUN mkdir -p /out/data
 
 # 3. Runtime
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=go /out/yalkos /yalkos
 COPY --from=go --chown=65532:65532 /out/data /data
 ENV DATA_DIR=/data
