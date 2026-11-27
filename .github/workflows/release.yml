@@ -221,14 +221,26 @@ jobs:
 
   # Adds the version tags to the image that passed the smoke test. The tags are
   # the ones computed in the image job; the digest, and with it the provenance
-  # and SBOM, stays the same.
+  # and SBOM, stays the same. A moving tag (latest, X.Y) stays on a newer
+  # release: a patch for an older minor must not take latest from a newer one.
   publish:
     needs: [image, smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
+      contents: read # the script that picks the tags
       packages: write
+    # One run at a time reads and moves the tags, whatever the version tag.
+    # GitHub keeps only the newest waiting run of a group and cancels an older
+    # waiting one; re-run that run's failed jobs once the others are done.
+    concurrency:
+      group: release-image-tags
+      cancel-in-progress: false
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
@@ -242,25 +254,36 @@ jobs:
           DIGEST: ${{ needs.image.outputs.digest }}
           TAGS: ${{ needs.image.outputs.tags }}
         run: |
+          if [ -z "$DIGEST" ]; then
+            echo "no digest to publish" >&2
+            exit 1
+          fi
+          chosen="$(.github/scripts/release-tags.sh "$GITHUB_REF_NAME" "$IMAGE" <<< "$TAGS")"
           args=()
           while IFS= read -r tag; do
             if [ -n "$tag" ]; then
               args+=(-t "$tag")
             fi
-          done <<< "$TAGS"
-          if [ "${#args[@]}" -eq 0 ] || [ -z "$DIGEST" ]; then
-            echo "no tags or no digest to publish" >&2
+          done <<< "$chosen"
+          if [ "${#args[@]}" -eq 0 ]; then
+            echo "no tags to publish" >&2
             exit 1
           fi
           docker buildx imagetools create "${args[@]}" "$IMAGE@$DIGEST"
 
   # Creates the release as a draft, attaches the compose file, then publishes it.
+  # A draft left by a failed run of this job is reused, not doubled. GitHub's
+  # "Latest" stays on a newer release, like the latest image tag.
   release:
     needs: [publish]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
+    # One run at a time reads and moves "Latest", whatever the version tag.
+    concurrency:
+      group: release-github-latest
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -272,11 +295,51 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           .github/scripts/release-notes.sh "$GITHUB_REF_NAME" CHANGELOG.md > notes.md
-          flags=()
+
+          # Prints the tag name of the release (the latest one without an
+          # argument), nothing when there is none; any other failure of gh stops.
+          release_tag() {
+            local out
+            if out="$(gh release view "$@" --json tagName,isDraft \
+              --jq '.tagName + " " + (.isDraft | tostring)' 2> gh-error.txt)"; then
+              printf '%s\n' "$out"
+              return 0
+            fi
+            case "$(cat gh-error.txt)" in
+              *"release not found"*) return 0 ;;
+            esac
+            echo "release: cannot look up the release: $(head -n 1 gh-error.txt)" >&2
+            exit 1
+          }
+
+          prerelease=false
+          latest=false
           case "$GITHUB_REF_NAME" in
-            *-*) flags=(--prerelease --latest=false) ;;
+            *-*) prerelease=true ;;
+            *)
+              current="$(release_tag)"
+              latest="$(.github/scripts/release-order.sh "$GITHUB_REF_NAME" "${current%% *}")"
+              if [ "$latest" = false ]; then
+                echo "release: Latest stays on ${current%% *}" >&2
+              fi
+              ;;
           esac
-          gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
-            --title "$GITHUB_REF_NAME" --notes-file notes.md "${flags[@]}" \
-            deploy/docker-compose.yml
-          gh release edit "$GITHUB_REF_NAME" --draft=false
+
+          existing="$(release_tag "$GITHUB_REF_NAME")"
+          case "$existing" in
+            "")
+              gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
+                --title "$GITHUB_REF_NAME" --notes-file notes.md \
+                --prerelease="$prerelease" deploy/docker-compose.yml
+              ;;
+            *" true")
+              gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" \
+                --notes-file notes.md --prerelease="$prerelease"
+              gh release upload "$GITHUB_REF_NAME" deploy/docker-compose.yml --clobber
+              ;;
+            *)
+              echo "release: $GITHUB_REF_NAME is already published" >&2
+              exit 0
+              ;;
+          esac
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest="$latest"
