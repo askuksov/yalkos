@@ -37,6 +37,12 @@ docker compose version
 
 For other systems, or to install from Docker's package repository instead of the script, follow [Docker's installation guide](https://docs.docker.com/engine/install/).
 
+If Docker came from your distribution's own packages (Ubuntu's `docker.io`, for example) and `docker compose version` reports an unknown command, install the Compose plugin from the same repository:
+
+```sh
+sudo apt-get install -y docker-compose-v2
+```
+
 ## Install
 
 Run this in a new directory (the first line creates one):
