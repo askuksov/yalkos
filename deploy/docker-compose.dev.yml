@@ -82,7 +82,7 @@ services:
         source: yalkos-dev-pnpm-store
         target: /pnpm-store
     ports:
-      - "${YALKOS_WEB_PORT:-5173}:5173"
+      - "127.0.0.1:${YALKOS_WEB_PORT:-5173}:5173"
     depends_on:
       app:
         condition: service_healthy
