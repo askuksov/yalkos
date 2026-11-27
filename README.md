@@ -2,7 +2,7 @@
 
 Lightweight, self-hosted issue tracker with a Linear-compatible API.
 
-> Status: early development. Accounts, invites, API keys, projects, issues, labels, milestones, comments and file attachments work in the browser and through the API; AI agents such as Claude Code and OpenCode work with issues over MCP.
+> Status: 0.1.0, the first release. Accounts, invites, API keys, projects, issues, labels, milestones, comments and file attachments work in the browser and through the API; AI agents such as Claude Code and OpenCode work with issues over MCP.
 
 ## Install
 
