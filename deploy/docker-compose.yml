@@ -12,7 +12,8 @@ services:
     image: ghcr.io/askuksov/yalkos:${YALKOS_VERSION:-0.1}
     ports:
       # With YALKOS_BIND set (for example 127.0.0.1) only that address listens.
-      - "${YALKOS_BIND:+${YALKOS_BIND}:}${YALKOS_PORT:-8080}:8080"
+      # The inner ":-" keeps older Compose releases from warning when it is unset.
+      - "${YALKOS_BIND:+${YALKOS_BIND:-}:}${YALKOS_PORT:-8080}:8080"
     environment:
       DATABASE_URL: postgres://yalkos:${YALKOS_DB_PASSWORD:?set YALKOS_DB_PASSWORD, see README}@db:5432/yalkos?sslmode=disable
       LOG_LEVEL: ${YALKOS_LOG_LEVEL:-}
