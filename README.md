@@ -406,7 +406,7 @@ Local ports used by `make dev` / `make test`, override if they are taken:
 | Variable | Default | Used for |
 | :--- | :--- | :--- |
 | `YALKOS_PORT` | `8080` | Go server |
-| `YALKOS_WEB_PORT` | `5173` | Vite dev server |
+| `YALKOS_WEB_PORT` | `5173` | Vite dev server (127.0.0.1 only) |
 | `YALKOS_DB_PORT` | `54320` | PostgreSQL container |
 
 ## License
