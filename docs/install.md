@@ -37,11 +37,16 @@ docker compose version
 
 For other systems, or to install from Docker's package repository instead of the script, follow [Docker's installation guide](https://docs.docker.com/engine/install/).
 
-If Docker came from your distribution's own packages (Ubuntu's `docker.io`, for example) and `docker compose version` reports an unknown command, install the Compose plugin from the same repository:
+If Docker came from your distribution's own packages (`docker.io`) and `docker compose version` reports an unknown command, install the Compose plugin from the same repository. The package name depends on the distribution:
 
 ```sh
+# Ubuntu 24.04
 sudo apt-get install -y docker-compose-v2
+# Debian 13
+sudo apt-get install -y docker-compose
 ```
+
+On Debian 12 and older, the `docker-compose` package is the old Compose v1, which does not add `docker compose`; install Docker and the Compose plugin from Docker's package repository instead (see the guide above).
 
 ## Install
 
